@@ -1,5 +1,6 @@
 # vscode-phpcs
 
+[![CI](https://github.com/shevaua/vscode-phpcs/actions/workflows/ci.yml/badge.svg)](https://github.com/shevaua/vscode-phpcs/actions/workflows/ci.yml)
 [![Maintainers Wanted](https://img.shields.io/badge/maintainers-wanted-red.svg)](https://github.com/pickhardt/maintainers-wanted)
 [![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
 [![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
