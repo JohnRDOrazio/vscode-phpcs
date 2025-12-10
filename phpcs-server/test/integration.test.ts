@@ -31,11 +31,12 @@ suite('PHPCS Integration Tests', function () {
 
 		for (const testPath of possiblePaths) {
 			try {
-				const result = cp.execSync(`"${testPath}" --version`, {
+				const result = cp.spawnSync(testPath, ['--version'], {
 					encoding: 'utf8',
 					timeout: 10000,
 				});
-				const match = result.match(/version (\d+\.\d+\.\d+)/i);
+				const stdout = result.stdout || '';
+				const match = stdout.match(/version (\d+\.\d+\.\d+)/i);
 				if (match) {
 					phpcsPath = testPath;
 					phpcsVersion = match[1];
@@ -128,14 +129,8 @@ class badClassName {
 
 		suiteTeardown(function () {
 			// Cleanup test fixtures
-			if (fs.existsSync(cleanPhpFile)) {
-				fs.unlinkSync(cleanPhpFile);
-			}
-			if (fs.existsSync(errorPhpFile)) {
-				fs.unlinkSync(errorPhpFile);
-			}
 			if (fs.existsSync(testFixturesDir)) {
-				fs.rmdirSync(testFixturesDir);
+				fs.rmSync(testFixturesDir, { recursive: true, force: true });
 			}
 		});
 
