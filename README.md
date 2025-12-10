@@ -1,9 +1,9 @@
 # vscode-phpcs
 
 [![Maintainers Wanted](https://img.shields.io/badge/maintainers-wanted-red.svg)](https://github.com/pickhardt/maintainers-wanted)
-[![Current Version](https://vsmarketplacebadge.apphb.com/version/ikappas.phpcs.svg)](https://marketplace.visualstudio.com/items?itemName=ikappas.phpcs)
-[![Install Count](https://vsmarketplacebadge.apphb.com/installs/ikappas.phpcs.svg)](https://marketplace.visualstudio.com/items?itemName=ikappas.phpcs)
-[![Open Issues](https://vsmarketplacebadge.apphb.com/rating/ikappas.phpcs.svg)](https://marketplace.visualstudio.com/items?itemName=ikappas.phpcs)
+[![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
+[![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
+[![VS Code Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
 
 Integrates [phpcs](https://github.com/squizlabs/PHP_CodeSniffer.git) into [Visual Studio Code](https://code.visualstudio.com/).
 
