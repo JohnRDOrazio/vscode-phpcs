@@ -12,7 +12,7 @@ Integrates [phpcs](https://github.com/squizlabs/PHP_CodeSniffer.git) into [Visua
 ## Looking for additional maintainers
 
 Due to current work obligations, I am unable to commit enough time to steadily maintain this project,
-so I am looking for co-maintainers that are familiar with node.js, typescript and vscode plugin authoring.
+so I am looking for co-maintainers that are familiar with Node.js, TypeScript, and VS Code extension development.
 
 If you want to help maintain this project, please contact me.
 
@@ -25,7 +25,7 @@ If you want to help maintain this project, please contact me.
 
 ### Installation
 
-1. Clone this repository and checkout `develop` branch
+1. Clone this repository and check out the `develop` branch
 2. Open the cloned repository folder using VS Code
 3. Install dependencies from the **root** directory:
 
@@ -71,7 +71,7 @@ To run the development version of the `phpcs` extension:
 
 1. Open the cloned repository folder using VS Code
 2. Select sidebar option `Run and Debug` (Ctrl+Shift+D)
-3. Select `Client + Server` from the Debug drop-down menu
+3. Select `Client + Server` from the Debug dropdown menu
 4. Press `Start Debugging` (F5)
 
 This will launch a new VS Code window named `Extension Development Host`,
