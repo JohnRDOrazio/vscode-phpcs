@@ -106,13 +106,6 @@ The main linting logic is in `phpcs-server/src/linter.ts`:
 String resources are in `phpcs-server/src/strings.ts`. Use `strings.format()`
 for parameterized messages.
 
-## Build Quirks
-
-The `preinstall` script in both `phpcs/package.json` and
-`phpcs-server/package.json` runs `rimraf node_modules` to ensure fresh
-installs. If you encounter module resolution errors after running `npm install`
-in a subdirectory, use `npm install --ignore-scripts`.
-
 ## Code Style
 
 - No trailing semicolons in some files (maintain consistency within each file)

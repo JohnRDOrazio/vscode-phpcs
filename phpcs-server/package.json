@@ -31,7 +31,6 @@
     "vscode-uri": "^3.0.8"
   },
   "scripts": {
-    "preinstall": "rimraf node_modules",
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
     "test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",

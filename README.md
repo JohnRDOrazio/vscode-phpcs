@@ -52,12 +52,6 @@ This will:
 3. Compile the client TypeScript (`phpcs/`)
 4. Copy the server package.json and install production dependencies
 
-> **Note:** If you encounter "Cannot find module 'vscode'" errors after running
-> `npm install` in the `phpcs/` subdirectory, run `npm install --ignore-scripts`
-> in that directory. The `preinstall` script clears `node_modules` to ensure
-> fresh installs, which can interfere with subsequent commands in the same shell
-> session.
-
 ### Running Tests
 
 ```bash

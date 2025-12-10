@@ -167,7 +167,6 @@
     "build": "vsce package",
     "vscode:prepublish": "tsc -p ./",
     "compile": "tsc -watch -p ./",
-    "preinstall": "rimraf node_modules",
     "test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",
     "clean": "rimraf out"
   },
