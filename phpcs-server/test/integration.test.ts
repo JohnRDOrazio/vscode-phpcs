@@ -243,13 +243,13 @@ class badClassName {
 			if (majorVersion >= 4) {
 				// PHPCS v4: 1=fixable, 2=unfixable, 3=both
 				assert.ok(
-					[1, 2, 3].includes(errorResult.status!),
+					errorResult.status !== null && [1, 2, 3].includes(errorResult.status),
 					`PHPCS v4 should return 1, 2, or 3 for errors (got ${errorResult.status})`
 				);
 			} else {
 				// PHPCS v3 and below: 1=errors, 2=warnings only
 				assert.ok(
-					[1, 2].includes(errorResult.status!),
+					errorResult.status !== null && [1, 2].includes(errorResult.status),
 					`PHPCS v3 should return 1 or 2 for errors (got ${errorResult.status})`
 				);
 			}
