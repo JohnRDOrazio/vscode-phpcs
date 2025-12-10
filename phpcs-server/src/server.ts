@@ -390,7 +390,9 @@ class PhpcsServer {
 			if (cached) {
 				return cached;
 			}
-			const configurationItem = uri.match(/^untitled:/) ? {} : { scopeUri: uri };
+			const configurationItem = uri.match(/^untitled:/)
+				? { section: 'phpcs' }
+				: { section: 'phpcs', scopeUri: uri };
 			const settings = this.connection.workspace.getConfiguration(configurationItem) as Promise<PhpcsSettings>;
 			this.documentSettings.set(uri, settings);
 			return settings;
