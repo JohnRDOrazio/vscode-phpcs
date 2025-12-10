@@ -25,7 +25,7 @@ export class Timer {
 	 * A Number, representing the ID value of the timer that is set.
 	 * Use this value with the clearInterval() method to cancel the timer
 	 */
-	private handle: NodeJS.Timer;
+	private handle: ReturnType<typeof setInterval> | null = null;
 
 	/**
 	 * Class constructor.

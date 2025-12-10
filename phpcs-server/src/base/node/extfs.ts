@@ -40,7 +40,7 @@ export async function findAsync(parent: string, directory: string, name: string 
 		throw new Error('Invalid or no `name` provided');
 	}
 
-	const names = [].concat(name);
+	const names: string[] = Array.isArray(name) ? name : [name];
 	const chunks = paths.resolve(parent, directory).split(paths.sep);
 
 	while (chunks.length) {

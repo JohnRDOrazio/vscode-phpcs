@@ -8,38 +8,23 @@ import * as proto from "./protocol";
 import * as strings from "./base/common/strings";
 
 import {
-	ClientCapabilities,
 	createConnection,
 	Diagnostic,
 	DidChangeConfigurationParams,
 	DidChangeWatchedFilesParams,
-	Files,
-	IConnection,
 	InitializeParams,
 	InitializeResult,
-	IPCMessageReader,
-	IPCMessageWriter,
 	ProposedFeatures,
 	PublishDiagnosticsParams,
-	TextDocument,
-	TextDocumentChangeEvent,
 	TextDocumentIdentifier,
-	TextDocuments
-} from 'vscode-languageserver';
-
-import {
+	TextDocuments,
+	TextDocumentSyncKind,
 	WorkspaceFoldersChangeEvent,
-	ConfigurationItem,
-} from 'vscode-languageserver-protocol';
+} from 'vscode-languageserver/node';
 
-import {
-	WorkspaceFoldersInitializeParams,
-	WorkspaceFoldersClientCapabilities
-} from 'vscode-languageserver-protocol/lib/protocol.workspaceFolders';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import {
-	ConfigurationClientCapabilities
-} from 'vscode-languageserver-protocol/lib/protocol.configuration';
+import { URI } from 'vscode-uri';
 
 import { PhpcsLinter } from "./linter";
 import { PhpcsSettings } from "./settings";
@@ -47,8 +32,8 @@ import { StringResources as SR } from "./strings";
 
 class PhpcsServer {
 	private openedFiles: Map<string, boolean>;
-	private connection: IConnection;
-	private documents: TextDocuments;
+	private connection: ReturnType<typeof createConnection>;
+	private documents: TextDocuments<TextDocument>;
 	private validating: Map<string, TextDocument>;
 	private queue: Map<string, TextDocument>;
 
@@ -56,7 +41,7 @@ class PhpcsServer {
 	private hasConfigurationCapability: boolean = false;
 	private hasWorkspaceFolderCapability: boolean = false;
 
-	private globalSettings: PhpcsSettings;
+	private globalSettings: PhpcsSettings | null = null;
 	private defaultSettings: PhpcsSettings = {
 		enable: true,
 		workspaceRoot: null,
@@ -87,8 +72,8 @@ class PhpcsServer {
 		this.validating = new Map();
 		this.openedFiles = new Map();
 		this.queue = new Map();
-		this.connection = createConnection(ProposedFeatures.all, new IPCMessageReader(process), new IPCMessageWriter(process));
-		this.documents = new TextDocuments();
+		this.connection = createConnection(ProposedFeatures.all);
+		this.documents = new TextDocuments(TextDocument);
 		this.documents.listen(this.connection);
 		this.connection.onInitialize(this.safeEventHandler(this.onInitialize));
 		this.connection.onInitialized(this.safeEventHandler(this.onDidInitialize));
@@ -118,13 +103,13 @@ class PhpcsServer {
 	 * @param params The initialization parameters.
 	 * @return A promise of initialization result or initialization error.
 	 */
-	private async onInitialize(params: InitializeParams & WorkspaceFoldersInitializeParams): Promise<InitializeResult> {
-		let capabilities = params.capabilities as ClientCapabilities & WorkspaceFoldersClientCapabilities & ConfigurationClientCapabilities;
-		this.hasWorkspaceFolderCapability = capabilities.workspace && !!capabilities.workspace.workspaceFolders;
-		this.hasConfigurationCapability = capabilities.workspace && !!capabilities.workspace.configuration;
+	private async onInitialize(params: InitializeParams): Promise<InitializeResult> {
+		let capabilities = params.capabilities;
+		this.hasWorkspaceFolderCapability = !!(capabilities.workspace && capabilities.workspace.workspaceFolders);
+		this.hasConfigurationCapability = !!(capabilities.workspace && capabilities.workspace.configuration);
 		return Promise.resolve<InitializeResult>({
 			capabilities: {
-				textDocumentSync: this.documents.syncKind
+				textDocumentSync: TextDocumentSyncKind.Incremental
 			}
 		});
 	}
@@ -134,8 +119,8 @@ class PhpcsServer {
 	 */
 	private async onDidInitialize(): Promise<void> {
 		if (this.hasWorkspaceFolderCapability) {
-			(this.connection.workspace as any).onDidChangeWorkspaceFolders((_event: WorkspaceFoldersChangeEvent) => {
-				this.connection.tracer.log('Workspace folder change event received');
+			this.connection.workspace.onDidChangeWorkspaceFolders((_event: WorkspaceFoldersChangeEvent) => {
+				this.connection.console.log('Workspace folder change event received');
 			});
 		}
 	}
@@ -174,7 +159,7 @@ class PhpcsServer {
 	 * @param event The text document change event.
 	 * @return void
 	 */
-	private async onDidOpenDocument({ document }: TextDocumentChangeEvent): Promise<void> {
+	private async onDidOpenDocument({ document }: { document: TextDocument }): Promise<void> {
 		this.openedFiles.set(document.uri, true);
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnOpen) {
@@ -188,7 +173,7 @@ class PhpcsServer {
 	 * @param event The text document change event.
 	 * @return void
 	 */
-	private async onDidSaveDocument({ document }: TextDocumentChangeEvent): Promise<void> {
+	private async onDidSaveDocument({ document }: { document: TextDocument }): Promise<void> {
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnSave) {
 			await this.validateSingle(document);
@@ -202,7 +187,7 @@ class PhpcsServer {
 	 * @param event The text document change event.
 	 * @return void
 	 */
-	private async onDidCloseDocument({ document }: TextDocumentChangeEvent): Promise<void> {
+	private async onDidCloseDocument({ document }: { document: TextDocument }): Promise<void> {
 		const uri = document.uri;
 
 		this.openedFiles.delete(uri);
@@ -226,7 +211,7 @@ class PhpcsServer {
 	 * @param event The text document change event.
 	 * @return void
 	 */
-	private async onDidChangeDocument({ document }: TextDocumentChangeEvent): Promise<void> {
+	private async onDidChangeDocument({ document }: { document: TextDocument }): Promise<void> {
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnType) {
 			await this.validateSingle(document);
@@ -275,7 +260,7 @@ class PhpcsServer {
 				buffered: this.queue.size
 			}
 		);
-		this.connection.tracer.log(strings.format(SR.DidStartValidateTextDocument, document.uri));
+		this.connection.console.log(strings.format(SR.DidStartValidateTextDocument, document.uri));
 	}
 
 	/**
@@ -292,7 +277,7 @@ class PhpcsServer {
 				buffered: this.queue.size
 			}
 		);
-		this.connection.tracer.log(strings.format(SR.DidEndValidateTextDocument, document.uri));
+		this.connection.console.log(strings.format(SR.DidEndValidateTextDocument, document.uri));
 	}
 
 	/**
@@ -303,15 +288,18 @@ class PhpcsServer {
 	 */
 	public async validateSingle(document: TextDocument): Promise<void> {
 		const { uri } = document;
+		this.connection.console.log(`[DEBUG] validateSingle called for: ${uri}`);
 		let settings = await this.getDocumentSettings(document);
+		this.connection.console.log(`[DEBUG] Settings - enable: ${settings.enable}, executablePath: ${settings.executablePath}, workspaceRoot: ${settings.workspaceRoot}`);
 		if (!settings.enable) {
+			this.connection.console.log(`[DEBUG] phpcs is disabled, skipping validation`);
 			return;
 		}
 
 		if (settings.lintOnlyOpened) {
 			let isOpened = this.openedFiles.has(uri);
 			if (!isOpened) {
-				this.connection.tracer.log(
+				this.connection.console.log(
 					strings.format(SR.IgnoredClosedTextDocument, uri)
 				);
 				return;
@@ -333,9 +321,17 @@ class PhpcsServer {
 			let diagnostics: Diagnostic[] = [];
 			this.sendStartValidationNotification(document);
 			try {
+				if (!settings.executablePath) {
+					throw new Error('PHPCS executable path is not configured. Please set phpcs.executablePath in your settings.');
+				}
+				this.connection.console.log(`[DEBUG] Creating PhpcsLinter with executablePath: ${settings.executablePath}`);
 				const phpcs = await PhpcsLinter.create(settings.executablePath);
+				phpcs.setLogger((message) => this.connection.console.log(message));
+				this.connection.console.log(`[DEBUG] PhpcsLinter created, starting lint`);
 				diagnostics = await phpcs.lint(document, settings);
+				this.connection.console.log(`[DEBUG] Lint complete, found ${diagnostics.length} diagnostics`);
 			} catch(error) {
+				this.connection.console.log(`[DEBUG] Error during linting: ${error}`);
 				this.sendEndValidationNotification(document);
 				throw new Error(this.getExceptionMessage(error, document));
 			} finally {
@@ -345,8 +341,8 @@ class PhpcsServer {
 		} else {
 			const inQueue: boolean = this.queue.has(uri);
 			if (inQueue) {
-				const old: TextDocument = this.queue.get(uri);
-				if (old.version < document.version) {
+				const old = this.queue.get(uri);
+				if (old && old.version < document.version) {
 					this.queue.set(document.uri, document);
 				}
 			} else if (this.queue.size < settings.queueBuffer) {
@@ -389,19 +385,18 @@ class PhpcsServer {
 	 */
 	private async getDocumentSettings(document: TextDocument): Promise<PhpcsSettings> {
 		const { uri } = document;
-		let settings: Promise<PhpcsSettings>;
 		if (this.hasConfigurationCapability) {
-			if (this.documentSettings.has(uri)) {
-				settings = this.documentSettings.get(uri);
-			} else {
-				const configurationItem: ConfigurationItem = uri.match(/^untitled:/) ? {} : { scopeUri: uri };
-				settings = (this.connection.workspace as any).getConfiguration(configurationItem);
-				this.documentSettings.set(uri, settings);
+			const cached = this.documentSettings.get(uri);
+			if (cached) {
+				return cached;
 			}
+			const configurationItem = uri.match(/^untitled:/) ? {} : { scopeUri: uri };
+			const settings = this.connection.workspace.getConfiguration(configurationItem) as Promise<PhpcsSettings>;
+			this.documentSettings.set(uri, settings);
+			return settings;
 		} else {
-			settings = Promise.resolve(this.globalSettings);
+			return Promise.resolve(this.globalSettings ?? this.defaultSettings);
 		}
-		return settings;
 	}
 
 	/**
@@ -411,24 +406,24 @@ class PhpcsServer {
 	 * @param document The document where the exception occurred.
 	 * @return string The exception message.
 	 */
-	private getExceptionMessage(exception: any, document: TextDocument): string {
-		let message: string = null;
-		if (typeof exception.message === 'string' || exception.message instanceof String) {
-			message = <string>exception.message;
-			message = message.replace(/\r?\n/g, ' ');
-			if (/^ERROR: /.test(message)) {
-				message = message.substr(5);
+	private getExceptionMessage(exception: unknown, document: TextDocument): string {
+		if (exception && typeof exception === 'object' && 'message' in exception) {
+			const msg = exception.message;
+			if (typeof msg === 'string') {
+				let message = msg.replace(/\r?\n/g, ' ');
+				if (/^ERROR: /.test(message)) {
+					message = message.substring(7);
+				}
+				return message;
 			}
-		} else {
-			message = strings.format(SR.UnknownErrorWhileValidatingTextDocument, Files.uriToFilePath(document.uri));
 		}
-		return message;
+		return strings.format(SR.UnknownErrorWhileValidatingTextDocument, URI.parse(document.uri).fsPath);
 	}
 
 	private getSource(uri: string): string
 	{
-		let matches = uri.match(/^([^:]+):/);
-		if (matches.length === 2) {
+		const matches = uri.match(/^([^:]+):/);
+		if (matches && matches.length === 2) {
 			return matches[1];
 		}
 		return '';

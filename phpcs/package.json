@@ -29,7 +29,7 @@
     "Linters"
   ],
   "engines": {
-    "vscode": "^1.20.0"
+    "vscode": "^1.106.3"
   },
   "activationEvents": [
     "onLanguage:php"
@@ -167,16 +167,15 @@
     "build": "vsce package",
     "vscode:prepublish": "tsc -p ./",
     "compile": "tsc -watch -p ./",
-    "update-vscode": "node ./node_modules/vscode/bin/install",
     "preinstall": "rimraf node_modules",
-    "postinstall": "node ./node_modules/vscode/bin/install",
     "test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",
     "clean": "rimraf out"
   },
   "devDependencies": {
-    "vscode": "^1.1.36"
+    "@types/vscode": "^1.106.0",
+    "@vscode/test-electron": "^2.4.1"
   },
   "dependencies": {
-    "vscode-languageclient": "^5.2.1"
+    "vscode-languageclient": "^9.0.1"
   }
 }

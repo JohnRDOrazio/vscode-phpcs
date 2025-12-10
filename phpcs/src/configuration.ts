@@ -17,12 +17,9 @@ import {
 
 import {
 	DidChangeConfigurationNotification,
-	LanguageClient
-} from "vscode-languageclient";
-
-import {
+	LanguageClient,
 	ConfigurationParams
-} from 'vscode-languageserver-protocol/lib/protocol.configuration';
+} from "vscode-languageclient/node";
 
 import { PhpcsSettings } from "./settings";
 import { PhpcsPathResolver } from "./resolvers/path-resolver";

@@ -23,16 +23,17 @@
     "url": "https://github.com/ikappas/vscode-phpcs/issues"
   },
   "dependencies": {
-    "cross-spawn": "^6.0.4",
-    "micromatch": "^3.1.9",
-    "semver": "^5.7.1",
-    "vscode-languageserver": "^5.2.1"
+    "cross-spawn": "^7.0.6",
+    "micromatch": "^4.0.8",
+    "semver": "^7.6.3",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-uri": "^3.0.8"
   },
   "scripts": {
     "preinstall": "rimraf node_modules",
-    "installServer": "installServerIntoExtension ../phpcs ./package.json ./tsconfig.json",
-    "compile": "installServerIntoExtension ../phpcs ./package.json ./tsconfig.json && tsc -p .",
-    "watch": "installServerIntoExtension ../phpcs ./package.json ./tsconfig.json && tsc --watch -p .",
+    "compile": "tsc -p .",
+    "watch": "tsc --watch -p .",
     "test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",
     "clean": "rimraf ../phpcs/server"
   }

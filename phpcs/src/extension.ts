@@ -18,13 +18,9 @@ import {
 	LanguageClientOptions,
 	Middleware,
 	ServerOptions,
-	TransportKind
-} from "vscode-languageclient";
-
-import {
+	TransportKind,
 	ConfigurationParams,
-	ConfigurationClientCapabilities
-} from 'vscode-languageserver-protocol/lib/protocol.configuration';
+} from "vscode-languageclient/node";
 
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
@@ -47,7 +43,7 @@ export function activate(context: ExtensionContext) {
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
 	};
 
-	let middleware: ConfigurationClientCapabilities | Middleware = {
+	let middleware: Middleware = {
 		workspace: {
 			configuration: async (params: ConfigurationParams, token: CancellationToken, next: Function) => {
 				return config.compute(params, token, next);
@@ -76,7 +72,9 @@ export function activate(context: ExtensionContext) {
 
 	// Create the status monitor.
 	let status = new PhpcsStatus();
-	client.onReady().then(() => {
+
+	// Start the client and wait for it to be ready
+	client.start().then(() => {
 		config.initialize();
 		client.onNotification(proto.DidStartValidateTextDocumentNotification.type, event => {
 			status.startProcessing(event.textDocument.uri, event.buffered);
@@ -85,8 +83,6 @@ export function activate(context: ExtensionContext) {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
 	});
-
-	client.start();
 
 	// Push the monitor to the context's subscriptions so that the
 	// client can be deactivated on extension deactivation

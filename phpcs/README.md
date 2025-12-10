@@ -1,20 +1,33 @@
 # vscode-phpcs
 
-This linter plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to [phpcs](http://pear.php.net/package/PHP_CodeSniffer/). It will be used with files that have the “PHP” language mode.
+This linter plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to
+[phpcs](http://pear.php.net/package/PHP_CodeSniffer/). It will be used with files that have the "PHP" language mode.
+
+## Supported PHPCS Versions
+
+This extension supports PHP_CodeSniffer versions 1.x, 2.x, 3.x, and **4.x**.
+
+> **NOTE:** PHPCS 4.0 introduced breaking changes including new exit codes and STDERR output routing. This extension handles these changes automatically.
 
 ## Installation
 
-Visual Studio Code must be installed in order to use this plugin. If Visual Studio Code is not installed, please follow the instructions [here](https://code.visualstudio.com/Docs/editor/setup).
+Visual Studio Code must be installed in order to use this plugin. If Visual Studio Code is not installed, please follow the instructions in [Docs/editor/setup](https://code.visualstudio.com/Docs/editor/setup).
 
 ## Linter Installation
 
-Before using this plugin, you must ensure that `phpcs` is installed on your system. The preferred method is using [composer](https://getcomposer.org/) for both system-wide and project-wide installations.
+Before using this plugin, you must ensure that `phpcs` is installed on your system.
+The preferred method is using [composer](https://getcomposer.org/) for both system-wide and project-wide installations.
 
 Once phpcs is installed, you can proceed to install the vscode-phpcs plugin if it is not yet installed.
 
-> **NOTE:** This plugin can detect whether your project has been set up to use phpcs via composer and use the project specific `phpcs` over the system-wide installation of `phpcs` automatically. This feature requires that both composer.json and composer.lock file exist in your workspace root or the `phpcs.composerJsonPath` in order to check for the composer dependency. If you wish to bypass this feature you can set the `phpcs.executablePath` configuration setting.
-
-> **NOTE:** You can also install `phpcs` on your system using [pear](http://pear.php.net/) or even manually but is beyond the scope of this plugin.
+> **NOTE:** This plugin can detect whether your project has been set up to use phpcs via composer
+> and use the project specific `phpcs` over the system-wide installation of `phpcs` automatically.
+> This feature requires that both composer.json and composer.lock file exist in your workspace root
+> or the `phpcs.composerJsonPath` in order to check for the composer dependency.
+> If you wish to bypass this feature you can set the `phpcs.executablePath` configuration setting.
+>
+> **NOTE:** You can also install `phpcs` on your system using [pear](http://pear.php.net/)
+> or even manually but is beyond the scope of this plugin.
 
 ### System-wide Installation
 
@@ -102,7 +115,8 @@ The following values are applicable:
     }
     ```
 
-1. The setting can me set to the name of a custom coding standard ( ie. `WordPress`, `Drupal`, etc. ). In this case you must ensure that the specified coding standard is installed and accessible by `phpcs`.
+1. The setting can be set to the name of a custom coding standard ( ie. `WordPress`, `Drupal`, etc. ).
+   In this case you must ensure that the specified coding standard is installed and accessible by `phpcs`.
 
     ```json
     {
@@ -158,7 +172,8 @@ The following values are applicable:
 
 [ *Scope:* All | Optional | *Type:* boolean | *Default:* true ]
 
-Automatically search for any `phpcs.xml`, `phpcs.xml.dist`, `phpcs.ruleset.xml` or `ruleset.xml` file to use as configuration. Overrides `phpcs.standard` configuration when a ruleset is found.
+Automatically search for any `phpcs.xml`, `phpcs.xml.dist`, `phpcs.ruleset.xml` or `ruleset.xml` file to use as
+configuration. Overrides `phpcs.standard` configuration when a ruleset is found.
 
 > **NOTE:** This option does not apply for unsaved documents (in-memory).
 
@@ -227,7 +242,8 @@ This setting controls whether the trace server is activated. Possible values you
 
 [ *Scope:* All | Optional | *Type:* string | *Default:* composer.json ]
 
-This setting allows you to override the path to your composer.json file when it does not reside at the workspace root. You may specify the absolute path or workspace relative path to the `composer.json` file.
+This setting allows you to override the path to your composer.json file when it does not reside at the workspace root.
+You may specify the absolute path or workspace relative path to the `composer.json` file.
 
 ### **phpcs.lintOnOpen**
 
