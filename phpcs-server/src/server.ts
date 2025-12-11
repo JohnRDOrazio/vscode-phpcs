@@ -393,9 +393,13 @@ class PhpcsServer {
 			const configurationItem = uri.match(/^untitled:/)
 				? { section: 'phpcs' }
 				: { section: 'phpcs', scopeUri: uri };
-			const settings = this.connection.workspace.getConfiguration(configurationItem) as Promise<PhpcsSettings>;
-			this.documentSettings.set(uri, settings);
-			return settings;
+			const settingsPromise = this.connection.workspace.getConfiguration(configurationItem)
+				.then((config: PhpcsSettings | null) => {
+					// Merge with defaults to ensure all properties exist
+					return { ...this.defaultSettings, ...config };
+				});
+			this.documentSettings.set(uri, settingsPromise);
+			return settingsPromise;
 		} else {
 			return Promise.resolve(this.globalSettings ?? this.defaultSettings);
 		}
