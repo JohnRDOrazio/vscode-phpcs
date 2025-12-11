@@ -25,7 +25,7 @@
     "compile": "npm-run-all --serial clean:* compile:* copy:server-package install:server-deps",
     "compile:server": "tsc -p phpcs-server/tsconfig.json",
     "compile:client": "tsc -p phpcs/tsconfig.json",
-    "copy:server-package": "cpy phpcs-server/package.json phpcs/server/",
+    "copy:server-package": "cpy phpcs-server/package.json phpcs/server/ --flat",
     "install:server-deps": "npm install --omit=dev --ignore-scripts --prefix phpcs/server",
     "watch:server": "tsc -w -p phpcs-server/tsconfig.json",
     "watch:client": "tsc -w -p phpcs/tsconfig.json",
