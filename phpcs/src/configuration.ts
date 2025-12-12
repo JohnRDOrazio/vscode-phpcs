@@ -52,10 +52,9 @@ export class PhpcsConfiguration extends Disposable {
 		}
 		let result: (PhpcsSettings | null)[] = [];
 		for (let item of params.items) {
-			// The server asks the client for configuration settings without a section
-			// If a section is present we return null to indicate that the configuration
-			// is not supported.
-			if (item.section) {
+			// Only handle phpcs configuration requests
+			// Return null for other sections to indicate that the configuration is not supported.
+			if (item.section && item.section !== 'phpcs') {
 				result.push(null);
 				continue;
 			}
