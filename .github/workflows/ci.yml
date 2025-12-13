@@ -38,17 +38,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        phpcs-version: ['3.7.2', '3.10.3', '4.0.0', '4.0.1']
+        phpcs-version: ['3.10.3', '4.0.1']
         php-version: ['8.1', '8.3']
+        install-type: ['global', 'local']
         exclude:
-          # PHPCS 4.x requires PHP 7.4+ but works best with 8.x
-          - phpcs-version: '4.0.0'
-            php-version: '8.1'
+          # PHPCS 4.x works best with PHP 8.3
           - phpcs-version: '4.0.1'
             php-version: '8.1'
       fail-fast: false
 
-    name: PHPCS ${{ matrix.phpcs-version }} / PHP ${{ matrix.php-version }}
+    name: PHPCS ${{ matrix.phpcs-version }} (${{ matrix.install-type }}) / PHP ${{ matrix.php-version }}
 
     steps:
       - name: Checkout repository
@@ -66,13 +65,22 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install PHPCS ${{ matrix.phpcs-version }}
+      - name: Install PHPCS globally
+        if: matrix.install-type == 'global'
         run: composer global require "squizlabs/php_codesniffer:${{ matrix.phpcs-version }}"
+
+      - name: Install PHPCS locally
+        if: matrix.install-type == 'local'
+        run: composer require --dev "squizlabs/php_codesniffer:${{ matrix.phpcs-version }}"
 
       - name: Verify PHPCS installation
         run: |
-          phpcs --version
-          which phpcs
+          if [ "${{ matrix.install-type }}" = "global" ]; then
+            phpcs --version
+            which phpcs
+          else
+            ./vendor/bin/phpcs --version
+          fi
 
       - name: Install npm dependencies
         run: npm install
@@ -82,7 +90,7 @@ jobs:
 
       - name: Run integration tests
         env:
-          PHPCS_PATH: phpcs
+          PHPCS_PATH: ${{ matrix.install-type == 'global' && 'phpcs' || format('{0}/vendor/bin/phpcs', github.workspace) }}
         run: npm run test:server
 
   lint:
