@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shevaua/vscode-phpcs/actions/workflows/ci.yml/badge.svg)](https://github.com/shevaua/vscode-phpcs/actions/workflows/ci.yml)
 [![Maintainers Wanted](https://img.shields.io/badge/maintainers-wanted-red.svg)](https://github.com/pickhardt/maintainers-wanted)
-[![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
-[![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
-[![VS Code Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/shevaua.phpcs)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
+[![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/shevaua.phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
+[![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/shevaua.phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
+[![VS Code Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/shevaua.phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=shevaua.phpcs)
 
 Integrates [phpcs](https://github.com/squizlabs/PHP_CodeSniffer.git) into [Visual Studio Code](https://code.visualstudio.com/).
 
