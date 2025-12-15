@@ -5,7 +5,7 @@
 'use strict';
 
 import * as assert from 'assert';
-import * as strings from '../../../src/base/common/strings';
+const strings = require('../../../src/base/common/strings');
 
 suite('Strings', () => {
 
