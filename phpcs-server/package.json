@@ -33,7 +33,7 @@
   "scripts": {
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
-    "test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",
+    "test": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
     "clean": "rimraf ../phpcs/server"
   }
 }
