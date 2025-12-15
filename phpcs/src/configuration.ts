@@ -73,6 +73,12 @@ export class PhpcsConfiguration extends Disposable {
 				}
 				config = workspace.getConfiguration('phpcs', folder.uri);
 			} else {
+				// Log when global configuration is being used (no workspace folder found)
+				if (item.scopeUri) {
+					this.client.outputChannel.appendLine(`[Debug] No workspace folder found for: ${item.scopeUri}`);
+				} else {
+					this.client.outputChannel.appendLine(`[Debug] Global configuration requested (no scopeUri)`);
+				}
 				if (this.globalSettings) {
 					result.push(this.globalSettings);
 					continue;
@@ -116,7 +122,17 @@ export class PhpcsConfiguration extends Disposable {
 	protected async resolveExecutablePath(settings: PhpcsSettings): Promise<PhpcsSettings> {
 		if (settings.executablePath === null) {
 			let executablePathResolver = new PhpcsPathResolver(settings);
-			settings.executablePath = await executablePathResolver.resolve();
+			try {
+				settings.executablePath = await executablePathResolver.resolve();
+			} catch (error) {
+				// Log a warning instead of throwing an error popup
+				const folderName = settings.workspaceRoot
+					? path.basename(settings.workspaceRoot)
+					: 'global';
+				const message = error instanceof Error ? error.message : String(error);
+				this.client.outputChannel.appendLine(`[Warning] ${folderName}: ${message}`);
+				// Leave executablePath as null - the server will skip validation for this folder
+			}
 		} else if (!path.isAbsolute(settings.executablePath) && settings.workspaceRoot !== null) {
 			settings.executablePath = path.join(settings.workspaceRoot, settings.executablePath);
 		}

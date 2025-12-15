@@ -289,6 +289,14 @@ class PhpcsServer {
 	public async validateSingle(document: TextDocument): Promise<void> {
 		const { uri } = document;
 		this.connection.console.log(`[DEBUG] validateSingle called for: ${uri}`);
+
+		// Skip validation for non-file URIs (git diffs, PR reviews, etc.)
+		const parsedUri = URI.parse(uri);
+		if (parsedUri.scheme !== 'file') {
+			this.connection.console.log(`[DEBUG] Skipping validation for non-file URI scheme: ${parsedUri.scheme}`);
+			return;
+		}
+
 		let settings = await this.getDocumentSettings(document);
 		this.connection.console.log(`[DEBUG] Settings - enable: ${settings.enable}, executablePath: ${settings.executablePath}, workspaceRoot: ${settings.workspaceRoot}`);
 		if (!settings.enable) {
@@ -322,7 +330,10 @@ class PhpcsServer {
 			this.sendStartValidationNotification(document);
 			try {
 				if (!settings.executablePath) {
-					throw new Error('PHPCS executable path is not configured. Please set phpcs.executablePath in your settings.');
+					// Skip validation silently - the client has already logged a warning
+					this.connection.console.log(`[DEBUG] Skipping validation for ${uri}: PHPCS executable not found for this workspace folder`);
+					this.sendEndValidationNotification(document);
+					return;
 				}
 				this.connection.console.log(`[DEBUG] Creating PhpcsLinter with executablePath: ${settings.executablePath}`);
 				const phpcs = await PhpcsLinter.create(settings.executablePath);
