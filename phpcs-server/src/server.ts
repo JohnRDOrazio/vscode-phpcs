@@ -292,6 +292,7 @@ class PhpcsServer {
 		// Skip validation for non-file URIs (git diffs, PR reviews, etc.)
 		const parsedUri = URI.parse(uri);
 		if (parsedUri.scheme !== 'file') {
+			this.clearDiagnostics(uri);
 			return;
 		}
 
