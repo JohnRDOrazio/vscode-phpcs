@@ -43,8 +43,9 @@ suite('PHPCS Integration Tests', function () {
 					console.log(`Found PHPCS ${phpcsVersion} at: ${testPath}`);
 					break;
 				}
-			} catch {
-				// Try next path
+			} catch (error) {
+				// Log discovery failure and try next path
+				console.log(`[DEBUG] PHPCS not found at ${testPath}: ${error instanceof Error ? error.message : String(error)}`);
 			}
 		}
 
