@@ -372,7 +372,9 @@ class PhpcsServer {
 				return;
 			}
 			this.queue.delete(key);
-			this.validateSingle(document);
+			this.validateSingle(document).catch((error: Error) => {
+				this.connection.window.showErrorMessage(`phpcs: ${error.message}`);
+			});
 		});
 	}
 
