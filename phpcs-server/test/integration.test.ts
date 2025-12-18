@@ -248,10 +248,10 @@ class badClassName {
 					`PHPCS v4 should return 1, 2, or 3 for errors (got ${errorResult.status})`
 				);
 			} else {
-				// PHPCS v3 and below: 1=errors, 2=warnings only
+				// PHPCS v3 and below: 1=errors found, 2=warnings only (no errors)
 				assert.ok(
 					errorResult.status !== null && [1, 2].includes(errorResult.status),
-					`PHPCS v3 should return 1 or 2 for errors (got ${errorResult.status})`
+					`PHPCS v3 should return 1 (errors) or 2 (warnings only) for issues (got ${errorResult.status})`
 				);
 			}
 		});
