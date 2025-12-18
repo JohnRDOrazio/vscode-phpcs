@@ -357,15 +357,18 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async freeBuffer(): Promise<void> {
-		this.queue.forEach((document, key) => {
+		for (const [key, document] of this.queue) {
 			if (this.validating.has(key)) {
-				return;
+				continue;
 			}
 			this.queue.delete(key);
-			this.validateSingle(document).catch((error: Error) => {
-				this.connection.window.showErrorMessage(`phpcs: ${error.message}`);
-			});
-		});
+			try {
+				await this.validateSingle(document);
+			} catch (error: unknown) {
+				const message = error instanceof Error ? error.message : String(error);
+				this.connection.window.showErrorMessage(`phpcs: ${message}`);
+			}
+		}
 	}
 
 	/**
