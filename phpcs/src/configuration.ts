@@ -74,12 +74,6 @@ export class PhpcsConfiguration extends Disposable {
 				}
 				config = workspace.getConfiguration('phpcs', folder.uri);
 			} else {
-				// Log when global configuration is being used (no workspace folder found)
-				if (item.scopeUri) {
-					this.client.outputChannel.appendLine(`[Debug] No workspace folder found for: ${item.scopeUri}`);
-				} else {
-					this.client.outputChannel.appendLine(`[Debug] Global configuration requested (no scopeUri)`);
-				}
 				if (this.globalSettings) {
 					result.push(this.globalSettings);
 					continue;

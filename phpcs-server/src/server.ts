@@ -288,19 +288,15 @@ class PhpcsServer {
 	 */
 	public async validateSingle(document: TextDocument): Promise<void> {
 		const { uri } = document;
-		this.connection.console.log(`[DEBUG] validateSingle called for: ${uri}`);
 
 		// Skip validation for non-file URIs (git diffs, PR reviews, etc.)
 		const parsedUri = URI.parse(uri);
 		if (parsedUri.scheme !== 'file') {
-			this.connection.console.log(`[DEBUG] Skipping validation for non-file URI scheme: ${parsedUri.scheme}`);
 			return;
 		}
 
 		let settings = await this.getDocumentSettings(document);
-		this.connection.console.log(`[DEBUG] Settings - enable: ${settings.enable}, executablePath: ${settings.executablePath}, workspaceRoot: ${settings.workspaceRoot}`);
 		if (!settings.enable) {
-			this.connection.console.log(`[DEBUG] phpcs is disabled, skipping validation`);
 			return;
 		}
 
@@ -331,18 +327,14 @@ class PhpcsServer {
 			try {
 				if (!settings.executablePath) {
 					// Skip validation silently - the client has already logged a warning
-					this.connection.console.log(`[DEBUG] Skipping validation for ${uri}: PHPCS executable not found for this workspace folder`);
 					this.sendEndValidationNotification(document);
 					return;
 				}
-				this.connection.console.log(`[DEBUG] Creating PhpcsLinter with executablePath: ${settings.executablePath}`);
 				const phpcs = await PhpcsLinter.create(settings.executablePath);
 				phpcs.setLogger((message) => this.connection.console.log(message));
-				this.connection.console.log(`[DEBUG] PhpcsLinter created, starting lint`);
 				diagnostics = await phpcs.lint(document, settings);
-				this.connection.console.log(`[DEBUG] Lint complete, found ${diagnostics.length} diagnostics`);
 			} catch(error) {
-				this.connection.console.log(`[DEBUG] Error during linting: ${error}`);
+				this.connection.console.error(`Error during linting: ${error}`);
 				throw new Error(this.getExceptionMessage(error, document));
 			}
 			this.sendDiagnostics({ uri, diagnostics });
