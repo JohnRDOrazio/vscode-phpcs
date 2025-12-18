@@ -174,16 +174,16 @@ static readonly StderrDebugOutput: string = 'PHPCS debug output: {0}';
 - [x] Create test fixtures for PHPCS v4 output (version comparison logic tests in linter.test.ts)
 - [x] Add unit tests for STDERR handling with v4
 - [x] Add unit tests for new exit code handling
-- [ ] Add integration tests with actual PHPCS v4 binary (requires CI setup)
-- [ ] Test backwards compatibility with PHPCS v3.x (manual testing performed - verified working)
+- [x] Add integration tests with actual PHPCS v4 binary (CI runs tests against v3.10.3 and v4.0.1)
+- [x] Test backwards compatibility with PHPCS v3.x (CI matrix includes v3.10.3)
 
-**Test scenarios:**
+**Test scenarios covered:**
 
-1. Clean file (exit 0, empty output)
-2. File with errors (exit 1/2/3, JSON output)
-3. Invalid ruleset (exit 16, error in stderr)
-4. PHP version mismatch (exit 64)
-5. Progress output in stderr (v4 only, should not error)
+1. ✅ Clean file (exit 0, empty output)
+2. ✅ File with errors (exit 1/2/3, JSON output)
+3. ✅ Invalid ruleset (exit 16) - unit tested; difficult to reproduce in integration
+4. ✅ PHP version mismatch (exit 64) - unit tested; difficult to reproduce in integration
+5. ✅ Progress output in stderr (v4 only, should not error)
 
 ---
 
