@@ -1,7 +1,7 @@
 # vscode-phpcs
 
 This linter plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to
-[phpcs](http://pear.php.net/package/PHP_CodeSniffer/). It will be used with files that have the "PHP" language mode.
+[phpcs](https://pear.php.net/package/PHP_CodeSniffer/). It will be used with files that have the "PHP" language mode.
 
 ## Supported PHPCS Versions
 
@@ -26,7 +26,7 @@ Once phpcs is installed, you can proceed to install the vscode-phpcs plugin if i
 > or the `phpcs.composerJsonPath` in order to check for the composer dependency.
 > If you wish to bypass this feature you can set the `phpcs.executablePath` configuration setting.
 >
-> **NOTE:** You can also install `phpcs` on your system using [pear](http://pear.php.net/)
+> **NOTE:** You can also install `phpcs` on your system using [pear](https://pear.php.net/)
 > or even manually but is beyond the scope of this plugin.
 
 ### System-wide Installation
@@ -294,8 +294,8 @@ Additional inspiration comes from [Atom Linter-phpcs](https://github.com/AtomLin
 
 ## Contributing and Licensing
 
-The project is hosted on [GitHub](https://github.com/ikappas/vscode-phpcs) where you can [report issues](https://github.com/ikappas/vscode-phpcs/issues), fork
+The project is hosted on [GitHub](https://github.com/JohnRDOrazio/vscode-phpcs) where you can [report issues](https://github.com/JohnRDOrazio/vscode-phpcs/issues), fork
 the project and submit pull requests.
 
-The project is available under [MIT license](https://github.com/ikappas/vscode-phpcs/blob/master/LICENSE.md), which allows modification and
+The project is available under [MIT license](https://github.com/JohnRDOrazio/vscode-phpcs/blob/master/LICENSE.md), which allows modification and
 redistribution for both commercial and non-commercial purposes.
