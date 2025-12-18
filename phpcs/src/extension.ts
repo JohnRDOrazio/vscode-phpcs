@@ -19,8 +19,9 @@ import {
 	Middleware,
 	ServerOptions,
 	TransportKind,
-	ConfigurationParams,
 } from "vscode-languageclient/node";
+
+import { ConfigurationParams } from "vscode-languageserver-protocol";
 
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
