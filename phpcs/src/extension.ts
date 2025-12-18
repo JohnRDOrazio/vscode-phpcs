@@ -74,7 +74,8 @@ export function activate(context: ExtensionContext) {
 	// Create the status monitor.
 	let status = new PhpcsStatus();
 
-	// Start the client and wait for it to be ready
+	// Start the client and register for disposal on deactivation
+	context.subscriptions.push({ dispose: () => client.stop() });
 	client.start().then(() => {
 		config.initialize();
 		client.onNotification(proto.DidStartValidateTextDocumentNotification.type, event => {
