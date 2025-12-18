@@ -11,7 +11,7 @@ This extension supports PHP_CodeSniffer versions 1.x, 2.x, 3.x, and **4.x**.
 
 ## Installation
 
-Visual Studio Code must be installed in order to use this plugin. If Visual Studio Code is not installed, please follow the instructions in [Docs/editor/setup](https://code.visualstudio.com/Docs/editor/setup).
+Visual Studio Code must be installed to use this plugin. If Visual Studio Code is not installed, please follow the instructions in [Docs/editor/setup](https://code.visualstudio.com/Docs/editor/setup).
 
 ## Linter Installation
 
@@ -21,9 +21,9 @@ The preferred method is using [composer](https://getcomposer.org/) for both syst
 Once phpcs is installed, you can proceed to install the vscode-phpcs plugin if it is not yet installed.
 
 > **NOTE:** This plugin can detect whether your project has been set up to use phpcs via composer
-> and use the project specific `phpcs` over the system-wide installation of `phpcs` automatically.
+> and use the project-specific `phpcs` over the system-wide installation of `phpcs` automatically.
 > This feature requires that both composer.json and composer.lock file exist in your workspace root
-> or the `phpcs.composerJsonPath` in order to check for the composer dependency.
+> or the `phpcs.composerJsonPath` to check for the composer dependency.
 > If you wish to bypass this feature you can set the `phpcs.executablePath` configuration setting.
 >
 > **NOTE:** You can also install `phpcs` on your system using [pear](https://pear.php.net/)
@@ -243,7 +243,7 @@ This setting controls whether the trace server is activated. Possible values you
 [ *Scope:* All | Optional | *Type:* string | *Default:* composer.json ]
 
 This setting allows you to override the path to your composer.json file when it does not reside at the workspace root.
-You may specify the absolute path or workspace relative path to the `composer.json` file.
+You may specify the absolute path or workspace-relative path to the `composer.json` file.
 
 ### **phpcs.lintOnOpen**
 
