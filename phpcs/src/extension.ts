@@ -59,7 +59,7 @@ export function activate(context: ExtensionContext) {
 			// Notify the server about file changes to 'ruleset.xml' files contain in the workspace
 			fileEvents: workspace.createFileSystemWatcher("**/ruleset.xml")
 		},
-		middleware: middleware as Middleware
+		middleware: middleware
 	};
 
 	// Create the language client.
