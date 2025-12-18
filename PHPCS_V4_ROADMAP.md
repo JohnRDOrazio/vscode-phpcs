@@ -51,7 +51,9 @@ In addition to PHPCS v4 support, this update includes a major modernization of t
 ```typescript
 // Determine whether we have an error in stderr.
 if (stderr !== '') {
-    if (match = stderr.match(/^(?:PHP\s?)FATAL\s?ERROR:\s?(.*)/i)) {
+    // Note: (?:PHP\s?)? makes the "PHP " prefix optional to match both
+    // "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
+    if (match = stderr.match(/^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i)) {
         let error = match[1].trim();
         if (match = error.match(/^Uncaught exception '.*' with message '(.*)'/)) {
             throw new Error(match[1]);
@@ -222,7 +224,9 @@ public async lint(document: TextDocument, settings: PhpcsSettings): Promise<Diag
     // Handle STDERR - version aware
     if (stderr !== '') {
         // Check for actual fatal errors (both v3 and v4)
-        if (match = stderr.match(/^(?:PHP\s?)FATAL\s?ERROR:\s?(.*)/i)) {
+        // Note: (?:PHP\s?)? makes the "PHP " prefix optional to match both
+        // "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
+        if (match = stderr.match(/^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i)) {
             let error = match[1].trim();
             if (match = error.match(/^Uncaught exception '.*' with message '(.*)'/)) {
                 throw new Error(match[1]);
