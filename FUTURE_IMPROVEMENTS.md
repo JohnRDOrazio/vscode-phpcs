@@ -101,23 +101,6 @@ main().catch(e => {
 
 ---
 
-## Align @types/vscode with Minimum Engine Version
-
-**Priority:** Low
-**Effort:** Low
-
-### Overview
-
-Currently `@types/vscode` is `^1.106.0` while `engines.vscode` is `^1.82.0`. This mismatch
-could allow accidentally using APIs unavailable in older VS Code versions.
-
-### Options
-
-1. **Keep as-is** - Rely on testing to catch compatibility issues
-2. **Downgrade @types/vscode to ^1.82.0** - Compile-time safety against using newer APIs
-
----
-
 ## VS Code Extension Tests with xvfb-run
 
 **Priority:** Low

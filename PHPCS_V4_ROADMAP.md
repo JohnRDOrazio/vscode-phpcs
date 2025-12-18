@@ -11,7 +11,7 @@ In addition to PHPCS v4 support, this update includes a major modernization of t
 
 - **Node.js**: Updated from v8.9.4 to v20
 - **TypeScript**: Updated from v2.7.2 to v5.7.2
-- **VS Code Engine**: Updated minimum requirement from v1.20.0 to v1.82.0 (extension) / v1.106.3 (development)
+- **VS Code Engine**: Updated minimum requirement from v1.20.0 to v1.106.0
 - **vscode-languageserver**: Updated from v5.2.1 to v9.0.1
 - **vscode-languageclient**: Updated from v5.2.1 to v9.0.1
 - **All other dependencies**: Updated to latest stable versions

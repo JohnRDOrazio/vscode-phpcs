@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository URLs updated to <https://github.com/JohnRDOrazio/vscode-phpcs>
 - Updated Node.js requirement from v8.9.4 to v20
 - Updated TypeScript from v2.7.2 to v5.7.2
-- Updated VS Code minimum version from v1.20.0 to v1.82.0 (required by vscode-languageclient v9)
+- Updated VS Code minimum version from v1.20.0 to v1.106.0
 - Updated vscode-languageserver from v5.2.1 to v9.0.1
 - Updated vscode-languageclient from v5.2.1 to v9.0.1
 - Modernized build process (removed deprecated `installServerIntoExtension` script)

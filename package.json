@@ -39,12 +39,15 @@
     "clean:server": "cd phpcs-server && npm run clean",
     "clean:client": "cd phpcs && npm run clean",
     "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
-    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\" \"#.yarn\""
+    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
+    "package": "cd phpcs && vsce package",
+    "package:pre": "npm run compile"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@vscode/vsce": "^3.2.1",
     "@types/cross-spawn": "^6.0.6",
     "@types/micromatch": "^4.0.9",
     "@types/mocha": "^10.0.10",
