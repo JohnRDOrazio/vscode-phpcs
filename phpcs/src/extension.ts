@@ -84,6 +84,8 @@ export function activate(context: ExtensionContext) {
 		client.onNotification(proto.DidEndValidateTextDocumentNotification.type, event => {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
+	}).catch((error) => {
+		console.error('Failed to start PHPCS language client:', error);
 	});
 
 	// Push the monitor to the context's subscriptions so that the
