@@ -181,6 +181,12 @@ suite('Linter Version Handling', () => {
 		test('exit code null should not error', () => {
 			assert.strictEqual(getV4ExitCodeError(null), null);
 		});
+
+		test('unexpected exit codes should not error', () => {
+			// Exit codes not defined by PHPCS v4 are treated as non-errors
+			assert.strictEqual(getV4ExitCodeError(4), null);
+			assert.strictEqual(getV4ExitCodeError(128), null);
+		});
 	});
 
 	/**
