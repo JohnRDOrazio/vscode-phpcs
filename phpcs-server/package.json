@@ -18,13 +18,13 @@
   "engines": {
     "node": ">=20"
   },
-  "homepage": "https://github.com/ikappas/vscode-phpcs/blob/master/README.md",
+  "homepage": "https://github.com/JohnRDOrazio/vscode-phpcs/blob/master/README.md",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ikappas/vscode-phpcs.git"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs.git"
   },
   "bugs": {
-    "url": "https://github.com/ikappas/vscode-phpcs/issues"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs/issues"
   },
   "dependencies": {
     "cross-spawn": "^7.0.6",

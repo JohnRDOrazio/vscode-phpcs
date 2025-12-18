@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shevaua/vscode-phpcs.git"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs.git"
   },
   "scripts": {
     "test": "npm-run-all --parallel test:*",

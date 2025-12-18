@@ -20,13 +20,13 @@
     "theme": "dark"
   },
   "icon": "phpcs_icon.png",
-  "homepage": "https://github.com/shevaua/vscode-phpcs/blob/master/README.md",
+  "homepage": "https://github.com/JohnRDOrazio/vscode-phpcs/blob/master/README.md",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shevaua/vscode-phpcs.git"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs.git"
   },
   "bugs": {
-    "url": "https://github.com/shevaua/vscode-phpcs/issues"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs/issues"
   },
   "categories": [
     "Programming Languages",
