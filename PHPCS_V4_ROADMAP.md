@@ -256,8 +256,10 @@ public async lint(document: TextDocument, settings: PhpcsSettings): Promise<Diag
 
 ## Risks and Considerations
 
-1. **Backwards Compatibility**: All changes must maintain support for PHPCS v1.x, v2.x, and v3.x
-2. **Testing Matrix**: Need to test against multiple PHPCS versions
+1. **Backwards Compatibility**: All changes must maintain support for PHPCS v1.x, v2.x, and v3.x.
+   The code uses version-aware logic (e.g., `--encoding` since v1.3.0, `-q` since v2.6.2) to ensure compatibility.
+2. **Testing Matrix**: CI tests against PHPCS v3.x and v4.x as the most commonly used versions.
+   Older versions (v1.x, v2.x) are supported through version-aware code but not actively tested in CI.
 3. **Future PHPCS Changes**: Consider adding configuration option for users to specify expected PHPCS major version
 4. **Performance**: Version checks should be cached, not performed on every lint operation
 
