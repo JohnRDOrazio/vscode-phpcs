@@ -1,9 +1,9 @@
 {
   "name": "phpcs-server",
   "description": "PHP Code Sniffer server.",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "author": "Ioannis Kappas",
-  "publisher": "shevaua",
+  "publisher": "johnrdorazio",
   "contributors": [
     {
       "email": "sheva@shevaua.info",
