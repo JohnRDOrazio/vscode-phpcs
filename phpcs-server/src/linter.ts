@@ -155,9 +155,8 @@ export class PhpcsLinter {
 			];
 
 			const fileDir = path.relative(workspaceRoot, path.dirname(filePath));
-			const fp = filePath; // Create a const for the closure
 
-			const confFile = !settings.ignorePatterns.some(pattern => this.isIgnorePatternMatch(fp, pattern))
+			const confFile = !settings.ignorePatterns.some(pattern => this.isIgnorePatternMatch(filePath, pattern))
 				? await extfs.findAsync(workspaceRoot, fileDir, confFileNames)
 				: null;
 
