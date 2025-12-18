@@ -33,6 +33,7 @@
     "Linters"
   ],
   "engines": {
+    "node": ">=20",
     "vscode": "^1.106.3"
   },
   "activationEvents": [

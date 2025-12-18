@@ -39,6 +39,9 @@
     "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
     "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\" \"#.yarn\""
   },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
     "@types/micromatch": "^4.0.9",

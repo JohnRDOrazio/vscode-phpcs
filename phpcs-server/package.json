@@ -16,7 +16,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": "*"
+    "node": ">=20"
   },
   "homepage": "https://github.com/ikappas/vscode-phpcs/blob/master/README.md",
   "repository": {
