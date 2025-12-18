@@ -18,6 +18,7 @@ suite('PHPCS Integration Tests', function () {
 
 	let phpcsPath: string | null = null;
 	let phpcsVersion: string | null = null;
+	let phpcsMajorVersion: number | null = null;
 	let skipTests = false;
 
 	suiteSetup(function () {
@@ -40,7 +41,8 @@ suite('PHPCS Integration Tests', function () {
 				if (match) {
 					phpcsPath = testPath;
 					phpcsVersion = match[1];
-					console.log(`Found PHPCS ${phpcsVersion} at: ${testPath}`);
+					phpcsMajorVersion = parseInt(phpcsVersion.split('.')[0], 10);
+					console.log(`Found PHPCS ${phpcsVersion} (major: ${phpcsMajorVersion}) at: ${testPath}`);
 					break;
 				}
 			} catch (error) {
@@ -72,14 +74,13 @@ suite('PHPCS Integration Tests', function () {
 			if (skipTests) {
 				this.skip();
 			}
-			const majorVersion = parseInt(phpcsVersion!.split('.')[0], 10);
 			// NOTE: When PHPCS v5+ is released, update this range after verifying
 			// compatibility in linter.ts (check isV4OrAbove() and exit code handling)
 			assert.ok(
-				majorVersion >= 1 && majorVersion <= 4,
-				`Major version ${majorVersion} should be between 1 and 4`
+				phpcsMajorVersion! >= 1 && phpcsMajorVersion! <= 4,
+				`Major version ${phpcsMajorVersion} should be between 1 and 4`
 			);
-			console.log(`PHPCS major version: ${majorVersion}`);
+			console.log(`PHPCS major version: ${phpcsMajorVersion}`);
 		});
 	});
 
@@ -194,17 +195,16 @@ class badClassName {
 				{ encoding: 'utf8', timeout: 10000 }
 			);
 
-			const majorVersion = parseInt(phpcsVersion!.split('.')[0], 10);
 			const stderr = result.stderr.trim();
 
-			if (majorVersion >= 4) {
+			if (phpcsMajorVersion! >= 4) {
 				// PHPCS v4 may output progress/debug info to STDERR
 				// This should NOT cause the linter to fail
 				console.log(`PHPCS v4 STDERR (if any): "${stderr}"`);
 			} else {
 				// PHPCS v3 and below should have empty STDERR for successful runs
 				if (stderr.length > 0) {
-					console.log(`PHPCS v${majorVersion} STDERR: "${stderr}"`);
+					console.log(`PHPCS v${phpcsMajorVersion} STDERR: "${stderr}"`);
 				}
 			}
 
@@ -220,8 +220,6 @@ class badClassName {
 			if (skipTests) {
 				this.skip();
 			}
-
-			const majorVersion = parseInt(phpcsVersion!.split('.')[0], 10);
 
 			// Test clean file
 			const cleanResult = cp.spawnSync(
@@ -243,7 +241,7 @@ class badClassName {
 				{ encoding: 'utf8', timeout: 10000 }
 			);
 
-			if (majorVersion >= 4) {
+			if (phpcsMajorVersion! >= 4) {
 				// PHPCS v4: 1=fixable, 2=unfixable, 3=both
 				assert.ok(
 					errorResult.status !== null && [1, 2, 3].includes(errorResult.status),
