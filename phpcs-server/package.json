@@ -38,6 +38,8 @@
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
     "test": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
+    "test:unit": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/linter.test.ts test/base/common/strings.test.ts",
+    "test:integration": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts",
     "clean": "rimraf ../phpcs/server"
   }
 }
