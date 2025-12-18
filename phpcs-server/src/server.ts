@@ -378,7 +378,7 @@ class PhpcsServer {
 	 * @return void
 	 */
 	public async validateMany(documents: TextDocument[]): Promise<void> {
-		for (var i = 0, len = documents.length; i < len; i++) {
+		for (let i = 0, len = documents.length; i < len; i++) {
 			await this.validateSingle(documents[i]);
 		}
 	}
