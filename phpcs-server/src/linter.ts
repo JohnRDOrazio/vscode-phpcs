@@ -28,6 +28,13 @@ import { PhpcsMessage } from "./message";
 
 export type LoggerFunction = (message: string) => void;
 
+/**
+ * Regex pattern for detecting fatal errors in STDERR.
+ * Matches both "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
+ * Exported for testing purposes.
+ */
+export const FATAL_ERROR_PATTERN = /^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i;
+
 export class PhpcsLinter {
 
 	private executablePath: string;
@@ -247,7 +254,7 @@ export class PhpcsLinter {
 		// Determine whether we have an error in stderr.
 		// Check for actual fatal errors (applies to both v3 and v4)
 		if (stderr !== '') {
-			if (match = stderr.match(/^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i)) {
+			if (match = stderr.match(FATAL_ERROR_PATTERN)) {
 				let error = match[1].trim();
 				if (match = error.match(/^Uncaught exception '.*' with message '(.*)'/)) {
 					throw new Error(match[1]);

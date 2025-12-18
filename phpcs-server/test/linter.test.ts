@@ -6,6 +6,7 @@
 
 import * as assert from 'assert';
 import * as semver from 'semver';
+import { FATAL_ERROR_PATTERN } from '../src/linter';
 
 /**
  * Tests for PHPCS version comparison logic used in linter.ts
@@ -64,16 +65,16 @@ suite('Linter Version Handling', () => {
 
 		/**
 		 * Simulates the STDERR error detection logic from linter.ts
-		 * Returns true if the stderr content should throw an error
+		 * Returns true if the stderr content should throw an error.
+		 * Uses FATAL_ERROR_PATTERN imported from linter.ts to ensure consistency.
 		 */
 		const shouldThrowOnStderr = (stderr: string, isV4: boolean): boolean => {
 			if (stderr === '') {
 				return false;
 			}
 
-			// Check for fatal errors (always throw)
-			// Note: (?:PHP\s?)? makes the "PHP " prefix optional
-			const fatalMatch = stderr.match(/^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i);
+			// Check for fatal errors (always throw) - uses exported pattern from linter.ts
+			const fatalMatch = stderr.match(FATAL_ERROR_PATTERN);
 			if (fatalMatch) {
 				return true;
 			}
