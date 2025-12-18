@@ -11,7 +11,7 @@ This extension supports PHP_CodeSniffer versions 1.x, 2.x, 3.x, and **4.x**.
 
 ## Installation
 
-Visual Studio Code must be installed to use this plugin. If Visual Studio Code is not installed, please follow the instructions in [Docs/editor/setup](https://code.visualstudio.com/Docs/editor/setup).
+Visual Studio Code must be installed to use this plugin. If Visual Studio Code is not installed, please follow the instructions in [VS Code Setup](https://code.visualstudio.com/docs/setup/setup-overview).
 
 ## Linter Installation
 
