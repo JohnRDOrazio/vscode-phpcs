@@ -343,12 +343,10 @@ class PhpcsServer {
 				this.connection.console.log(`[DEBUG] Lint complete, found ${diagnostics.length} diagnostics`);
 			} catch(error) {
 				this.connection.console.log(`[DEBUG] Error during linting: ${error}`);
-				this.sendEndValidationNotification(document);
 				throw new Error(this.getExceptionMessage(error, document));
-			} finally {
-				this.sendDiagnostics({ uri, diagnostics });
-				this.sendEndValidationNotification(document);
 			}
+			this.sendDiagnostics({ uri, diagnostics });
+			this.sendEndValidationNotification(document);
 		} else {
 			const inQueue: boolean = this.queue.has(uri);
 			if (inQueue) {
