@@ -327,9 +327,6 @@ class PhpcsServer {
 			try {
 				if (!settings.executablePath) {
 					// Skip validation silently - the client has already logged a warning
-					// Clear any stale diagnostics for this document
-					this.clearDiagnostics(uri);
-					this.sendEndValidationNotification(document);
 					return;
 				}
 				const phpcs = await PhpcsLinter.create(settings.executablePath);
@@ -338,9 +335,10 @@ class PhpcsServer {
 			} catch(error) {
 				this.connection.console.error(`Error during linting: ${error}`);
 				throw new Error(this.getExceptionMessage(error, document));
+			} finally {
+				this.sendDiagnostics({ uri, diagnostics });
+				this.sendEndValidationNotification(document);
 			}
-			this.sendDiagnostics({ uri, diagnostics });
-			this.sendEndValidationNotification(document);
 		} else {
 			const inQueue: boolean = this.queue.has(uri);
 			if (inQueue) {
