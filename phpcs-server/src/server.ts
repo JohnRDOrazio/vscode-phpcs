@@ -327,6 +327,8 @@ class PhpcsServer {
 			try {
 				if (!settings.executablePath) {
 					// Skip validation silently - the client has already logged a warning
+					// Clear any stale diagnostics for this document
+					this.clearDiagnostics(uri);
 					this.sendEndValidationNotification(document);
 					return;
 				}
