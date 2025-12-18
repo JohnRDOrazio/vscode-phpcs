@@ -34,12 +34,16 @@
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.0.8"
   },
+  "devDependencies": {
+    "mocha": "^10.8.2",
+    "tsx": "^4.19.2"
+  },
   "scripts": {
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
-    "test": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
-    "test:unit": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/linter.test.ts test/base/common/strings.test.ts",
-    "test:integration": "node --import tsx ../node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts",
+    "test": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
+    "test:unit": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/linter.test.ts test/base/common/strings.test.ts",
+    "test:integration": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts",
     "clean": "rimraf ../phpcs/server"
   }
 }
