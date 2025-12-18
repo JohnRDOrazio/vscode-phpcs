@@ -72,6 +72,8 @@ suite('PHPCS Integration Tests', function () {
 				this.skip();
 			}
 			const majorVersion = parseInt(phpcsVersion!.split('.')[0], 10);
+			// NOTE: When PHPCS v5+ is released, update this range after verifying
+			// compatibility in linter.ts (check isV4OrAbove() and exit code handling)
 			assert.ok(
 				majorVersion >= 1 && majorVersion <= 4,
 				`Major version ${majorVersion} should be between 1 and 4`
