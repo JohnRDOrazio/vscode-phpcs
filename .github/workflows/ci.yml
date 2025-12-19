@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, master]
+  pull_request:
+    branches: [develop, master]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [20, 22]
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run unit tests
+        run: npm run test:server:unit
+
+  phpcs-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        phpcs-version: ['3.10.3', '4.0.1']
+        php-version: ['8.1', '8.3']
+        install-type: ['global', 'local']
+        exclude:
+          # PHPCS 4.x works best with PHP 8.3
+          - phpcs-version: '4.0.1'
+            php-version: '8.1'
+      fail-fast: false
+
+    name: PHPCS ${{ matrix.phpcs-version }} (${{ matrix.install-type }}) / PHP ${{ matrix.php-version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install PHPCS globally
+        if: matrix.install-type == 'global'
+        run: composer global require "squizlabs/php_codesniffer:${{ matrix.phpcs-version }}"
+
+      - name: Install PHPCS locally
+        if: matrix.install-type == 'local'
+        run: composer require --dev "squizlabs/php_codesniffer:${{ matrix.phpcs-version }}"
+
+      - name: Verify PHPCS installation
+        run: |
+          if [ "${{ matrix.install-type }}" = "global" ]; then
+            phpcs --version
+            which phpcs
+          else
+            ./vendor/bin/phpcs --version
+          fi
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run integration tests
+        env:
+          PHPCS_PATH: ${{ matrix.install-type == 'global' && 'phpcs' || format('{0}/vendor/bin/phpcs', github.workspace) }}
+        run: npm run test:server:integration
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint markdown
+        run: npm run lint:md

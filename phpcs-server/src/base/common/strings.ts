@@ -31,7 +31,7 @@ export function format(value: string, ...args: any[]): string {
  */
 export function rtrim(haystack?: string, needle?: string): string {
 	if (!haystack || !needle) {
-		return haystack;
+		return haystack ?? '';
 	}
 
 	let needleLen = needle.length,

@@ -1,39 +1,49 @@
 {
   "name": "phpcs-server",
   "description": "PHP Code Sniffer server.",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "author": "Ioannis Kappas",
-  "publisher": "shevaua",
+  "publisher": "johnrdorazio",
   "contributors": [
     {
       "email": "sheva@shevaua.info",
       "name": "Igor Sheviakov"
+    },
+    {
+      "email": "priest@johnromanodorazio.com",
+      "name": "John R. D'Orazio"
     }
   ],
   "license": "MIT",
   "engines": {
-    "node": "*"
+    "node": ">=20"
   },
-  "homepage": "https://github.com/ikappas/vscode-phpcs/blob/master/README.md",
+  "homepage": "https://github.com/JohnRDOrazio/vscode-phpcs/blob/master/README.md",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ikappas/vscode-phpcs.git"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs.git"
   },
   "bugs": {
-    "url": "https://github.com/ikappas/vscode-phpcs/issues"
+    "url": "https://github.com/JohnRDOrazio/vscode-phpcs/issues"
   },
   "dependencies": {
-    "cross-spawn": "^6.0.4",
-    "micromatch": "^3.1.9",
-    "semver": "^5.7.1",
-    "vscode-languageserver": "^5.2.1"
+    "cross-spawn": "^7.0.6",
+    "micromatch": "^4.0.8",
+    "semver": "^7.6.3",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-uri": "^3.0.8"
+  },
+  "devDependencies": {
+    "mocha": "^10.8.2",
+    "tsx": "^4.19.2"
   },
   "scripts": {
-    "preinstall": "rimraf node_modules",
-    "installServer": "installServerIntoExtension ../phpcs ./package.json ./tsconfig.json",
-    "compile": "installServerIntoExtension ../phpcs ./package.json ./tsconfig.json && tsc -p .",
-    "watch": "installServerIntoExtension ../phpcs ./package.json ./tsconfig.json && tsc --watch -p .",
-    "test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",
+    "compile": "tsc -p .",
+    "watch": "tsc --watch -p .",
+    "test": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
+    "test:unit": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/linter.test.ts test/base/common/strings.test.ts",
+    "test:integration": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts",
     "clean": "rimraf ../phpcs/server"
   }
 }

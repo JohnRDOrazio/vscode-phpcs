@@ -16,24 +16,63 @@ import CharCode from "./base/common/charcode";
 import {
 	Diagnostic,
 	DiagnosticSeverity,
-	Files,
 	Range,
-	TextDocument
-} from "vscode-languageserver";
+} from "vscode-languageserver/node";
+
+import { TextDocument } from "vscode-languageserver-textdocument";
+import { URI } from "vscode-uri";
 
 import { StringResources as SR } from "./strings";
 import { PhpcsSettings } from "./settings";
 import { PhpcsMessage } from "./message";
 
+export type LoggerFunction = (message: string) => void;
+
+/**
+ * Regex pattern for detecting fatal errors in STDERR.
+ * Matches both "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
+ * Exported for testing purposes.
+ */
+export const FATAL_ERROR_PATTERN = /^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i;
+
 export class PhpcsLinter {
 
 	private executablePath: string;
 	private executableVersion: string;
-	private ignorePatternReplacements: Map<RegExp, string>;
+	private isV4: boolean;
+	private ignorePatternReplacements: Map<RegExp, string> | null = null;
+	private logger: LoggerFunction | null = null;
 
 	private constructor(executablePath: string, executableVersion: string) {
 		this.executablePath = executablePath;
 		this.executableVersion = executableVersion;
+		// Cache version check for performance - this is called frequently during linting
+		this.isV4 = semver.gte(executableVersion, '4.0.0');
+	}
+
+	/**
+	 * Set a logger function to receive debug messages.
+	 */
+	public setLogger(logger: LoggerFunction): void {
+		this.logger = logger;
+	}
+
+	/**
+	 * Log a message if a logger is set.
+	 */
+	private log(message: string): void {
+		if (this.logger) {
+			this.logger(message);
+		}
+	}
+
+	/**
+	 * Check if the PHPCS version is 4.0.0 or above.
+	 * PHPCS v4 introduced breaking changes including STDERR output routing.
+	 * Uses cached value computed at construction time for performance.
+	 */
+	private isV4OrAbove(): boolean {
+		return this.isV4;
 	}
 
 	/**
@@ -54,8 +93,11 @@ export class PhpcsLinter {
 			const executableVersion = versionMatches[1];
 			return new PhpcsLinter(executablePath, executableVersion);
 
-		} catch (error) {
-			let message = error.message ? error.message : SR.CreateLinterErrorDefaultMessage;
+		} catch (error: unknown) {
+			let message = SR.CreateLinterErrorDefaultMessage;
+			if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+				message = error.message;
+			}
 			throw new Error(strings.format(SR.CreateLinterError, message));
 		}
 	}
@@ -65,7 +107,15 @@ export class PhpcsLinter {
 		const { workspaceRoot } = settings;
 
 		// Process linting paths.
-		let filePath = Files.uriToFilePath(document.uri);
+		let filePath: string | undefined;
+		try {
+			const uri = URI.parse(document.uri);
+			if (uri.scheme === 'file') {
+				filePath = uri.fsPath;
+			}
+		} catch {
+			filePath = undefined;
+		}
 
 		// Make sure we capitalize the drive letter in paths on Windows.
 		if (filePath !== undefined && /^win/.test(process.platform)) {
@@ -100,7 +150,7 @@ export class PhpcsLinter {
 		}
 
 		// Check if a config file exists and handle it
-		let standard: string;
+		let standard: string | null = null;
 		if (settings.autoConfigSearch && workspaceRoot !== null && filePath !== undefined) {
 			const confFileNames = [
 				'.phpcs.xml',
@@ -177,27 +227,49 @@ export class PhpcsLinter {
 		const options = {
 			cwd: workspaceRoot !== null ? workspaceRoot : undefined,
 			env: process.env,
-			encoding: "utf8",
+			encoding: "utf8" as const,
 			timeout: forcedKillTime,
-			tty: true,
 			input: text,
 		};
 
 		const phpcs = spawn.sync(this.executablePath, lintArgs, options);
-		const stdout = phpcs.stdout.toString().trim();
-		const stderr = phpcs.stderr.toString().trim();
+		const stdout = (phpcs.stdout ?? '').toString().trim();
+		const stderr = (phpcs.stderr ?? '').toString().trim();
+		const exitCode = phpcs.status;
 		let match = null;
 
+		// Handle PHPCS v4+ exit codes first.
+		// v4 exit codes: 0=clean, 1=fixable issues, 2=non-fixable issues, 3=both,
+		// 16=processing error, 64=requirements not met
+		if (this.isV4OrAbove()) {
+			if (exitCode === 16) {
+				throw new Error(SR.ProcessingError);
+			}
+			if (exitCode === 64) {
+				throw new Error(SR.RequirementsNotMetError);
+			}
+			// Exit codes 0, 1, 2, 3 are normal operation - continue processing
+		}
+
 		// Determine whether we have an error in stderr.
+		// Check for actual fatal errors (applies to both v3 and v4)
 		if (stderr !== '') {
-			if (match = stderr.match(/^(?:PHP\s?)FATAL\s?ERROR:\s?(.*)/i)) {
+			if (match = stderr.match(FATAL_ERROR_PATTERN)) {
 				let error = match[1].trim();
 				if (match = error.match(/^Uncaught exception '.*' with message '(.*)'/)) {
 					throw new Error(match[1]);
 				}
 				throw new Error(error);
 			}
-			throw new Error(strings.format(SR.UnknownExecutionError, `${this.executablePath} ${lintArgs.join(' ')}`));
+
+			// For PHPCS v4+, non-fatal stderr content is normal (progress/debug output).
+			// Log it for debugging purposes.
+			// For v3 and below, any other stderr content indicates an error.
+			if (this.isV4OrAbove()) {
+				this.log(`[PHPCS v4 STDERR] ${stderr}`);
+			} else {
+				throw new Error(strings.format(SR.UnknownExecutionError, `${this.executablePath} ${lintArgs.join(' ')}`));
+			}
 		}
 
 		// Determine whether we have an error in stdout.
@@ -294,7 +366,7 @@ export class PhpcsLinter {
 			severity = DiagnosticSeverity.Warning;
 		}
 
-		return Diagnostic.create(range, message, severity, null, 'phpcs');
+		return Diagnostic.create(range, message, severity, undefined, 'phpcs');
 	}
 
 	protected getIgnorePatternReplacements(): Map<RegExp, string> {

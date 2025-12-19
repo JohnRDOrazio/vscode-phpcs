@@ -27,7 +27,7 @@ export class PhpcsPathResolver extends PhpcsPathResolverBase {
 
 	async resolve(): Promise<string> {
 		let resolvedPath: string = null;
-		for (var i = 0, len = this.resolvers.length; i < len; i++) {
+		for (let i = 0, len = this.resolvers.length; i < len; i++) {
 			let resolverPath = await this.resolvers[i].resolve();
 			if (resolvedPath !== resolverPath) {
 				resolvedPath = resolverPath;

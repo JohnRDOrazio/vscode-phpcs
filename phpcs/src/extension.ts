@@ -10,6 +10,7 @@ import * as proto from "./protocol";
 import {
 	CancellationToken,
 	ExtensionContext,
+	window,
 	workspace
 } from "vscode";
 
@@ -18,13 +19,10 @@ import {
 	LanguageClientOptions,
 	Middleware,
 	ServerOptions,
-	TransportKind
-} from "vscode-languageclient";
+	TransportKind,
+} from "vscode-languageclient/node";
 
-import {
-	ConfigurationParams,
-	ConfigurationClientCapabilities
-} from 'vscode-languageserver-protocol/lib/protocol.configuration';
+import { ConfigurationParams } from "vscode-languageserver-protocol";
 
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
@@ -47,7 +45,7 @@ export function activate(context: ExtensionContext) {
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
 	};
 
-	let middleware: ConfigurationClientCapabilities | Middleware = {
+	let middleware: Middleware = {
 		workspace: {
 			configuration: async (params: ConfigurationParams, token: CancellationToken, next: Function) => {
 				return config.compute(params, token, next);
@@ -63,7 +61,7 @@ export function activate(context: ExtensionContext) {
 			// Notify the server about file changes to 'ruleset.xml' files contain in the workspace
 			fileEvents: workspace.createFileSystemWatcher("**/ruleset.xml")
 		},
-		middleware: middleware as Middleware
+		middleware: middleware
 	};
 
 	// Create the language client.
@@ -76,7 +74,13 @@ export function activate(context: ExtensionContext) {
 
 	// Create the status monitor.
 	let status = new PhpcsStatus();
-	client.onReady().then(() => {
+
+	// Track whether the client has started successfully
+	let clientStarted = false;
+
+	// Start the client and register handlers only on success
+	const startPromise = client.start().then(() => {
+		clientStarted = true;
 		config.initialize();
 		client.onNotification(proto.DidStartValidateTextDocumentNotification.type, event => {
 			status.startProcessing(event.textDocument.uri, event.buffered);
@@ -84,12 +88,24 @@ export function activate(context: ExtensionContext) {
 		client.onNotification(proto.DidEndValidateTextDocumentNotification.type, event => {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
+
+		// Only register disposables after successful start
+		context.subscriptions.push(status);
+		context.subscriptions.push(config);
+	}).catch((error) => {
+		const message = error instanceof Error ? error.message : String(error);
+		window.showErrorMessage(`Failed to start PHPCS language server: ${message}`);
+		console.error('Failed to start PHPCS language client:', error);
 	});
 
-	client.start();
-
-	// Push the monitor to the context's subscriptions so that the
-	// client can be deactivated on extension deactivation
-	context.subscriptions.push(status);
-	context.subscriptions.push(config);
+	// Register disposal that safely stops the client
+	context.subscriptions.push({
+		dispose: async () => {
+			// Wait for start to complete (success or failure) before stopping
+			await startPromise.catch(() => {});
+			if (clientStarted) {
+				await client.stop();
+			}
+		}
+	});
 }

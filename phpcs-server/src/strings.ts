@@ -22,6 +22,10 @@ export class StringResources {
 	static readonly CodingStandardNotInstalledError: string = 'The "{0}" coding standard is not installed. Please review your configuration an try again.';
 	static readonly InvalidJsonStringError: string = 'The phpcs report contains invalid json. Please review "Diagnosing Common Errors" in the plugin README';
 
+	// PHPCS v4 specific error messages
+	static readonly ProcessingError: string = 'PHPCS encountered a processing error (exit code 16). Please check your ruleset configuration.';
+	static readonly RequirementsNotMetError: string = 'PHPCS requirements not met (exit code 64). Please check your PHP version and installed extensions.';
+
 	static readonly Empty: string = '';
 	static readonly Space: string = ' ';
 

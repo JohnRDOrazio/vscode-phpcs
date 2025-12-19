@@ -4,13 +4,14 @@
 		"noUnusedParameters": true,
 		"noImplicitAny": true,
 		"noImplicitReturns": true,
-		"target": "es6",
+		"target": "ES2022",
 		"module": "commonjs",
 		"moduleResolution": "node",
 		"sourceMap": true,
-		"lib": [ "es2016" ],
+		"lib": [ "ES2022" ],
 		"rootDir": ".",
-		"outDir": "out"
+		"outDir": "out",
+		"skipLibCheck": true
 	},
 	"exclude": [
 		"node_modules",

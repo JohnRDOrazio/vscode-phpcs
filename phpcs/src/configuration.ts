@@ -17,12 +17,10 @@ import {
 
 import {
 	DidChangeConfigurationNotification,
-	LanguageClient
-} from "vscode-languageclient";
+	LanguageClient,
+} from "vscode-languageclient/node";
 
-import {
-	ConfigurationParams
-} from 'vscode-languageserver-protocol/lib/protocol.configuration';
+import { ConfigurationParams } from "vscode-languageserver-protocol";
 
 import { PhpcsSettings } from "./settings";
 import { PhpcsPathResolver } from "./resolvers/path-resolver";
@@ -55,10 +53,9 @@ export class PhpcsConfiguration extends Disposable {
 		}
 		let result: (PhpcsSettings | null)[] = [];
 		for (let item of params.items) {
-			// The server asks the client for configuration settings without a section
-			// If a section is present we return null to indicate that the configuration
-			// is not supported.
-			if (item.section) {
+			// Only handle phpcs configuration requests
+			// Return null for other sections to indicate that the configuration is not supported.
+			if (item.section && item.section !== 'phpcs') {
 				result.push(null);
 				continue;
 			}
@@ -120,7 +117,17 @@ export class PhpcsConfiguration extends Disposable {
 	protected async resolveExecutablePath(settings: PhpcsSettings): Promise<PhpcsSettings> {
 		if (settings.executablePath === null) {
 			let executablePathResolver = new PhpcsPathResolver(settings);
-			settings.executablePath = await executablePathResolver.resolve();
+			try {
+				settings.executablePath = await executablePathResolver.resolve();
+			} catch (error) {
+				// Log a warning instead of throwing an error popup
+				const folderName = settings.workspaceRoot
+					? path.basename(settings.workspaceRoot)
+					: 'global';
+				const message = error instanceof Error ? error.message : String(error);
+				this.client.outputChannel.appendLine(`[Warning] ${folderName}: ${message}`);
+				// Leave executablePath as null - the server will skip validation for this folder
+			}
 		} else if (!path.isAbsolute(settings.executablePath) && settings.workspaceRoot !== null) {
 			settings.executablePath = path.join(settings.workspaceRoot, settings.executablePath);
 		}

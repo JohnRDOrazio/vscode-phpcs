@@ -427,7 +427,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as a Latin1 character.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isLatin1(charCode: CharCode): boolean {
+	export function isLatin1(charCode: number): boolean {
 		return charCode <= 255;
 	}
 
@@ -435,7 +435,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as an ASCII character.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isAscii(charCode: CharCode): boolean {
+	export function isAscii(charCode: number): boolean {
 		return charCode <= 127;
 	}
 
@@ -443,7 +443,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as white space.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isWhiteSpace(charCode: CharCode): boolean {
+	export function isWhiteSpace(charCode: number): boolean {
 		return isWhiteSpaceLatin1(charCode);
 	}
 
@@ -451,7 +451,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as white space.
 	 * @param charCode The unicode character code to check.
 	 */
-	function isWhiteSpaceLatin1(charCode: CharCode): boolean {
+	function isWhiteSpaceLatin1(charCode: number): boolean {
 		return charCode === 32 || (charCode >= 9 && charCode <= 13) || (charCode === 160 || charCode === 133);
 	}
 
@@ -459,7 +459,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as a symbol character.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isSymbol(charCode: CharCode): boolean {
+	export function isSymbol(charCode: number): boolean {
 		return (charCode >= 33 && charCode <= 47) || (charCode >= 58 && charCode <= 64) || (charCode >= 91 && charCode <= 96) || (charCode >= 123 && charCode <= 126);
 	}
 
@@ -467,7 +467,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as a decimal digit.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isDigit(charCode: CharCode): boolean {
+	export function isDigit(charCode: number): boolean {
 		return charCode >= 48 && charCode <= 57;
 	}
 
@@ -475,7 +475,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as an uppercase alpha.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isAlphaUpper(charCode: CharCode): boolean {
+	export function isAlphaUpper(charCode: number): boolean {
 		return charCode >= 65 && charCode <= 90;
 	}
 
@@ -483,7 +483,7 @@ namespace CharCode {
 	 * Indicates whether a Unicode character code is categorized as a lowercase alpha.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isAlphaLower(charCode: CharCode): boolean {
+	export function isAlphaLower(charCode: number): boolean {
 		return charCode >= 97 && charCode <= 122;
 	}
 
@@ -491,7 +491,7 @@ namespace CharCode {
 	 * Determine whether the specified character code is a alpha numeric.
 	 * @param charCode The unicode character code to check.
 	 */
-	export function isAlphaNumeric(charCode: CharCode): boolean {
+	export function isAlphaNumeric(charCode: number): boolean {
 		return isDigit(charCode) || isAlphaUpper(charCode) || isAlphaLower(charCode);
 	}
 }
