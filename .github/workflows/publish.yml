@@ -3,7 +3,11 @@ name: Publish Extension
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]*"
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -33,11 +37,18 @@ jobs:
       - name: Compile
         run: npm run compile
 
-      - name: Run unit tests
-        run: npm run test:server:unit
+      - name: Run tests
+        run: npm test
 
-      - name: Run integration tests
-        run: npm run test:server:integration
+      - name: Validate version
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/}
+          PACKAGE_VERSION=$(jq -r .version phpcs/package.json)
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) doesn't match package.json version ($PACKAGE_VERSION)"
+            exit 1
+          fi
+          echo "Version validation passed: $TAG_VERSION"
 
       - name: Publish to Open VSX Registry
         uses: HaaLeo/publish-vscode-extension@v2
