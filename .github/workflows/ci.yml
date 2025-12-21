@@ -97,6 +97,35 @@ jobs:
           PHPCS_PATH: ${{ matrix.install-type == 'global' && 'phpcs' || format('{0}/vendor/bin/phpcs', github.workspace) }}
         run: npm run test:server:integration
 
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run tests with coverage
+        run: npm run test:server:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          directory: ./phpcs-server/coverage
+          fail_ci_if_error: false
+          verbose: true
+
   lint:
     runs-on: ubuntu-latest
 

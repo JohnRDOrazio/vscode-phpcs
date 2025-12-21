@@ -1,7 +1,7 @@
 # vscode-phpcs
 
 [![CI](https://github.com/JohnRDOrazio/vscode-phpcs/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnRDOrazio/vscode-phpcs/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/JohnRDOrazio/vscode-phpcs/actions/workflows/codeql.yml/badge.svg)](https://github.com/JohnRDOrazio/vscode-phpcs/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/JohnRDOrazio/vscode-phpcs/branch/develop/graph/badge.svg)](https://codecov.io/gh/JohnRDOrazio/vscode-phpcs)
 [![Snyk Security](https://snyk.io/test/github/JohnRDOrazio/vscode-phpcs/badge.svg)](https://snyk.io/test/github/JohnRDOrazio/vscode-phpcs)
 [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/JohnRDOrazio/vscode-phpcs?utm_source=oss&utm_medium=github&utm_campaign=JohnRDOrazio%2Fvscode-phpcs&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 
