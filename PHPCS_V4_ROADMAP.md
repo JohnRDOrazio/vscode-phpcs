@@ -19,24 +19,24 @@ In addition to PHPCS v4 support, this update includes a major modernization of t
 
 ## Breaking Changes in PHPCS v4
 
-| Change | Impact | Priority |
-|--------|--------|----------|
-| Progress/error/debug output now sent to STDERR | **Critical** - Current code throws errors on any STDERR output | P0 |
-| Exit codes completely changed | Medium - Code doesn't explicitly check exit codes, but should be handled properly | P1 |
-| `--extensions` no longer accepts language flavors | Low - Extension doesn't use this flag currently | P2 |
-| Old ignore annotation syntax removed | None - User-facing, not extension code | N/A |
-| JS/CSS support removed | None - Extension is for PHP | N/A |
+| Change                                            | Impact                                                                            | Priority |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- | -------- |
+| Progress/error/debug output now sent to STDERR    | **Critical** - Current code throws errors on any STDERR output                    | P0       |
+| Exit codes completely changed                     | Medium - Code doesn't explicitly check exit codes, but should be handled properly | P1       |
+| `--extensions` no longer accepts language flavors | Low - Extension doesn't use this flag currently                                   | P2       |
+| Old ignore annotation syntax removed              | None - User-facing, not extension code                                            | N/A      |
+| JS/CSS support removed                            | None - Extension is for PHP                                                       | N/A      |
 
 ### New Exit Codes (v4)
 
-| Code | Meaning |
-|------|---------|
-| 0 | Clean code base / all issues fixed / successful non-scan request |
-| 1 | Issues found that are auto-fixable |
-| 2 | Issues found that cannot be auto-fixed |
-| 3 | Mix of auto-fixable and non-auto-fixable issues (1 + 2) |
-| 16 | Processing error (e.g., XML ruleset parse errors) |
-| 64 | Requirements not met (PHP version, missing extensions) |
+| Code | Meaning                                                          |
+| ---- | ---------------------------------------------------------------- |
+| 0    | Clean code base / all issues fixed / successful non-scan request |
+| 1    | Issues found that are auto-fixable                               |
+| 2    | Issues found that cannot be auto-fixed                           |
+| 3    | Mix of auto-fixable and non-auto-fixable issues (1 + 2)          |
+| 16   | Processing error (e.g., XML ruleset parse errors)                |
+| 64   | Requirements not met (PHP version, missing extensions)           |
 
 ---
 
@@ -50,17 +50,22 @@ In addition to PHPCS v4 support, this update includes a major modernization of t
 
 ```typescript
 // Determine whether we have an error in stderr.
-if (stderr !== '') {
-    // Note: (?:PHP\s?)? makes the "PHP " prefix optional to match both
-    // "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
-    if (match = stderr.match(/^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i)) {
-        let error = match[1].trim();
-        if (match = error.match(/^Uncaught exception '.*' with message '(.*)'/)) {
-            throw new Error(match[1]);
-        }
-        throw new Error(error);
+if (stderr !== "") {
+  // Note: (?:PHP\s?)? makes the "PHP " prefix optional to match both
+  // "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
+  if ((match = stderr.match(/^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i))) {
+    let error = match[1].trim();
+    if ((match = error.match(/^Uncaught exception '.*' with message '(.*)'/))) {
+      throw new Error(match[1]);
     }
-    throw new Error(strings.format(SR.UnknownExecutionError, `${this.executablePath} ${lintArgs.join(' ')}`));
+    throw new Error(error);
+  }
+  throw new Error(
+    strings.format(
+      SR.UnknownExecutionError,
+      `${this.executablePath} ${lintArgs.join(" ")}`,
+    ),
+  );
 }
 ```
 
@@ -104,18 +109,18 @@ if (stderr !== '') {
 ```typescript
 const exitCode = phpcs.status;
 
-if (semver.gte(this.executableVersion, '4.0.0')) {
-    // PHPCS v4 exit codes
-    if (exitCode === 16) {
-        throw new Error(SR.ProcessingError);
-    }
-    if (exitCode === 64) {
-        throw new Error(SR.RequirementsNotMetError);
-    }
-    // Exit codes 0, 1, 2, 3 are normal operation
+if (semver.gte(this.executableVersion, "4.0.0")) {
+  // PHPCS v4 exit codes
+  if (exitCode === 16) {
+    throw new Error(SR.ProcessingError);
+  }
+  if (exitCode === 64) {
+    throw new Error(SR.RequirementsNotMetError);
+  }
+  // Exit codes 0, 1, 2, 3 are normal operation
 } else {
-    // PHPCS v3 and below - existing behavior
-    // Exit code 1 = errors found, 2 = warnings found, 3 = both
+  // PHPCS v3 and below - existing behavior
+  // Exit code 1 = errors found, 2 = warnings found, 3 = both
 }
 ```
 

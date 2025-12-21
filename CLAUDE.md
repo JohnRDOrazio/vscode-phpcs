@@ -66,9 +66,9 @@ The extension supports PHPCS versions 1.x, 2.x, 3.x, and 4.x. Key differences:
 
 ```typescript
 if (this.isV4OrAbove()) {
-    // v4+ specific handling
+  // v4+ specific handling
 } else {
-    // v3 and below
+  // v3 and below
 }
 ```
 

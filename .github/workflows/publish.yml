@@ -5,6 +5,10 @@ on:
     tags:
       - "[0-9]*"
 
+permissions:
+  contents: read
+  pull-requests: write
+
 concurrency:
   group: publish-${{ github.ref }}
   cancel-in-progress: false
