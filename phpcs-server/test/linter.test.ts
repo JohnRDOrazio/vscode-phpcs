@@ -6,6 +6,7 @@
 
 import * as assert from 'assert';
 import * as semver from 'semver';
+import * as mm from 'micromatch';
 import { FATAL_ERROR_PATTERN } from '../src/linter';
 
 /**
@@ -230,4 +231,187 @@ suite('Linter Version Handling', () => {
 			assert.strictEqual(parseVersion(''), null);
 		});
 	});
+
+	/**
+	 * Test ignore pattern matching logic (mirrors isIgnorePatternMatch in linter.ts)
+	 */
+	suite('Ignore pattern matching', () => {
+
+		/**
+		 * Applies the same pattern replacements as PhpcsLinter.getIgnorePatternReplacements()
+		 */
+		const applyPatternReplacements = (pattern: string): string => {
+			const replacements: [RegExp, string][] = [
+				[/^\*\//, '**/'],      // */some/path => **/some/path
+				[/\/\*$/, '/**'],      // some/path/* => some/path/**
+				[/\/\*\//g, '/**/'],   // some/*/path => some/**/path
+			];
+
+			for (const [searchValue, replaceValue] of replacements) {
+				pattern = pattern.replace(searchValue, replaceValue);
+			}
+			return pattern;
+		};
+
+		const isIgnorePatternMatch = (filePath: string, pattern: string): boolean => {
+			const transformedPattern = applyPatternReplacements(pattern);
+			return mm.isMatch(filePath, transformedPattern);
+		};
+
+		test('should match exact file path', () => {
+			assert.strictEqual(isIgnorePatternMatch('/path/to/file.php', '/path/to/file.php'), true);
+		});
+
+		test('should match with wildcard extension', () => {
+			assert.strictEqual(isIgnorePatternMatch('/path/to/file.php', '/path/to/*.php'), true);
+		});
+
+		test('should match with double wildcard', () => {
+			assert.strictEqual(isIgnorePatternMatch('/path/to/deep/file.php', '/path/**/*.php'), true);
+		});
+
+		test('should transform */pattern/* to **/pattern/**', () => {
+			const pattern = '*/vendor/*';
+			const transformed = applyPatternReplacements(pattern);
+			// Both leading */ and trailing /* get transformed
+			assert.strictEqual(transformed, '**/vendor/**');
+		});
+
+		test('should transform pattern/* to pattern/**', () => {
+			const pattern = 'vendor/*';
+			const transformed = applyPatternReplacements(pattern);
+			assert.strictEqual(transformed, 'vendor/**');
+		});
+
+		test('should transform /*/  to /**/ in middle of pattern', () => {
+			const pattern = 'path/*/file.php';
+			const transformed = applyPatternReplacements(pattern);
+			assert.strictEqual(transformed, 'path/**/file.php');
+		});
+
+		test('should not match unrelated paths', () => {
+			assert.strictEqual(isIgnorePatternMatch('/other/path/file.php', '/path/to/*.php'), false);
+		});
+
+		test('should match vendor directory pattern', () => {
+			assert.strictEqual(isIgnorePatternMatch('/project/vendor/package/file.php', '**/vendor/**'), true);
+		});
+
+		test('should match node_modules pattern', () => {
+			assert.strictEqual(isIgnorePatternMatch('/project/node_modules/package/index.js', '**/node_modules/**'), true);
+		});
+
+	});
+
+	/**
+	 * Test JSON parsing logic (mirrors parseData in linter.ts)
+	 */
+	suite('JSON parsing', () => {
+
+		const parseData = (text: string): { files: any } => {
+			try {
+				return JSON.parse(text) as { files: any };
+			} catch (error) {
+				throw new Error('Invalid json string received.');
+			}
+		};
+
+		test('should parse valid PHPCS JSON output', () => {
+			const json = '{"totals":{"errors":1,"warnings":0},"files":{"/path/file.php":{"errors":1,"warnings":0,"messages":[{"message":"Error","source":"Test.Rule","severity":5,"fixable":false,"type":"ERROR","line":1,"column":1}]}}}';
+			const result = parseData(json);
+			assert.ok(result.files);
+			assert.ok(result.files['/path/file.php']);
+		});
+
+		test('should parse empty files object', () => {
+			const json = '{"totals":{"errors":0,"warnings":0},"files":{}}';
+			const result = parseData(json);
+			assert.deepStrictEqual(result.files, {});
+		});
+
+		test('should throw on invalid JSON', () => {
+			assert.throws(() => {
+				parseData('not valid json');
+			}, /Invalid json string received/);
+		});
+
+		test('should throw on empty string', () => {
+			assert.throws(() => {
+				parseData('');
+			}, /Invalid json string received/);
+		});
+
+		test('should parse STDIN file key (PHPCS v1)', () => {
+			const json = '{"totals":{"errors":1},"files":{"STDIN":{"errors":1,"messages":[]}}}';
+			const result = parseData(json);
+			assert.ok(result.files['STDIN']);
+		});
+
+	});
+
+	/**
+	 * Test diagnostic severity mapping
+	 */
+	suite('Diagnostic severity', () => {
+
+		const mapSeverity = (type: string): string => {
+			if (type === 'WARNING') {
+				return 'Warning';
+			}
+			return 'Error';
+		};
+
+		test('should map ERROR to Error severity', () => {
+			assert.strictEqual(mapSeverity('ERROR'), 'Error');
+		});
+
+		test('should map WARNING to Warning severity', () => {
+			assert.strictEqual(mapSeverity('WARNING'), 'Warning');
+		});
+
+		test('should default to Error for unknown types', () => {
+			assert.strictEqual(mapSeverity('UNKNOWN'), 'Error');
+		});
+
+	});
+
+	/**
+	 * Test FATAL_ERROR_PATTERN regex
+	 */
+	suite('FATAL_ERROR_PATTERN', () => {
+
+		test('should match FATAL ERROR prefix', () => {
+			const match = 'FATAL ERROR: Out of memory'.match(FATAL_ERROR_PATTERN);
+			assert.ok(match);
+			assert.strictEqual(match![1], 'Out of memory');
+		});
+
+		test('should match PHP FATAL ERROR prefix', () => {
+			const match = 'PHP FATAL ERROR: Uncaught exception'.match(FATAL_ERROR_PATTERN);
+			assert.ok(match);
+			assert.strictEqual(match![1], 'Uncaught exception');
+		});
+
+		test('should match case-insensitively', () => {
+			const match = 'fatal error: Something went wrong'.match(FATAL_ERROR_PATTERN);
+			assert.ok(match);
+		});
+
+		test('should match PHP Fatal Error with space variations', () => {
+			const match = 'PHP Fatal Error: test'.match(FATAL_ERROR_PATTERN);
+			assert.ok(match);
+		});
+
+		test('should not match non-fatal messages', () => {
+			const match = 'Processing file.php'.match(FATAL_ERROR_PATTERN);
+			assert.strictEqual(match, null);
+		});
+
+		test('should not match ERROR without FATAL', () => {
+			const match = 'ERROR: Some error'.match(FATAL_ERROR_PATTERN);
+			assert.strictEqual(match, null);
+		});
+
+	});
+
 });

@@ -43,12 +43,15 @@ vscode-phpcs/
 Run all commands from the **root** directory:
 
 ```bash
-npm install          # Install all dependencies (runs postinstall for subdirs)
-npm run compile      # Build both client and server
-npm test             # Run all tests
-npm run test:server  # Run server tests only
-npm run lint:md      # Check markdown files
-npm run lint:md:fix  # Auto-fix markdown issues
+npm install                # Install all dependencies (runs postinstall for subdirs)
+npm run compile            # Build both client and server
+npm test                   # Run all tests
+npm run test:server        # Run server tests only
+npm run test:server:unit   # Run server unit tests only
+npm run test:server:coverage  # Run server tests with coverage report
+npm run lint:md            # Check markdown files
+npm run lint:md:fix        # Auto-fix markdown issues
+npm run format:md          # Format markdown files with Prettier
 ```
 
 ## PHPCS Version Compatibility
@@ -77,12 +80,18 @@ if (this.isV4OrAbove()) {
 Server tests are in `phpcs-server/test/`. Run with:
 
 ```bash
-npm run test:server
+npm run test:server           # All tests
+npm run test:server:unit      # Unit tests only
+npm run test:server:coverage  # Tests with coverage report
 ```
 
-Tests use Mocha with ts-node. Key test files:
+Tests use Mocha with tsx. Key test files:
 
 - `linter.test.ts` - Version detection, STDERR handling, exit codes
+- `linter-utils.test.ts` - Pure utility functions (argument building, parsing, etc.)
+- `extfs.test.ts` - File system utilities
+- `integration.test.ts` - Integration tests (require PHPCS installed)
+- `base/common/strings.test.ts` - String utility functions
 
 ## Common Tasks
 
@@ -95,11 +104,21 @@ Tests use Mocha with ts-node. Key test files:
 
 ### Modifying Linter Behavior
 
-The main linting logic is in `phpcs-server/src/linter.ts`:
+The linting logic is split between two files:
+
+**`phpcs-server/src/linter.ts`** - Main linter class:
 
 - `PhpcsLinter.create()` - Factory method, detects PHPCS version
 - `lint()` - Main linting method, handles PHPCS execution
-- `parseData()` - Parses JSON output from PHPCS
+
+**`phpcs-server/src/linter-utils.ts`** - Pure utility functions (testable):
+
+- `buildLintArguments()` - Builds PHPCS command line arguments
+- `parsePhpcsOutput()` - Parses JSON output from PHPCS
+- `createDiagnosticFromMessage()` - Creates VS Code diagnostics
+- `transformIgnorePattern()` - Transforms ignore patterns for micromatch
+- `extractFatalError()` - Extracts fatal errors from STDERR
+- `getV4ExitCodeError()` - Handles PHPCS v4 exit codes
 
 ### Error Messages
 
@@ -112,3 +131,13 @@ for parameterized messages.
 - Tabs for indentation
 - Single quotes for strings
 - JSDoc comments for public methods
+
+## Repository Information
+
+This is a fork maintained at `JohnRDOrazio/vscode-phpcs`. The original
+repositories (`ikappas/vscode-phpcs`, `shevaua/vscode-phpcs`) are no longer
+actively maintained.
+
+**Important**: Only create GitHub issues and pull requests on the
+`JohnRDOrazio/vscode-phpcs` repository. Do NOT create issues on the original
+`ikappas` or `shevaua` repositories.
