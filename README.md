@@ -4,6 +4,9 @@
 [![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/johnrdorazio.phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=johnrdorazio.phpcs)
 [![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/johnrdorazio.phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=johnrdorazio.phpcs)
 [![VS Code Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/johnrdorazio.phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=johnrdorazio.phpcs)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/johnrdorazio/phpcs?cacheSeconds=86400)](https://open-vsx.org/extension/johnrdorazio/phpcs)
+[![Open VSX Downloads](https://img.shields.io/open-vsx/dt/johnrdorazio/phpcs?cacheSeconds=86400)](https://open-vsx.org/extension/johnrdorazio/phpcs)
+[![Open VSX Rating](https://img.shields.io/open-vsx/rating/johnrdorazio/phpcs?cacheSeconds=86400)](https://open-vsx.org/extension/johnrdorazio/phpcs)
 
 Integrates [phpcs](https://github.com/squizlabs/PHP_CodeSniffer.git) into [Visual Studio Code](https://code.visualstudio.com/).
 
