@@ -122,6 +122,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./phpcs-server/coverage
           fail_ci_if_error: false
           verbose: true
