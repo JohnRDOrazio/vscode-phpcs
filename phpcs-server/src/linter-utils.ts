@@ -6,6 +6,7 @@
 
 import * as mm from 'micromatch';
 import * as semver from 'semver';
+import * as strings from './base/common/strings';
 import CharCode from './base/common/charcode';
 import { StringResources as SR } from './strings';
 import { PhpcsMessage } from './message';
@@ -100,16 +101,69 @@ export function shouldIgnoreFile(filePath: string, patterns: string[]): boolean 
 }
 
 /**
+ * Maximum characters to include in error preview.
+ */
+const OUTPUT_PREVIEW_MAX_LENGTH = 500;
+
+/**
+ * Create a preview of raw output for error messages.
+ * @param text The raw output text
+ * @param maxLength Maximum characters to include
+ * @returns Truncated preview with indicator if truncated
+ */
+function createOutputPreview(text: string, maxLength: number = OUTPUT_PREVIEW_MAX_LENGTH): string {
+	if (text.length <= maxLength) {
+		return text;
+	}
+	return text.substring(0, maxLength) + '... [truncated]';
+}
+
+/**
+ * Context information for PHPCS execution diagnostics.
+ */
+export interface PhpcsExecutionContext {
+	exitCode: number | null;
+	signal: string | null;
+	stderr: string;
+}
+
+/**
  * Parse PHPCS JSON output.
  * @param text The raw JSON output from PHPCS
+ * @param context Optional execution context for better error diagnostics
  * @returns Parsed result object
- * @throws Error if JSON is invalid
+ * @throws Error if JSON is invalid, including a preview of the raw output
  */
-export function parsePhpcsOutput(text: string): PhpcsParseResult {
+export function parsePhpcsOutput(text: string, context?: PhpcsExecutionContext): PhpcsParseResult {
 	try {
 		return JSON.parse(text) as PhpcsParseResult;
 	} catch (error) {
-		throw new Error(SR.InvalidJsonStringError);
+		let errorMessage: string;
+
+		if (text.length === 0) {
+			// Empty output - provide execution context
+			const parts: string[] = ['PHPCS returned empty output.'];
+
+			if (context) {
+				if (context.signal) {
+					parts.push(`Process was killed by signal: ${context.signal}`);
+				} else if (context.exitCode !== null && context.exitCode !== 0) {
+					parts.push(`Exit code: ${context.exitCode}`);
+				}
+				if (context.stderr) {
+					parts.push(`STDERR: ${createOutputPreview(context.stderr)}`);
+				}
+			}
+
+			parts.push('This may indicate a timeout, memory limit, or crash.');
+			errorMessage = parts.join(' ');
+		} else {
+			// Non-empty but invalid JSON
+			const preview = createOutputPreview(text);
+			errorMessage = strings.format(SR.InvalidJsonStringErrorWithPreview, text.length.toString(), preview);
+		}
+
+		throw new Error(errorMessage);
 	}
 }
 

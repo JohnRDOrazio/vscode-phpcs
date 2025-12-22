@@ -17,6 +17,7 @@ import {
 	getV4ExitCodeError,
 	isIgnorePatternMatch,
 	parsePhpcsOutput,
+	PhpcsExecutionContext,
 	prepareFileText,
 	shouldIgnoreFile,
 	transformIgnorePattern,
@@ -105,12 +106,72 @@ suite('Linter Utils', () => {
 			assert.deepStrictEqual(result.files, {});
 		});
 
-		test('should throw on invalid JSON', () => {
-			assert.throws(() => parsePhpcsOutput('invalid'), /invalid json/i);
+		test('should throw on invalid JSON with raw output preview', () => {
+			const invalidInput = 'this is not valid json';
+			assert.throws(
+				() => parsePhpcsOutput(invalidInput),
+				(error: Error) => {
+					return error.message.includes('invalid json') &&
+						error.message.includes(invalidInput) &&
+						error.message.includes('22 chars total');
+				}
+			);
 		});
 
-		test('should throw on empty string', () => {
-			assert.throws(() => parsePhpcsOutput(''), /invalid json/i);
+		test('should throw on empty string with context info', () => {
+			assert.throws(
+				() => parsePhpcsOutput(''),
+				(error: Error) => {
+					return error.message.includes('PHPCS returned empty output') &&
+						error.message.includes('timeout, memory limit, or crash');
+				}
+			);
+		});
+
+		test('should include exit code in empty output error', () => {
+			const context: PhpcsExecutionContext = { exitCode: 255, signal: null, stderr: '' };
+			assert.throws(
+				() => parsePhpcsOutput('', context),
+				(error: Error) => {
+					return error.message.includes('PHPCS returned empty output') &&
+						error.message.includes('Exit code: 255');
+				}
+			);
+		});
+
+		test('should include signal in empty output error', () => {
+			const context: PhpcsExecutionContext = { exitCode: null, signal: 'SIGKILL', stderr: '' };
+			assert.throws(
+				() => parsePhpcsOutput('', context),
+				(error: Error) => {
+					return error.message.includes('PHPCS returned empty output') &&
+						error.message.includes('killed by signal: SIGKILL');
+				}
+			);
+		});
+
+		test('should include stderr in empty output error', () => {
+			const context: PhpcsExecutionContext = { exitCode: 1, signal: null, stderr: 'PHP Fatal error: Allowed memory size exhausted' };
+			assert.throws(
+				() => parsePhpcsOutput('', context),
+				(error: Error) => {
+					return error.message.includes('PHPCS returned empty output') &&
+						error.message.includes('STDERR: PHP Fatal error');
+				}
+			);
+		});
+
+		test('should truncate long output in error preview', () => {
+			const longInvalidInput = 'x'.repeat(600);
+			assert.throws(
+				() => parsePhpcsOutput(longInvalidInput),
+				(error: Error) => {
+					return error.message.includes('invalid json') &&
+						error.message.includes('600 chars total') &&
+						error.message.includes('... [truncated]') &&
+						!error.message.includes('x'.repeat(600));
+				}
+			);
 		});
 
 		test('should parse STDIN key', () => {

@@ -20,7 +20,8 @@ export class StringResources {
 
 	static readonly UnknownExecutionError: string = 'Unknown error ocurred. Please verify that {0} returns a valid json object.';
 	static readonly CodingStandardNotInstalledError: string = 'The "{0}" coding standard is not installed. Please review your configuration an try again.';
-	static readonly InvalidJsonStringError: string = 'The phpcs report contains invalid json. Please review "Diagnosing Common Errors" in the plugin README';
+	static readonly InvalidJsonStringError: string = 'The phpcs report contains invalid json. Please review "Diagnosing Common Errors" in the plugin README.';
+	static readonly InvalidJsonStringErrorWithPreview: string = 'The phpcs report contains invalid json. Raw output preview ({0} chars total):\n{1}';
 
 	// PHPCS v4 specific error messages
 	static readonly ProcessingError: string = 'PHPCS encountered a processing error (exit code 16). Please check your ruleset configuration.';
