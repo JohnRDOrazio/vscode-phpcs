@@ -14,6 +14,10 @@ Integrates [phpcs](https://github.com/squizlabs/PHP_CodeSniffer.git) into [Visua
 
 **Supports PHPCS versions 1.x, 2.x, 3.x, and 4.x.**
 
+> **Note:** This extension requires a local Node.js runtime and does not work on
+> web platforms (github.dev, vscode.dev). It needs to spawn PHPCS as a child
+> process, which is not possible in browser-based environments.
+
 For release notes and version history, see the [Changelog](phpcs/CHANGELOG.md).
 
 ## Setup Development Version
@@ -38,18 +42,22 @@ For release notes and version history, see the [Changelog](phpcs/CHANGELOG.md).
 
 ### Building
 
-To compile the extension, run from the **root** directory:
+To build the extension, run from the **root** directory:
 
 ```bash
-npm run compile
+npm run bundle        # Production build (minified)
+npm run bundle-dev    # Development build (with sourcemaps)
 ```
 
-This will:
+This uses [esbuild](https://esbuild.github.io/) to bundle both the client and
+server into single JavaScript files in `phpcs/dist/`.
 
-1. Clean previous build artifacts
-2. Compile the server TypeScript (`phpcs-server/`)
-3. Compile the client TypeScript (`phpcs/`)
-4. Copy the server package.json and install production dependencies
+To create a `.vsix` package for installation:
+
+```bash
+npm run package-prod  # Production package (~177KB compressed)
+npm run package-dev   # Development package with sourcemaps (~388KB compressed)
+```
 
 ### Running Tests
 
@@ -74,3 +82,40 @@ automatically using the development version of the `phpcs` extension.
 > **Note:** If you don't have an open PHP file in the Extension Development
 > Host, the server debug session will timeout and you will need to relaunch
 > it from the debug panel.
+
+## Architecture
+
+This extension uses the [Language Server Protocol (LSP)](https://microsoft.github.io/language-server-protocol/)
+architecture, which separates the extension into two components:
+
+- **Client** (`phpcs/`): The VS Code extension that communicates with the editor
+- **Server** (`phpcs-server/`): A separate Node.js process that runs PHPCS and
+  reports diagnostics
+
+### Why LSP?
+
+The LSP architecture provides several benefits:
+
+1. **Non-blocking linting**: The server runs in a separate process, so heavy
+   PHPCS operations don't freeze the VS Code UI
+2. **Better resource isolation**: Memory and CPU usage are isolated from the
+   main extension host
+3. **Standardized protocol**: Uses the same protocol as other language servers,
+   making the codebase more maintainable
+
+### Extension Size
+
+This extension is larger (~650KB uncompressed) compared to simpler alternatives
+(~185KB) because it bundles the LSP libraries:
+
+| Component                      | Size   |
+| ------------------------------ | ------ |
+| vscode-languageclient          | ~100KB |
+| vscode-languageserver          | ~80KB  |
+| vscode-languageserver-protocol | ~45KB  |
+| vscode-jsonrpc                 | ~35KB  |
+| Other dependencies             | ~40KB  |
+| Extension code                 | ~10KB  |
+
+The trade-off is worth it: the LSP approach ensures VS Code remains responsive
+even when linting large files or projects with many PHP files.

@@ -55,7 +55,8 @@
     "typecheck": "tsc -p phpcs-server/tsconfig.json --noEmit && tsc -p phpcs/tsconfig.json --noEmit",
     "lint-staged": "lint-staged",
     "package": "cd phpcs && vsce package",
-    "package:pre": "npm run bundle",
+    "package-dev": "npm-run-all --serial bundle-dev package",
+    "package-prod": "npm-run-all --serial bundle package",
     "prepare": "husky"
   },
   "engines": {
