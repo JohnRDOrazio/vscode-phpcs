@@ -30,6 +30,7 @@ import {
 	parsePhpcsOutput,
 	prepareFileText,
 	shouldIgnoreFile,
+	PhpcsExecutionContext,
 } from "./linter-utils";
 
 // Re-export for backward compatibility
@@ -193,6 +194,14 @@ export class PhpcsLinter {
 		const stdout = (phpcs.stdout ?? '').toString().trim();
 		const stderr = (phpcs.stderr ?? '').toString().trim();
 		const exitCode = phpcs.status;
+		const signal = phpcs.signal;
+
+		// Build execution context for diagnostics
+		const executionContext: PhpcsExecutionContext = {
+			exitCode,
+			signal,
+			stderr,
+		};
 
 		// Handle PHPCS v4+ exit codes first.
 		if (this.isV4OrAbove()) {
@@ -228,7 +237,7 @@ export class PhpcsLinter {
 		}
 
 		// Parse PHPCS output
-		const data = parsePhpcsOutput(stdout);
+		const data = parsePhpcsOutput(stdout, executionContext);
 
 		// Get messages from the appropriate file key
 		let messages;
