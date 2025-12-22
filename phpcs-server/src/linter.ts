@@ -5,18 +5,14 @@
 "use strict";
 import * as cp from "child_process";
 import * as extfs from "./base/node/extfs";
-import * as mm from "micromatch";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
 import * as spawn from "cross-spawn";
 import * as strings from "./base/common/strings";
-import CharCode from "./base/common/charcode";
 
 import {
 	Diagnostic,
-	DiagnosticSeverity,
-	Range,
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -24,23 +20,28 @@ import { URI } from "vscode-uri";
 
 import { StringResources as SR } from "./strings";
 import { PhpcsSettings } from "./settings";
-import { PhpcsMessage } from "./message";
+
+import {
+	buildLintArguments,
+	createDiagnosticFromMessage,
+	extractFatalError,
+	extractStdoutError,
+	getV4ExitCodeError,
+	parsePhpcsOutput,
+	prepareFileText,
+	shouldIgnoreFile,
+} from "./linter-utils";
+
+// Re-export for backward compatibility
+export { FATAL_ERROR_PATTERN } from "./linter-utils";
 
 export type LoggerFunction = (message: string) => void;
-
-/**
- * Regex pattern for detecting fatal errors in STDERR.
- * Matches both "FATAL ERROR: ..." and "PHP FATAL ERROR: ..."
- * Exported for testing purposes.
- */
-export const FATAL_ERROR_PATTERN = /^(?:PHP\s?)?FATAL\s?ERROR:\s?(.*)/i;
 
 export class PhpcsLinter {
 
 	private executablePath: string;
 	private executableVersion: string;
 	private isV4: boolean;
-	private ignorePatternReplacements: Map<RegExp, string> | null = null;
 	private logger: LoggerFunction | null = null;
 
 	private constructor(executablePath: string, executableVersion: string) {
@@ -131,24 +132,6 @@ export class PhpcsLinter {
 			return [];
 		}
 
-		// Process linting arguments.
-		let lintArgs = ['--report=json'];
-
-		// -q (quiet) option is available since phpcs 2.6.2
-		if (semver.gte(this.executableVersion, '2.6.2')) {
-			lintArgs.push('-q');
-		}
-
-		// Show sniff source codes in report output.
-		if (settings.showSources === true) {
-			lintArgs.push('-s');
-		}
-
-		// --encoding option is available since 1.3.0
-		if (semver.gte(this.executableVersion, '1.3.0')) {
-			lintArgs.push('--encoding=UTF-8');
-		}
-
 		// Check if a config file exists and handle it
 		let standard: string | null = null;
 		if (settings.autoConfigSearch && workspaceRoot !== null && filePath !== undefined) {
@@ -163,7 +146,7 @@ export class PhpcsLinter {
 
 			const fileDir = path.relative(workspaceRoot, path.dirname(filePath));
 
-			const confFile = !settings.ignorePatterns.some(pattern => this.isIgnorePatternMatch(filePath, pattern))
+			const confFile = !shouldIgnoreFile(filePath, settings.ignorePatterns)
 				? await extfs.findAsync(workspaceRoot, fileDir, confFileNames)
 				: null;
 
@@ -172,56 +155,30 @@ export class PhpcsLinter {
 			standard = settings.standard;
 		}
 
-		if (standard) {
-			lintArgs.push(`--standard=${standard}`);
+		// Check if file should be ignored for PHPCS < 3.0.0 (Skip for in-memory documents)
+		if (
+			filePath !== undefined &&
+			settings.ignorePatterns.length &&
+			!semver.gte(this.executableVersion, '3.0.0') &&
+			shouldIgnoreFile(filePath, settings.ignorePatterns)
+		) {
+			return [];
 		}
 
-		// Check if file should be ignored (Skip for in-memory documents)
-		if (filePath !== undefined && settings.ignorePatterns.length) {
-			if (semver.gte(this.executableVersion, '3.0.0')) {
-				// PHPCS v3 and up support this with STDIN files
-				lintArgs.push(`--ignore=${settings.ignorePatterns.join()}`);
-			} else if (settings.ignorePatterns.some(pattern => this.isIgnorePatternMatch(filePath, pattern))) {
-				// We must determine this ourself for lower versions
-				return [];
-			}
-		}
+		// Build lint arguments using the extracted function
+		const lintArgs = buildLintArguments({
+			executableVersion: this.executableVersion,
+			filePath,
+			standard,
+			showSources: settings.showSources,
+			showWarnings: settings.showWarnings,
+			errorSeverity: settings.errorSeverity,
+			warningSeverity: settings.warningSeverity,
+			ignorePatterns: settings.ignorePatterns,
+		});
 
-		lintArgs.push(`--error-severity=${settings.errorSeverity}`);
-
-		let warningSeverity = settings.warningSeverity;
-		if (settings.showWarnings === false) {
-			warningSeverity = 0;
-		}
-		lintArgs.push(`--warning-severity=${warningSeverity}`);
-
-		let text = fileText;
-
-		// Determine the method of setting the file name
-		if (filePath !== undefined) {
-			switch (true) {
-
-				// PHPCS 2.6 and above support sending the filename in a flag
-				case semver.gte(this.executableVersion, '2.6.0'):
-					lintArgs.push(`--stdin-path=${filePath}`);
-					break;
-
-				// PHPCS 2.x.x before 2.6.0 supports putting the name in the start of the stream
-				case semver.satisfies(this.executableVersion, '>=2.0.0 <2.6.0'):
-					// TODO: This needs to be document specific.
-					const eolChar = os.EOL;
-					text = `phpcs_input_file: ${filePath}${eolChar}${fileText}`;
-					break;
-
-				// PHPCS v1 supports stdin, but ignores all filenames.
-				default:
-					// Nothing to do
-					break;
-			}
-		}
-
-		// Finish off the parameter list
-		lintArgs.push('-');
+		// Prepare file text (handles version-specific requirements)
+		const text = prepareFileText(fileText, filePath, this.executableVersion, os.EOL);
 
 		const forcedKillTime = 1000 * 60 * 5; // ms * s * m: 5 minutes
 		const options = {
@@ -236,34 +193,23 @@ export class PhpcsLinter {
 		const stdout = (phpcs.stdout ?? '').toString().trim();
 		const stderr = (phpcs.stderr ?? '').toString().trim();
 		const exitCode = phpcs.status;
-		let match = null;
 
 		// Handle PHPCS v4+ exit codes first.
-		// v4 exit codes: 0=clean, 1=fixable issues, 2=non-fixable issues, 3=both,
-		// 16=processing error, 64=requirements not met
 		if (this.isV4OrAbove()) {
-			if (exitCode === 16) {
-				throw new Error(SR.ProcessingError);
+			const exitCodeError = getV4ExitCodeError(exitCode);
+			if (exitCodeError) {
+				throw new Error(exitCodeError);
 			}
-			if (exitCode === 64) {
-				throw new Error(SR.RequirementsNotMetError);
-			}
-			// Exit codes 0, 1, 2, 3 are normal operation - continue processing
 		}
 
-		// Determine whether we have an error in stderr.
-		// Check for actual fatal errors (applies to both v3 and v4)
+		// Check for fatal errors in stderr
 		if (stderr !== '') {
-			if (match = stderr.match(FATAL_ERROR_PATTERN)) {
-				let error = match[1].trim();
-				if (match = error.match(/^Uncaught exception '.*' with message '(.*)'/)) {
-					throw new Error(match[1]);
-				}
-				throw new Error(error);
+			const fatalError = extractFatalError(stderr);
+			if (fatalError) {
+				throw new Error(fatalError);
 			}
 
 			// For PHPCS v4+, non-fatal stderr content is normal (progress/debug output).
-			// Log it for debugging purposes.
 			// For v3 and below, any other stderr content indicates an error.
 			if (this.isV4OrAbove()) {
 				this.log(`[PHPCS v4 STDERR] ${stderr}`);
@@ -272,18 +218,20 @@ export class PhpcsLinter {
 			}
 		}
 
-		// Determine whether we have an error in stdout.
-		if (match = stdout.match(/^ERROR:\s?(.*)/i)) {
-			let error = match[1].trim();
-			if (match = error.match(/^the \"(.*)\" coding standard is not installed\./)) {
-				throw new Error(strings.format(SR.CodingStandardNotInstalledError, match[1]));
+		// Check for errors in stdout
+		const stdoutError = extractStdoutError(stdout);
+		if (stdoutError) {
+			if (stdoutError.codingStandard) {
+				throw new Error(strings.format(SR.CodingStandardNotInstalledError, stdoutError.codingStandard));
 			}
-			throw new Error(error);
+			throw new Error(stdoutError.message);
 		}
 
-		const data = this.parseData(stdout);
+		// Parse PHPCS output
+		const data = parsePhpcsOutput(stdout);
 
-		let messages: Array<PhpcsMessage>;
+		// Get messages from the appropriate file key
+		let messages;
 		if (filePath !== undefined && semver.gte(this.executableVersion, '2.0.0')) {
 			const fileRealPath = extfs.realpathSync(filePath);
 			if (!data.files[fileRealPath]) {
@@ -298,92 +246,9 @@ export class PhpcsLinter {
 			({ messages } = data.files.STDIN);
 		}
 
-		let diagnostics: Diagnostic[] = [];
-		messages.map(message => diagnostics.push(
-			this.createDiagnostic(document, message, settings.showSources)
-		));
-
-		return diagnostics;
-	}
-
-	private parseData(text: string) {
-		try {
-			return JSON.parse(text) as { files: any };
-		} catch (error) {
-			throw new Error(SR.InvalidJsonStringError);
-		}
-	}
-
-	private createDiagnostic(document: TextDocument, entry: PhpcsMessage, showSources: boolean): Diagnostic {
-
-		let lines = document.getText().split("\n");
-		let line = entry.line - 1;
-		let lineString = lines[line];
-
-		// Process diagnostic start and end characters.
-		let startCharacter = entry.column - 1;
-		let endCharacter = entry.column;
-		let charCode = lineString.charCodeAt(startCharacter);
-		if (CharCode.isWhiteSpace(charCode)) {
-			for (let i = startCharacter + 1, len = lineString.length; i < len; i++) {
-				charCode = lineString.charCodeAt(i);
-				if (!CharCode.isWhiteSpace(charCode)) {
-					break;
-				}
-				endCharacter = i;
-			}
-		} else if (CharCode.isAlphaNumeric(charCode) || CharCode.isSymbol(charCode)) {
-			// Get the whole word
-			for (let i = startCharacter + 1, len = lineString.length; i < len; i++) {
-				charCode = lineString.charCodeAt(i);
-				if (!CharCode.isAlphaNumeric(charCode) && charCode !== 95) {
-					break;
-				}
-				endCharacter++;
-			}
-			// Move backwards
-			for (let i = startCharacter, len = 0; i > len; i--) {
-				charCode = lineString.charCodeAt(i - 1);
-				if (!CharCode.isAlphaNumeric(charCode) && !CharCode.isSymbol(charCode) && charCode !== 95) {
-					break;
-				}
-				startCharacter--;
-			}
-		}
-
-		// Process diagnostic range.
-		const range: Range = Range.create(line, startCharacter, line, endCharacter);
-
-		// Process diagnostic sources.
-		let message: string = entry.message;
-		if (showSources) {
-			message += `\n(${entry.source})`;
-		}
-
-		// Process diagnostic severity.
-		let severity: DiagnosticSeverity = DiagnosticSeverity.Error;
-		if (entry.type === "WARNING") {
-			severity = DiagnosticSeverity.Warning;
-		}
-
-		return Diagnostic.create(range, message, severity, undefined, 'phpcs');
-	}
-
-	protected getIgnorePatternReplacements(): Map<RegExp, string> {
-		if (!this.ignorePatternReplacements) {
-			this.ignorePatternReplacements = new Map([
-				[/^\*\//, '**/'], // */some/path => **/some/path
-				[/\/\*$/, '/**'], // some/path/* => some/path/**
-				[/\/\*\//g, '/**/'], // some/*/path => some/**/path
-			]);
-		}
-		return this.ignorePatternReplacements;
-	}
-
-	protected isIgnorePatternMatch(path: string, pattern: string): boolean {
-		for (let [searchValue, replaceValue] of this.getIgnorePatternReplacements()) {
-			pattern = pattern.replace(searchValue, replaceValue);
-		}
-		return mm.isMatch(path, pattern);
+		// Create diagnostics using the extracted function
+		return messages.map(message =>
+			createDiagnosticFromMessage(document, message, settings.showSources)
+		);
 	}
 }
