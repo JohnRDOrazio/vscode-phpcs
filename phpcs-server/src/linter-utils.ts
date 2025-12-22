@@ -2,21 +2,21 @@
  * Copyright (c) Ioannis Kappas. All rights reserved.
  * Licensed under the MIT License. See License.md in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-"use strict";
+'use strict';
 
-import * as mm from "micromatch";
-import * as semver from "semver";
-import CharCode from "./base/common/charcode";
-import { StringResources as SR } from "./strings";
-import { PhpcsMessage } from "./message";
+import * as mm from 'micromatch';
+import * as semver from 'semver';
+import CharCode from './base/common/charcode';
+import { StringResources as SR } from './strings';
+import { PhpcsMessage } from './message';
 
 import {
 	Diagnostic,
 	DiagnosticSeverity,
 	Range,
-} from "vscode-languageserver/node";
+} from 'vscode-languageserver/node';
 
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
  * Regex pattern for detecting fatal errors in STDERR.
@@ -213,7 +213,7 @@ export function createDiagnosticFromMessage(
 	message: PhpcsMessage,
 	showSources: boolean
 ): Diagnostic {
-	const lines = document.getText().split("\n");
+	const lines = document.getText().split('\n');
 	const line = message.line - 1;
 	const lineString = lines[line] || '';
 
@@ -263,7 +263,7 @@ export function createDiagnosticFromMessage(
 	}
 
 	// Map severity
-	const severity = message.type === "WARNING"
+	const severity = message.type === 'WARNING'
 		? DiagnosticSeverity.Warning
 		: DiagnosticSeverity.Error;
 
