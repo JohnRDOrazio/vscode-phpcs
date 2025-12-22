@@ -114,3 +114,6 @@ typings/
 # dotenv environment variables file
 .env
 .actrc
+
+# Claude Code commands
+.claude/
