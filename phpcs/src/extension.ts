@@ -27,13 +27,18 @@ import { ConfigurationParams } from "vscode-languageserver-protocol";
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
 
+/**
+ * Activates the extension: starts and configures the PHPCS language client, registers notifications and disposables.
+ *
+ * @param context - VS Code extension context used to register subscriptions and resolve extension paths
+ */
 export function activate(context: ExtensionContext) {
 
 	let client: LanguageClient;
 	let config: PhpcsConfiguration;
 
 	// The server is implemented in node
-	let serverModule = context.asAbsolutePath(path.join("server", "src", "server.js"));
+	let serverModule = context.asAbsolutePath(path.join("dist", "server.js"));
 
 	// The debug options for the server
 	let debugOptions = { execArgv: ["--nolazy", "--inspect=6199"] };

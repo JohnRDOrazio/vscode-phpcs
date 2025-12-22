@@ -32,8 +32,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Compile
-        run: npm run compile
+      - name: Bundle
+        run: npm run bundle
 
       - name: Run unit tests
         run: npm run test:server:unit
@@ -89,8 +89,8 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
-      - name: Compile
-        run: npm run compile
+      - name: Bundle
+        run: npm run bundle
 
       - name: Run integration tests
         env:
@@ -113,8 +113,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Compile
-        run: npm run compile
+      - name: Bundle
+        run: npm run bundle
 
       - name: Run tests with coverage
         run: npm run test:server:coverage
