@@ -27,6 +27,11 @@ import { ConfigurationParams } from "vscode-languageserver-protocol";
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
 
+/**
+ * Activates the extension: starts and configures the PHPCS language client, registers notifications and disposables.
+ *
+ * @param context - VS Code extension context used to register subscriptions and resolve extension paths
+ */
 export function activate(context: ExtensionContext) {
 
 	let client: LanguageClient;
