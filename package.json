@@ -42,6 +42,8 @@
     "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
     "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
     "format:md": "prettier --write \"**/*.md\" \"!**/node_modules/**\"",
+    "typecheck": "tsc -p phpcs-server/tsconfig.json --noEmit && tsc -p phpcs/tsconfig.json --noEmit",
+    "lint-staged": "lint-staged",
     "package": "cd phpcs && vsce package",
     "package:pre": "npm run compile",
     "prepare": "husky"

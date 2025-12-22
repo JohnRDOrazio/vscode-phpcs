@@ -1,6 +1,5 @@
 # TypeScript type checking
-npx tsc -p phpcs-server/tsconfig.json --noEmit
-npx tsc -p phpcs/tsconfig.json --noEmit
+npm run typecheck
 
 # Lint staged files
-npx lint-staged
+npm run lint-staged
