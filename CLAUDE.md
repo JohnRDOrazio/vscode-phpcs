@@ -141,3 +141,16 @@ actively maintained.
 **Important**: Only create GitHub issues and pull requests on the
 `JohnRDOrazio/vscode-phpcs` repository. Do NOT create issues on the original
 `ikappas` or `shevaua` repositories.
+
+### GitHub CLI Configuration
+
+The repository has `gh repo set-default` configured to use `JohnRDOrazio/vscode-phpcs`.
+This ensures that `gh pr create`, `gh issue create`, and similar commands target
+the correct repository instead of the upstream `ikappas/vscode-phpcs`.
+
+To verify or set this configuration:
+
+```bash
+gh repo set-default --view              # View current default
+gh repo set-default JohnRDOrazio/vscode-phpcs  # Set default
+```
