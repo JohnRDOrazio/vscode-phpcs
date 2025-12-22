@@ -1,5 +1,6 @@
 # Extension specific
 */out/
+*/dist/
 *.vsix
 phpcs/server
 

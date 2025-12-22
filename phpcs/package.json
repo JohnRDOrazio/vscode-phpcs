@@ -42,7 +42,7 @@
   "activationEvents": [
     "onLanguage:php"
   ],
-  "main": "./out/src/extension",
+  "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
       "type": "object",

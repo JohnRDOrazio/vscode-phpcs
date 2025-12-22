@@ -36,16 +36,26 @@
     "install:server-deps": "npm install --omit=dev --ignore-scripts --prefix phpcs/server",
     "watch:server": "tsc -w -p phpcs-server/tsconfig.json",
     "watch:client": "tsc -w -p phpcs/tsconfig.json",
+    "bundle": "npm-run-all --serial clean:dist esbuild:server esbuild:client",
+    "bundle-dev": "npm-run-all --serial clean:dist esbuild-dev:server esbuild-dev:client",
+    "bundle-watch": "npm-run-all --parallel esbuild-watch:server esbuild-watch:client",
+    "esbuild:server": "cd phpcs-server && node esbuild.js --production",
+    "esbuild:client": "cd phpcs && node esbuild.js --production",
+    "esbuild-dev:server": "cd phpcs-server && node esbuild.js",
+    "esbuild-dev:client": "cd phpcs && node esbuild.js",
+    "esbuild-watch:server": "cd phpcs-server && node esbuild.js --watch",
+    "esbuild-watch:client": "cd phpcs && node esbuild.js --watch",
     "clean": "npm-run-all --parallel clean:*",
     "clean:server": "cd phpcs-server && npm run clean",
     "clean:client": "cd phpcs && npm run clean",
+    "clean:dist": "rimraf phpcs/dist",
     "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
     "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\" \"#.yarn\"",
     "format:md": "prettier --write \"**/*.md\" \"!**/node_modules/**\"",
     "typecheck": "tsc -p phpcs-server/tsconfig.json --noEmit && tsc -p phpcs/tsconfig.json --noEmit",
     "lint-staged": "lint-staged",
     "package": "cd phpcs && vsce package",
-    "package:pre": "npm run compile",
+    "package:pre": "npm run bundle",
     "prepare": "husky"
   },
   "engines": {
@@ -62,6 +72,7 @@
     "@types/semver": "^7.5.8",
     "@vscode/vsce": "^3.2.1",
     "cpy-cli": "^5.0.0",
+    "esbuild": "^0.27.2",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "markdownlint-cli2": "^0.20.0",
@@ -71,6 +82,6 @@
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   }
 }
