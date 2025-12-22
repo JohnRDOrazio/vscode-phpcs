@@ -5,6 +5,20 @@ All notable changes to the "phpcs" extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-12-22
+
+### Changed
+
+- Switched from TypeScript compilation to esbuild bundling for faster extension
+  activation and smaller package size (~177KB compressed vs previous ~500KB)
+- Updated TypeScript from v5.7.2 to v5.9.3
+
+### Added
+
+- Architecture documentation in README explaining LSP design and size trade-offs
+- Note about web platform limitations (github.dev, vscode.dev not supported)
+- Convenience scripts: `package-dev` and `package-prod` for building VSIX packages
+
 ## [1.1.0] - 2025-12-18
 
 ### Added
