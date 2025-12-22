@@ -179,7 +179,7 @@ configuration. Overrides `phpcs.standard` configuration when a ruleset is found.
 
 ### **phpcs.ignorePatterns**
 
-[ _Scope:_ All | Optional | _Type:_ array | _Default:_ [] ]
+[ *Scope:* All | Optional | *Type:* array | *Default:* [] ]
 
 An array of glob patterns to skip files and folders that match when linting your documents.
 
@@ -191,7 +191,7 @@ An array of glob patterns to skip files and folders that match when linting your
 
 ### **phpcs.ignoreSource**
 
-[ _Scope:_ All | Optional | _Type:_ array | _Default:_ [] ]
+[ *Scope:* All | Optional | *Type:* array | *Default:* [] ]
 
 An array of ignored sources. It could be file, gitfs or another file system of any extension
 
