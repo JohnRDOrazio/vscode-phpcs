@@ -27,6 +27,11 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
+/**
+ * Create an esbuild context for the VS Code extension and either start file watching or perform a single rebuild and clean up.
+ *
+ * The build configuration targets Node CommonJS, bundles "src/extension.ts" to "dist/extension.js", treats "vscode" as external, and attaches the esbuildProblemMatcherPlugin. Behavior is affected by the top-level flags: `production` (enables minification and disables sourcemaps) and `watch` (starts persistent watch mode when true).
+ */
 async function main() {
 	const ctx = await esbuild.context({
 		entryPoints: ["src/extension.ts"],

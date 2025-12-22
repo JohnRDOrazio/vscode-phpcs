@@ -27,6 +27,11 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
+/**
+ * Create and run the esbuild build context for the project, using watch mode when enabled.
+ *
+ * In watch mode this starts continuous builds; otherwise it performs a single rebuild and disposes the build context after completion.
+ */
 async function main() {
 	const ctx = await esbuild.context({
 		entryPoints: ["src/server.ts"],
