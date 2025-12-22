@@ -6,8 +6,8 @@
 
 import * as assert from 'assert';
 import * as semver from 'semver';
-import * as mm from 'micromatch';
 import { FATAL_ERROR_PATTERN } from '../src/linter';
+import { transformIgnorePattern, isIgnorePatternMatch } from '../src/linter-utils';
 
 /**
  * Tests for PHPCS version comparison logic used in linter.ts
@@ -233,30 +233,9 @@ suite('Linter Version Handling', () => {
 	});
 
 	/**
-	 * Test ignore pattern matching logic (mirrors isIgnorePatternMatch in linter.ts)
+	 * Test ignore pattern matching logic using imported functions from linter-utils.ts
 	 */
 	suite('Ignore pattern matching', () => {
-
-		/**
-		 * Applies the same pattern replacements as PhpcsLinter.getIgnorePatternReplacements()
-		 */
-		const applyPatternReplacements = (pattern: string): string => {
-			const replacements: [RegExp, string][] = [
-				[/^\*\//, '**/'],      // */some/path => **/some/path
-				[/\/\*$/, '/**'],      // some/path/* => some/path/**
-				[/\/\*\//g, '/**/'],   // some/*/path => some/**/path
-			];
-
-			for (const [searchValue, replaceValue] of replacements) {
-				pattern = pattern.replace(searchValue, replaceValue);
-			}
-			return pattern;
-		};
-
-		const isIgnorePatternMatch = (filePath: string, pattern: string): boolean => {
-			const transformedPattern = applyPatternReplacements(pattern);
-			return mm.isMatch(filePath, transformedPattern);
-		};
 
 		test('should match exact file path', () => {
 			assert.strictEqual(isIgnorePatternMatch('/path/to/file.php', '/path/to/file.php'), true);
@@ -272,20 +251,20 @@ suite('Linter Version Handling', () => {
 
 		test('should transform */pattern/* to **/pattern/**', () => {
 			const pattern = '*/vendor/*';
-			const transformed = applyPatternReplacements(pattern);
+			const transformed = transformIgnorePattern(pattern);
 			// Both leading */ and trailing /* get transformed
 			assert.strictEqual(transformed, '**/vendor/**');
 		});
 
 		test('should transform pattern/* to pattern/**', () => {
 			const pattern = 'vendor/*';
-			const transformed = applyPatternReplacements(pattern);
+			const transformed = transformIgnorePattern(pattern);
 			assert.strictEqual(transformed, 'vendor/**');
 		});
 
 		test('should transform /*/  to /**/ in middle of pattern', () => {
 			const pattern = 'path/*/file.php';
-			const transformed = applyPatternReplacements(pattern);
+			const transformed = transformIgnorePattern(pattern);
 			assert.strictEqual(transformed, 'path/**/file.php');
 		});
 

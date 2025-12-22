@@ -113,12 +113,24 @@ The linting logic is split between two files:
 
 **`phpcs-server/src/linter-utils.ts`** - Pure utility functions (testable):
 
+Functions:
+
 - `buildLintArguments()` - Builds PHPCS command line arguments
 - `parsePhpcsOutput()` - Parses JSON output from PHPCS
 - `createDiagnosticFromMessage()` - Creates VS Code diagnostics
 - `transformIgnorePattern()` - Transforms ignore patterns for micromatch
+- `isIgnorePatternMatch()` - Checks if a file path matches an ignore pattern
+- `shouldIgnoreFile()` - Checks if a file should be ignored based on patterns
+- `prepareFileText()` - Prepares file text for PHPCS input (version-specific)
 - `extractFatalError()` - Extracts fatal errors from STDERR
+- `extractStdoutError()` - Extracts errors from PHPCS stdout
 - `getV4ExitCodeError()` - Handles PHPCS v4 exit codes
+
+Types and constants:
+
+- `FATAL_ERROR_PATTERN` - Regex for detecting fatal errors in STDERR
+- `PhpcsParseResult` - Interface for parsed PHPCS JSON output
+- `LintArgumentOptions` - Interface for lint argument builder options
 
 ### Error Messages
 
