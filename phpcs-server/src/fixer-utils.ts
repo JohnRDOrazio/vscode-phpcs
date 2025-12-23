@@ -50,6 +50,8 @@ export enum PhpcbfExitCode {
 	FixedOrFixableRemain = 1,
 	/** v3: failed to fix some errors | v4: non-auto-fixable issues exist */
 	FailedOrNonFixable = 2,
+	/** v3 only: processing error */
+	V3ProcessingError = 3,
 	/** v4 only: failure to fix some files/fixer conflict */
 	FixFailure = 4,
 	/** v4 only: processing error blocking the run */
@@ -131,6 +133,16 @@ export function parseFixResult(
 			content: originalContent,
 			hasUnfixableIssues: false,
 			error: 'PHPCBF requirements not met (exit code 64). Please check your PHP version and installed extensions.',
+		};
+	}
+
+	// Check for processing errors (v3 only - exit code 3)
+	if (!isV4OrAbove && exitCode === PhpcbfExitCode.V3ProcessingError) {
+		return {
+			fixed: false,
+			content: originalContent,
+			hasUnfixableIssues: false,
+			error: 'PHPCBF encountered a processing error (exit code 3). Please check your ruleset configuration.',
 		};
 	}
 

@@ -163,6 +163,22 @@ suite('Fixer Utils', () => {
 			assert.ok(result.error!.includes('requirements not met'));
 		});
 
+		test('should return error for exit code 3 (processing error) in v3', () => {
+			const result = parseFixResult('', '', PhpcbfExitCode.V3ProcessingError, originalContent, false);
+			assert.strictEqual(result.fixed, false);
+			assert.ok(result.error);
+			assert.ok(result.error!.includes('processing error'));
+		});
+
+		test('should NOT treat exit code 3 as processing error in v4+', () => {
+			// In v4+, exit code 3 is a bitmask combination (1+2), not a processing error
+			const result = parseFixResult(originalContent, '', 3, originalContent, true);
+			// Should fall through to default case since 3 is not a defined v4 code
+			assert.strictEqual(result.fixed, false);
+			assert.ok(result.error);
+			assert.ok(result.error!.includes('unexpected exit code'));
+		});
+
 		test('should return error for fatal error in stderr', () => {
 			const result = parseFixResult('', 'FATAL ERROR: Out of memory', 1, originalContent, false);
 			assert.strictEqual(result.fixed, false);
@@ -257,6 +273,8 @@ suite('Fixer Utils', () => {
 			assert.strictEqual(PhpcbfExitCode.NoErrorsOrFixed, 0);
 			assert.strictEqual(PhpcbfExitCode.FixedOrFixableRemain, 1);
 			assert.strictEqual(PhpcbfExitCode.FailedOrNonFixable, 2);
+			// v3 specific exit code
+			assert.strictEqual(PhpcbfExitCode.V3ProcessingError, 3);
 			// v4+ specific exit codes
 			assert.strictEqual(PhpcbfExitCode.FixFailure, 4);
 			assert.strictEqual(PhpcbfExitCode.ProcessingError, 16);
