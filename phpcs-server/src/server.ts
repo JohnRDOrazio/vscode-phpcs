@@ -118,6 +118,24 @@ class PhpcsServer {
 	}
 
 	/**
+	 * Resolve PHPCBF executable path from settings.
+	 *
+	 * @param settings The PHPCS settings.
+	 * @return The resolved PHPCBF path or null.
+	 */
+	private resolvePhpcbfPath(settings: PhpcsSettings): string | null {
+		let phpcbfPath = settings.phpcbfExecutablePath;
+		if (!phpcbfPath && settings.executablePath) {
+			// Try to derive phpcbf path from phpcs path.
+			// Note: This only handles standard naming (phpcs, phpcs.bat, phpcs.phar).
+			// For non-standard names, users should set phpcs.phpcbfExecutablePath explicitly.
+			// The derived path is verified by PhpcbfFixer.create() which throws if invalid.
+			phpcbfPath = settings.executablePath.replace(/phpcs(\.bat|\.phar)?$/i, 'phpcbf$1');
+		}
+		return phpcbfPath || null;
+	}
+
+	/**
 	 * Handles server initialization.
 	 *
 	 * @param params The initialization parameters.
@@ -220,12 +238,7 @@ class PhpcsServer {
 			return [];
 		}
 
-		// Resolve PHPCBF executable path
-		let phpcbfPath = settings.phpcbfExecutablePath;
-		if (!phpcbfPath && settings.executablePath) {
-			phpcbfPath = settings.executablePath.replace(/phpcs(\.bat|\.phar)?$/i, 'phpcbf$1');
-		}
-
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
 			return [];
 		}
@@ -240,7 +253,7 @@ class PhpcsServer {
 			}
 		} catch (error) {
 			// Log error but don't block save
-			this.connection.console.error(`PHPCBF on save failed: ${error}`);
+			this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, String(error)));
 		}
 
 		return [];
@@ -362,16 +375,7 @@ class PhpcsServer {
 			return;
 		}
 
-		// Resolve PHPCBF executable path
-		let phpcbfPath = settings.phpcbfExecutablePath;
-		if (!phpcbfPath && settings.executablePath) {
-			// Try to derive phpcbf path from phpcs path.
-			// Note: This only handles standard naming (phpcs, phpcs.bat, phpcs.phar).
-			// For non-standard names, users should set phpcs.phpcbfExecutablePath explicitly.
-			// The derived path is verified by PhpcbfFixer.create() which throws if invalid.
-			phpcbfPath = settings.executablePath.replace(/phpcs(\.bat|\.phar)?$/i, 'phpcbf$1');
-		}
-
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
 			this.connection.window.showWarningMessage(
 				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
