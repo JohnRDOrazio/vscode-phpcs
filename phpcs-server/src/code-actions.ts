@@ -10,7 +10,6 @@ import {
 	CodeActionParams,
 	Diagnostic,
 	TextEdit,
-	Range,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -79,15 +78,11 @@ export function createFullDocumentEdit(
 	document: TextDocument,
 	newContent: string
 ): TextEdit {
-	const lastLine = document.lineCount - 1;
-	const lastLineText = document.getText().split('\n')[lastLine] || '';
+	// Use positionAt to correctly handle all line ending styles (LF, CRLF)
+	const start = document.positionAt(0);
+	const end = document.positionAt(document.getText().length);
 
-	const range: Range = {
-		start: { line: 0, character: 0 },
-		end: { line: lastLine, character: lastLineText.length },
-	};
-
-	return TextEdit.replace(range, newContent);
+	return TextEdit.replace({ start, end }, newContent);
 }
 
 /**
