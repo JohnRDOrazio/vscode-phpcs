@@ -204,7 +204,6 @@ export class PhpcbfFixer {
 
 		this.log(`[PHPCBF] Running: ${this.executablePath} ${fixArgs.join(' ')}`);
 		this.log(`[PHPCBF] Input content length: ${text.length} chars`);
-		this.log(`[PHPCBF] Input preview (first 200 chars): ${text.substring(0, 200).replace(/\n/g, '\\n')}`);
 
 		const phpcbf = spawn.sync(this.executablePath, fixArgs, options);
 		const stdout = (phpcbf.stdout ?? '').toString();
