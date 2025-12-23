@@ -1,7 +1,7 @@
 {
 	"name": "phpcs",
 	"description": "PHP CodeSniffer for Visual Studio Code",
-	"version": "1.1.1",
+	"version": "1.2.0",
 	"author": "Ioannis Kappas",
 	"publisher": "johnrdorazio",
 	"contributors": [
@@ -167,6 +167,27 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Lint only opened files"
+				},
+				"phpcs.phpcbfEnable": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": true,
+					"description": "Enable PHPCBF auto-fixing integration."
+				},
+				"phpcs.phpcbfExecutablePath": {
+					"scope": "resource",
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "Optional. The path to the phpcbf executable. If not set, will be auto-detected based on phpcs path."
+				},
+				"phpcs.phpcbfOnSave": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Automatically fix issues with PHPCBF when saving a file."
 				}
 			}
 		}

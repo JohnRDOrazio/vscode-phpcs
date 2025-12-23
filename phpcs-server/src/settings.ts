@@ -22,4 +22,8 @@ export interface PhpcsSettings {
 	lintOnType: boolean;
 	queueBuffer: number;
 	lintOnlyOpened: boolean;
+	// PHPCBF settings
+	phpcbfEnable: boolean;
+	phpcbfExecutablePath: string | null;
+	phpcbfOnSave: boolean;
 }

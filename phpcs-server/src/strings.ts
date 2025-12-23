@@ -18,6 +18,9 @@ export class StringResources {
 	static readonly CreateLinterErrorDefaultMessage: string = 'Please add phpcs to your global path or use composer dependency manager to install it in your project locally.';
 	static readonly CreateLinterError: string = 'Unable to locate phpcs. {0}';
 
+	static readonly CreateFixerErrorDefaultMessage: string = 'Please add phpcbf to your global path or use composer dependency manager to install it in your project locally.';
+	static readonly CreateFixerError: string = 'Unable to locate phpcbf. {0}';
+
 	static readonly UnknownExecutionError: string = 'Unknown error ocurred. Please verify that {0} returns a valid json object.';
 	static readonly CodingStandardNotInstalledError: string = 'The "{0}" coding standard is not installed. Please review your configuration an try again.';
 	static readonly InvalidJsonStringError: string = 'The phpcs report contains invalid json. Please review "Diagnosing Common Errors" in the plugin README.';
