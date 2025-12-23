@@ -87,7 +87,7 @@ export class PhpcbfFixer {
 			return new PhpcbfFixer(executablePath, executableVersion);
 
 		} catch (error: unknown) {
-			let message = 'Please add phpcbf to your global path or use composer dependency manager to install it in your project locally.';
+			let message = SR.CreateFixerErrorDefaultMessage;
 			if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
 				message = error.message;
 			}
