@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New settings:
     - `phpcs.phpcbfEnable`: Enable/disable PHPCBF integration (default: true)
     - `phpcs.phpcbfExecutablePath`: Custom path to phpcbf executable
-    - `phpcs.phpcbfOnSave`: Automatically fixes issues when saving (default: false)
+    - `phpcs.phpcbfOnSave`: Automatically resolves issues when saving (default: false)
 - Improved error diagnostics for PHPCS JSON parsing failures
   - Error messages now include raw output preview for debugging
   - Exit code and signal information included in error context
