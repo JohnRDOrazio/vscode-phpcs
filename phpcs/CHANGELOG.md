@@ -5,6 +5,26 @@ All notable changes to the "phpcs" extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-12-23
+
+### Added
+
+- **PHPCBF Support**: Auto-fix code style issues using PHP Code Beautifier and Fixer
+  - Quick fix code action: "Fix all auto-fixable issues in this file (PHPCBF)"
+  - Appears in lightbulb menu when hovering over PHPCS diagnostics
+  - New settings:
+    - `phpcs.phpcbfEnable`: Enable/disable PHPCBF integration (default: true)
+    - `phpcs.phpcbfExecutablePath`: Custom path to phpcbf executable
+    - `phpcs.phpcbfOnSave`: Automatically resolves issues when saving (default: false)
+- Improved error diagnostics for PHPCS JSON parsing failures
+  - Error messages now include raw output preview for debugging
+  - Exit code and signal information included in error context
+
+### Fixed
+
+- Fixed PHPCBF exit code handling - content comparison now used to detect actual
+  changes, as PHPCBF sometimes returns exit code 0 even when fixes were applied
+
 ## [1.1.1] - 2025-12-22
 
 ### Changed

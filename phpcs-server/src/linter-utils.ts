@@ -5,8 +5,10 @@
 'use strict';
 
 import * as mm from 'micromatch';
+import * as path from 'path';
 import * as semver from 'semver';
 import * as strings from './base/common/strings';
+import * as extfs from './base/node/extfs';
 import CharCode from './base/common/charcode';
 import { StringResources as SR } from './strings';
 import { PhpcsMessage } from './message';
@@ -221,7 +223,7 @@ export function buildLintArguments(options: LintArgumentOptions): string[] {
 	args.push(`--warning-severity=${effectiveWarningSeverity}`);
 
 	// Add stdin-path for PHPCS 2.6.0+
-	if (filePath !== undefined && semver.gte(executableVersion, '2.6.0')) {
+	if (filePath && semver.gte(executableVersion, '2.6.0')) {
 		args.push(`--stdin-path=${filePath}`);
 	}
 
@@ -385,4 +387,46 @@ export function getV4ExitCodeError(exitCode: number | null): string | null {
 	}
 	// Exit codes 0, 1, 2, 3 are normal operation
 	return null;
+}
+
+/**
+ * PHPCS/PHPCBF config file names in order of precedence.
+ */
+export const CONFIG_FILE_NAMES = [
+	'.phpcs.xml',
+	'.phpcs.xml.dist',
+	'phpcs.xml',
+	'phpcs.xml.dist',
+	'phpcs.ruleset.xml',
+	'ruleset.xml',
+];
+
+/**
+ * Resolve the coding standard to use based on settings and config file search.
+ * @param settings Object containing autoConfigSearch, standard, workspaceRoot, and ignorePatterns
+ * @param filePath The file path being processed
+ * @returns The resolved standard path or null
+ */
+export async function resolveStandard(
+	settings: {
+		autoConfigSearch: boolean;
+		standard: string | null;
+		workspaceRoot: string | null;
+		ignorePatterns: string[];
+	},
+	filePath: string | undefined
+): Promise<string | null> {
+	const { autoConfigSearch, standard, workspaceRoot, ignorePatterns } = settings;
+
+	if (autoConfigSearch && workspaceRoot !== null && filePath !== undefined) {
+		const fileDir = path.relative(workspaceRoot, path.dirname(filePath));
+
+		const confFile = !shouldIgnoreFile(filePath, ignorePatterns)
+			? await extfs.findAsync(workspaceRoot, fileDir, CONFIG_FILE_NAMES)
+			: null;
+
+		return confFile || standard;
+	}
+
+	return standard;
 }

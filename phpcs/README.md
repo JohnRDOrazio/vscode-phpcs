@@ -231,6 +231,35 @@ Show sniff source codes in diagnostic messages.
 
 This setting controls whether the trace server is activated. Possible values you can use is `off`, `messages` or `verbose`.
 
+## PHPCBF Configuration
+
+The extension includes support for PHPCBF (PHP Code Beautifier and Fixer), which can automatically fix many coding standard violations.
+
+### **phpcs.phpcbfEnable**
+
+[ *Scope:* All | Optional | *Type:* boolean | *Default:* true ]
+
+Enable or disable PHPCBF integration. When enabled, a "Fix all auto-fixable issues in this file (PHPCBF)" quick fix action appears in the lightbulb menu when hovering over PHPCS diagnostics.
+
+### **phpcs.phpcbfExecutablePath**
+
+[ *Scope:* All | Optional | *Type:* string | *Default:* null ]
+
+This setting controls the executable path for `phpcbf`. You may specify the absolute path or workspace-relative path to the `phpcbf` executable.
+If omitted, the plugin will derive the path from the `phpcs.executablePath` by replacing `phpcs` with `phpcbf`.
+
+### **phpcs.phpcbfOnSave**
+
+[ *Scope:* All | Optional | *Type:* boolean | *Default:* false ]
+
+Configure PHPCBF to automatically fix issues when saving a file.
+
+```json
+{
+  "phpcs.phpcbfOnSave": true
+}
+```
+
 ## Advanced Configuration
 
 ### **phpcs.composerJsonPath**

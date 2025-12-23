@@ -8,10 +8,13 @@ import * as proto from "./protocol";
 import * as strings from "./base/common/strings";
 
 import {
+	CodeAction,
+	CodeActionParams,
 	createConnection,
 	Diagnostic,
 	DidChangeConfigurationParams,
 	DidChangeWatchedFilesParams,
+	ExecuteCommandParams,
 	InitializeParams,
 	InitializeResult,
 	ProposedFeatures,
@@ -27,8 +30,14 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 
 import { PhpcsLinter } from "./linter";
+import { PhpcbfFixer } from "./fixer";
 import { PhpcsSettings } from "./settings";
 import { StringResources as SR } from "./strings";
+import {
+	generateCodeActions,
+	createFullDocumentEdit,
+	PHPCBF_FIX_FILE_COMMAND,
+} from "./code-actions";
 
 class PhpcsServer {
 	private openedFiles: Map<string, boolean>;
@@ -36,6 +45,7 @@ class PhpcsServer {
 	private documents: TextDocuments<TextDocument>;
 	private validating: Map<string, TextDocument>;
 	private queue: Map<string, TextDocument>;
+	private documentDiagnostics: Map<string, Diagnostic[]>;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -60,6 +70,10 @@ class PhpcsServer {
 		lintOnSave: true,
 		queueBuffer: 10,
 		lintOnlyOpened: true,
+		// PHPCBF settings
+		phpcbfEnable: true,
+		phpcbfExecutablePath: null,
+		phpcbfOnSave: false,
 	};
 	private documentSettings: Map<string, Promise<PhpcsSettings>> = new Map();
 
@@ -72,6 +86,7 @@ class PhpcsServer {
 		this.validating = new Map();
 		this.openedFiles = new Map();
 		this.queue = new Map();
+		this.documentDiagnostics = new Map();
 		this.connection = createConnection(ProposedFeatures.all);
 		this.documents = new TextDocuments(TextDocument);
 		this.documents.listen(this.connection);
@@ -79,6 +94,8 @@ class PhpcsServer {
 		this.connection.onInitialized(this.safeEventHandler(this.onDidInitialize));
 		this.connection.onDidChangeConfiguration(this.safeEventHandler(this.onDidChangeConfiguration));
 		this.connection.onDidChangeWatchedFiles(this.safeEventHandler(this.onDidChangeWatchedFiles));
+		this.connection.onCodeAction(this.safeEventHandler(this.onCodeAction));
+		this.connection.onExecuteCommand(this.safeEventHandler(this.onExecuteCommand));
 		this.documents.onDidChangeContent(this.safeEventHandler(this.onDidChangeDocument));
 		this.documents.onDidOpen(this.safeEventHandler(this.onDidOpenDocument));
 		this.documents.onDidSave(this.safeEventHandler(this.onDidSaveDocument));
@@ -109,7 +126,11 @@ class PhpcsServer {
 		this.hasConfigurationCapability = !!(capabilities.workspace && capabilities.workspace.configuration);
 		return Promise.resolve<InitializeResult>({
 			capabilities: {
-				textDocumentSync: TextDocumentSyncKind.Incremental
+				textDocumentSync: TextDocumentSyncKind.Incremental,
+				codeActionProvider: true,
+				executeCommandProvider: {
+					commands: [PHPCBF_FIX_FILE_COMMAND],
+				},
 			}
 		});
 	}
@@ -219,6 +240,139 @@ class PhpcsServer {
 	}
 
 	/**
+	 * Handles code action requests.
+	 *
+	 * @param params The code action parameters.
+	 * @return Array of code actions.
+	 */
+	private async onCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
+		const uri = params.textDocument.uri;
+		const document = this.documents.get(uri);
+
+		if (!document) {
+			return [];
+		}
+
+		const settings = await this.getDocumentSettings(document);
+
+		// Check if PHPCBF is enabled
+		if (!settings.phpcbfEnable) {
+			return [];
+		}
+
+		// Get stored diagnostics for this document
+		const documentDiagnostics = this.documentDiagnostics.get(uri) || [];
+
+		return generateCodeActions(params, document, documentDiagnostics);
+	}
+
+	/**
+	 * Handles execute command requests.
+	 *
+	 * @param params The execute command parameters.
+	 * @return void
+	 */
+	private async onExecuteCommand(params: ExecuteCommandParams): Promise<void> {
+		if (params.command !== PHPCBF_FIX_FILE_COMMAND) {
+			return;
+		}
+
+		const uri = params.arguments?.[0] as string | undefined;
+		if (!uri) {
+			return;
+		}
+
+		const document = this.documents.get(uri);
+		if (!document) {
+			return;
+		}
+
+		await this.fixDocument(document);
+	}
+
+	/**
+	 * Fix a document using PHPCBF.
+	 *
+	 * @param document The text document to fix.
+	 * @return void
+	 */
+	private async fixDocument(document: TextDocument): Promise<void> {
+		const uri = document.uri;
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
+			return;
+		}
+
+		// Resolve PHPCBF executable path
+		let phpcbfPath = settings.phpcbfExecutablePath;
+		if (!phpcbfPath && settings.executablePath) {
+			// Try to derive phpcbf path from phpcs path.
+			// Note: This only handles standard naming (phpcs, phpcs.bat, phpcs.phar).
+			// For non-standard names, users should set phpcs.phpcbfExecutablePath explicitly.
+			// The derived path is verified by PhpcbfFixer.create() which throws if invalid.
+			phpcbfPath = settings.executablePath.replace(/phpcs(\.bat|\.phar)?$/i, 'phpcbf$1');
+		}
+
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(
+				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
+			);
+			return;
+		}
+
+		try {
+			this.connection.console.log(`[PHPCBF] Fixing document: ${uri}`);
+			const fixer = await PhpcbfFixer.create(phpcbfPath);
+			fixer.setLogger((message) => this.connection.console.log(message));
+
+			const result = await fixer.fix(document, settings);
+
+			if (result.error) {
+				this.connection.window.showErrorMessage(`PHPCBF: ${result.error}`);
+				return;
+			}
+
+			if (result.fixed) {
+				// Apply the fix using workspace edit
+				const edit = createFullDocumentEdit(document, result.content);
+				const applied = await this.connection.workspace.applyEdit({
+					changes: {
+						[uri]: [edit],
+					},
+				});
+
+				if (applied.applied) {
+					this.connection.console.log(`[PHPCBF] Fixed document: ${uri}`);
+
+					// Re-lint the document to refresh diagnostics
+					// We need to get the updated document after the edit is applied
+					// The document will be updated via onDidChangeDocument, which triggers validation
+					// But we should also trigger validation explicitly in case lintOnType is disabled
+					const updatedDocument = this.documents.get(uri);
+					if (updatedDocument) {
+						await this.validateSingle(updatedDocument);
+					}
+				} else {
+					this.connection.console.warn(`[PHPCBF] Failed to apply edit to: ${uri}`);
+				}
+			} else {
+				this.connection.console.log(`[PHPCBF] No fixes applied to: ${uri}`);
+			}
+
+			if (result.hasUnfixableIssues) {
+				this.connection.window.showInformationMessage(
+					'PHPCBF: Some issues could not be automatically fixed.'
+				);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.connection.console.error(`[PHPCBF] Error: ${message}`);
+			this.connection.window.showErrorMessage(`PHPCBF: ${message}`);
+		}
+	}
+
+	/**
 	 * Start listening to requests.
 	 *
 	 * @return void
@@ -234,6 +388,8 @@ class PhpcsServer {
 	 * @param params The diagnostic parameters.
 	 */
 	private sendDiagnostics(params: PublishDiagnosticsParams): void {
+		// Store diagnostics for code action requests
+		this.documentDiagnostics.set(params.uri, params.diagnostics);
 		this.connection.sendDiagnostics(params);
 	}
 
@@ -243,6 +399,7 @@ class PhpcsServer {
 	 * @param uri The document uri for which to clear the diagnostics.
 	 */
 	private clearDiagnostics(uri: string): void {
+		this.documentDiagnostics.delete(uri);
 		this.connection.sendDiagnostics({ uri, diagnostics: [] });
 	}
 
