@@ -186,18 +186,39 @@ phpcbf --stdin-path=<file> --standard=<standard> --encoding=UTF-8 -
 
 - Input: File content via stdin (same as PHPCS)
 - Output: Fixed file content to stdout
-- Exit codes (v3 and v4):
-  - `0` - No errors found, or all errors were fixed (clean code)
-  - `1` - Fixable issues remain (some fixes applied but more exist)
-  - `2` - Non-fixable issues exist (cannot be auto-fixed)
-  - `4` - Fixer conflicts occurred during fixing
-  - `16` - Processing error (v4+ only)
-  - `64` - Requirements not met (v4+ only)
 
-**v4 Note**: The `ignore_non_auto_fixable_on_exit` config option can make PHPCBF
-return exit code 0 even when non-fixable issues remain. This is useful for CI/CD
-automation. We use content comparison to detect actual changes regardless of
-exit code.
+### Exit Codes
+
+Exit codes have different meanings in v3 vs v4. See the
+[official documentation](https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Advanced-Usage#understanding-the-exit-codes)
+for details.
+
+**PHPCBF v3.x:**
+
+| Code | Meaning                                    |
+| ---- | ------------------------------------------ |
+| 0    | no fixable errors, nothing was fixed       |
+| 1    | all fixable errors were fixed correctly    |
+| 2    | phpcbf failed to fix some fixable errors   |
+| 3    | processing error                           |
+
+**PHPCBF v4.0.0+ (cumulative/bitmask):**
+
+| Code | Meaning                                                |
+| ---- | ------------------------------------------------------ |
+| 0    | clean code base / auto-fixed with no issues remaining  |
+| 1    | issues found/remaining, auto-fixable                   |
+| 2    | issues found/remaining, non-auto-fixable               |
+| 4    | failure to fix some files/fixer conflict               |
+| 5    | 1 + 4: auto-fixable issues with some fix failures      |
+| 7    | 1 + 2 + 4: mixed issues with some fix failures         |
+| 16   | processing error blocking the run                      |
+| 64   | requirements not met (e.g., minimum PHP version)       |
+
+**Note**: In v4+, the `ignore_non_auto_fixable_on_exit` config option can make
+PHPCBF return exit code 0 even when non-fixable issues remain. This is useful
+for CI/CD automation. We use content comparison to detect actual changes
+regardless of exit code.
 
 ### Applying Fixes
 

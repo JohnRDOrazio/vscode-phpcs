@@ -31,25 +31,30 @@ export interface FixResult {
 
 /**
  * PHPCBF exit codes.
- * @see https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Exit-Codes
+ * @see https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Advanced-Usage#understanding-the-exit-codes
+ *
+ * Exit codes have different meanings in v3 vs v4:
+ *
+ * v3: 0=nothing to fix, 1=all fixed, 2=failed to fix some, 3=processing error
+ * v4: 0=clean/fixed, 1=auto-fixable remain, 2=non-auto-fixable, 4=fix failure,
+ *     16=processing error, 64=requirements not met (codes are cumulative/bitmask)
  *
  * Note: In v4+, the `ignore_non_auto_fixable_on_exit` config option can make
- * PHPCBF return exit code 0 even when non-fixable issues remain. This is useful
- * for automation. We use content comparison to detect actual changes regardless
- * of exit code.
+ * PHPCBF return exit code 0 even when non-fixable issues remain. We use content
+ * comparison to detect actual changes regardless of exit code.
  */
 export enum PhpcbfExitCode {
-	/** No errors found, or all errors were fixed (clean code) */
+	/** v3: nothing to fix | v4: clean/all fixed with no issues remaining */
 	NoErrorsOrFixed = 0,
-	/** Fixable issues remain (some fixes were applied but more exist) */
-	FixableRemaining = 1,
-	/** Non-fixable issues exist (cannot be auto-fixed) */
-	NonFixable = 2,
-	/** Fixer conflicts occurred during fixing */
-	FixerConflicts = 4,
-	/** Processing error (v4+) */
+	/** v3: all fixable errors fixed correctly | v4: auto-fixable issues remain */
+	FixedOrFixableRemain = 1,
+	/** v3: failed to fix some errors | v4: non-auto-fixable issues exist */
+	FailedOrNonFixable = 2,
+	/** v4 only: failure to fix some files/fixer conflict */
+	FixFailure = 4,
+	/** v4 only: processing error blocking the run */
 	ProcessingError = 16,
-	/** Requirements not met (v4+) */
+	/** v4 only: requirements not met (e.g., minimum PHP version) */
 	RequirementsNotMet = 64,
 }
 
@@ -146,12 +151,14 @@ export function parseFixResult(
 	const hasOutput = stdout.length > 0;
 	const contentChanged = hasOutput && stdout !== originalContent;
 
-	// Determine result based on exit code and content comparison
+	// Determine result based on exit code and content comparison.
+	// We rely on content comparison because exit codes have different meanings
+	// in v3 vs v4, and v4 codes can be cumulative (bitmask).
 	switch (exitCode) {
 		case PhpcbfExitCode.NoErrorsOrFixed:
-			// Exit code 0: No errors found, or all errors were fixed.
-			// In v4+ with ignore_non_auto_fixable_on_exit, this can also mean
-			// non-fixable issues remain. We use content comparison to be safe.
+			// Exit code 0: v3=nothing to fix, v4=clean/all fixed.
+			// In v4+ with ignore_non_auto_fixable_on_exit config, this can also
+			// mean non-fixable issues remain. Use content comparison to be safe.
 			if (contentChanged) {
 				return {
 					fixed: true,
@@ -165,17 +172,18 @@ export function parseFixResult(
 				hasUnfixableIssues: false,
 			};
 
-		case PhpcbfExitCode.FixableRemaining:
-			// Exit code 1: Some fixes were applied but fixable issues remain.
-			// This typically means PHPCBF made partial progress.
+		case PhpcbfExitCode.FixedOrFixableRemain:
+			// Exit code 1: v3=all fixed correctly, v4=auto-fixable issues remain.
+			// Use content comparison to determine if fixes were actually applied.
 			return {
 				fixed: contentChanged,
 				content: contentChanged ? stdout : originalContent,
 				hasUnfixableIssues: false,
 			};
 
-		case PhpcbfExitCode.NonFixable:
-			// Exit code 2: Non-fixable issues exist - check if any were actually fixed
+		case PhpcbfExitCode.FailedOrNonFixable:
+			// Exit code 2: v3=failed to fix some, v4=non-auto-fixable issues exist.
+			// Check if any fixes were actually applied.
 			if (contentChanged) {
 				return {
 					fixed: true,
@@ -189,22 +197,22 @@ export function parseFixResult(
 				hasUnfixableIssues: true,
 			};
 
-		case PhpcbfExitCode.FixerConflicts:
-			// Exit code 4: Fixer conflicts occurred during fixing.
-			// Some fixes may have been applied before the conflict.
+		case PhpcbfExitCode.FixFailure:
+			// Exit code 4 (v4 only): failure to fix some files/fixer conflict.
+			// Some fixes may have been applied before the failure.
 			if (contentChanged) {
 				return {
 					fixed: true,
 					content: stdout,
 					hasUnfixableIssues: true,
-					error: 'PHPCBF encountered fixer conflicts. Some fixes may not have been applied.',
+					error: 'PHPCBF failed to fix some files or encountered fixer conflicts.',
 				};
 			}
 			return {
 				fixed: false,
 				content: originalContent,
 				hasUnfixableIssues: false,
-				error: 'PHPCBF encountered fixer conflicts and could not apply fixes.',
+				error: 'PHPCBF failed to fix files or encountered fixer conflicts.',
 			};
 
 		default:
