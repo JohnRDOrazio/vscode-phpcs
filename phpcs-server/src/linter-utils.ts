@@ -223,7 +223,7 @@ export function buildLintArguments(options: LintArgumentOptions): string[] {
 	args.push(`--warning-severity=${effectiveWarningSeverity}`);
 
 	// Add stdin-path for PHPCS 2.6.0+
-	if (filePath !== undefined && semver.gte(executableVersion, '2.6.0')) {
+	if (filePath && semver.gte(executableVersion, '2.6.0')) {
 		args.push(`--stdin-path=${filePath}`);
 	}
 

@@ -88,7 +88,7 @@ export function buildFixArguments(options: FixArgumentOptions): string[] {
 	}
 
 	// Add stdin-path for PHPCBF 2.6.0+
-	if (filePath !== undefined && semver.gte(executableVersion, '2.6.0')) {
+	if (filePath && semver.gte(executableVersion, '2.6.0')) {
 		args.push(`--stdin-path=${filePath}`);
 	}
 
