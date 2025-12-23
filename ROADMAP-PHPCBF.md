@@ -186,11 +186,18 @@ phpcbf --stdin-path=<file> --standard=<standard> --encoding=UTF-8 -
 
 - Input: File content via stdin (same as PHPCS)
 - Output: Fixed file content to stdout
-- Exit codes:
-  - `0` - No fixable errors
-  - `1` - All fixable errors were fixed
-  - `2` - Some errors could not be fixed
-  - `3` - Both fixed and unfixable errors
+- Exit codes (v3 and v4):
+  - `0` - No errors found, or all errors were fixed (clean code)
+  - `1` - Fixable issues remain (some fixes applied but more exist)
+  - `2` - Non-fixable issues exist (cannot be auto-fixed)
+  - `4` - Fixer conflicts occurred during fixing
+  - `16` - Processing error (v4+ only)
+  - `64` - Requirements not met (v4+ only)
+
+**v4 Note**: The `ignore_non_auto_fixable_on_exit` config option can make PHPCBF
+return exit code 0 even when non-fixable issues remain. This is useful for CI/CD
+automation. We use content comparison to detect actual changes regardless of
+exit code.
 
 ### Applying Fixes
 

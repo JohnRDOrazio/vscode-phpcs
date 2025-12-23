@@ -83,7 +83,7 @@ suite('Fixer Utils', () => {
 		const fixedContent = '<?php echo 1;\n';
 
 		test('should return fixed=false for exit code 0 when content unchanged', () => {
-			const result = parseFixResult(originalContent, '', PhpcbfExitCode.NoFixableErrors, originalContent, false);
+			const result = parseFixResult(originalContent, '', PhpcbfExitCode.NoErrorsOrFixed, originalContent, false);
 			assert.strictEqual(result.fixed, false);
 			assert.strictEqual(result.content, originalContent);
 			assert.strictEqual(result.hasUnfixableIssues, false);
@@ -91,38 +91,56 @@ suite('Fixer Utils', () => {
 
 		test('should return fixed=true for exit code 0 when content actually changed', () => {
 			// PHPCBF sometimes returns exit code 0 even when it made changes
-			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.NoFixableErrors, originalContent, false);
+			// Also in v4+ with ignore_non_auto_fixable_on_exit config
+			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.NoErrorsOrFixed, originalContent, false);
 			assert.strictEqual(result.fixed, true);
 			assert.strictEqual(result.content, fixedContent);
 			assert.strictEqual(result.hasUnfixableIssues, false);
 		});
 
-		test('should return fixed=true for exit code 1 (all fixed)', () => {
-			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.AllFixed, originalContent, false);
+		test('should return fixed=true for exit code 1 when content changed (fixable remaining)', () => {
+			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.FixableRemaining, originalContent, false);
 			assert.strictEqual(result.fixed, true);
 			assert.strictEqual(result.content, fixedContent);
+			assert.strictEqual(result.hasUnfixableIssues, false);
+		});
+
+		test('should return fixed=false for exit code 1 when content unchanged', () => {
+			const result = parseFixResult(originalContent, '', PhpcbfExitCode.FixableRemaining, originalContent, false);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, originalContent);
 			assert.strictEqual(result.hasUnfixableIssues, false);
 		});
 
 		test('should return hasUnfixableIssues=true for exit code 2 when content unchanged', () => {
-			const result = parseFixResult(originalContent, '', PhpcbfExitCode.SomeUnfixable, originalContent, false);
+			const result = parseFixResult(originalContent, '', PhpcbfExitCode.NonFixable, originalContent, false);
 			assert.strictEqual(result.fixed, false);
 			assert.strictEqual(result.hasUnfixableIssues, true);
 		});
 
 		test('should return fixed=true for exit code 2 when content actually changed', () => {
 			// Some fixes applied but some issues remain unfixable
-			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.SomeUnfixable, originalContent, false);
+			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.NonFixable, originalContent, false);
 			assert.strictEqual(result.fixed, true);
 			assert.strictEqual(result.content, fixedContent);
 			assert.strictEqual(result.hasUnfixableIssues, true);
 		});
 
-		test('should return fixed=true and hasUnfixableIssues=true for exit code 3', () => {
-			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.FixedAndUnfixable, originalContent, false);
+		test('should return error for exit code 4 (fixer conflicts) when content unchanged', () => {
+			const result = parseFixResult(originalContent, '', PhpcbfExitCode.FixerConflicts, originalContent, false);
+			assert.strictEqual(result.fixed, false);
+			assert.ok(result.error);
+			assert.ok(result.error!.includes('fixer conflicts'));
+		});
+
+		test('should return fixed=true with warning for exit code 4 when content changed', () => {
+			// Some fixes were applied before the conflict occurred
+			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.FixerConflicts, originalContent, false);
 			assert.strictEqual(result.fixed, true);
 			assert.strictEqual(result.content, fixedContent);
 			assert.strictEqual(result.hasUnfixableIssues, true);
+			assert.ok(result.error);
+			assert.ok(result.error!.includes('fixer conflicts'));
 		});
 
 		test('should return error for exit code 16 (processing error) in v4+', () => {
@@ -227,11 +245,13 @@ suite('Fixer Utils', () => {
 
 	suite('PhpcbfExitCode enum', () => {
 
-		test('should have correct values', () => {
-			assert.strictEqual(PhpcbfExitCode.NoFixableErrors, 0);
-			assert.strictEqual(PhpcbfExitCode.AllFixed, 1);
-			assert.strictEqual(PhpcbfExitCode.SomeUnfixable, 2);
-			assert.strictEqual(PhpcbfExitCode.FixedAndUnfixable, 3);
+		test('should have correct values for v3/v4 compatibility', () => {
+			// Standard exit codes (v3 and v4)
+			assert.strictEqual(PhpcbfExitCode.NoErrorsOrFixed, 0);
+			assert.strictEqual(PhpcbfExitCode.FixableRemaining, 1);
+			assert.strictEqual(PhpcbfExitCode.NonFixable, 2);
+			assert.strictEqual(PhpcbfExitCode.FixerConflicts, 4);
+			// v4+ specific exit codes
 			assert.strictEqual(PhpcbfExitCode.ProcessingError, 16);
 			assert.strictEqual(PhpcbfExitCode.RequirementsNotMet, 64);
 		});
