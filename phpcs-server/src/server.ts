@@ -22,6 +22,8 @@ import {
 	TextDocumentIdentifier,
 	TextDocuments,
 	TextDocumentSyncKind,
+	TextEdit,
+	WillSaveTextDocumentParams,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode-languageserver/node';
 
@@ -96,6 +98,7 @@ class PhpcsServer {
 		this.connection.onDidChangeWatchedFiles(this.safeEventHandler(this.onDidChangeWatchedFiles));
 		this.connection.onCodeAction(this.safeEventHandler(this.onCodeAction));
 		this.connection.onExecuteCommand(this.safeEventHandler(this.onExecuteCommand));
+		this.connection.onWillSaveTextDocumentWaitUntil(this.safeEventHandler(this.onWillSaveTextDocument));
 		this.documents.onDidChangeContent(this.safeEventHandler(this.onDidChangeDocument));
 		this.documents.onDidOpen(this.safeEventHandler(this.onDidOpenDocument));
 		this.documents.onDidSave(this.safeEventHandler(this.onDidSaveDocument));
@@ -126,7 +129,12 @@ class PhpcsServer {
 		this.hasConfigurationCapability = !!(capabilities.workspace && capabilities.workspace.configuration);
 		return Promise.resolve<InitializeResult>({
 			capabilities: {
-				textDocumentSync: TextDocumentSyncKind.Incremental,
+				textDocumentSync: {
+					openClose: true,
+					change: TextDocumentSyncKind.Incremental,
+					willSaveWaitUntil: true,
+					save: { includeText: false },
+				},
 				codeActionProvider: true,
 				executeCommandProvider: {
 					commands: [PHPCBF_FIX_FILE_COMMAND],
@@ -186,6 +194,56 @@ class PhpcsServer {
 		if (settings.lintOnOpen) {
 			await this.validateSingle(document);
 		}
+	}
+
+	/**
+	 * Handles willSave event to apply PHPCBF fixes before saving.
+	 *
+	 * @param params The will save text document parameters.
+	 * @return Text edits to apply before saving, or empty array.
+	 */
+	private async onWillSaveTextDocument(params: WillSaveTextDocumentParams): Promise<TextEdit[]> {
+		const document = this.documents.get(params.textDocument.uri);
+		if (!document) {
+			return [];
+		}
+
+		// Only process PHP files
+		if (document.languageId !== 'php') {
+			return [];
+		}
+
+		const settings = await this.getDocumentSettings(document);
+
+		// Check if PHPCBF on save is enabled
+		if (!settings.phpcbfEnable || !settings.phpcbfOnSave) {
+			return [];
+		}
+
+		// Resolve PHPCBF executable path
+		let phpcbfPath = settings.phpcbfExecutablePath;
+		if (!phpcbfPath && settings.executablePath) {
+			phpcbfPath = settings.executablePath.replace(/phpcs(\.bat|\.phar)?$/i, 'phpcbf$1');
+		}
+
+		if (!phpcbfPath) {
+			return [];
+		}
+
+		try {
+			const fixer = await PhpcbfFixer.create(phpcbfPath);
+			fixer.setLogger((message) => this.connection.console.log(message));
+
+			const result = await fixer.fix(document, settings);
+			if (result.fixed && result.content !== document.getText()) {
+				return [createFullDocumentEdit(document, result.content)];
+			}
+		} catch (error) {
+			// Log error but don't block save
+			this.connection.console.error(`PHPCBF on save failed: ${error}`);
+		}
+
+		return [];
 	}
 
 	/**
