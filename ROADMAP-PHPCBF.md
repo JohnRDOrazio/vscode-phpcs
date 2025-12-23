@@ -107,7 +107,7 @@ phpcs-server/test/
 
 ### Phase 2: File-Level Code Actions
 
-**Goal**: Quick fix action to fix all issues in a file
+**Goal**: Quick fix action to address all issues in a file
 
 1. Create `code-actions.ts` with code action logic
    - Generate "Fix all issues in this file" action when diagnostics exist
