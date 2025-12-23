@@ -99,6 +99,10 @@ export class PhpcsConfiguration extends Disposable {
 				lintOnSave: config.get('lintOnSave'),
 				queueBuffer: config.get('queueBuffer'),
 				lintOnlyOpened: config.get('lintOnlyOpened'),
+				// PHPCBF settings
+				phpcbfEnable: config.get('phpcbfEnable'),
+				phpcbfExecutablePath: config.get('phpcbfExecutablePath'),
+				phpcbfOnSave: config.get('phpcbfOnSave'),
 			};
 
 			settings = await this.resolveExecutablePath(settings);

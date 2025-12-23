@@ -5,6 +5,19 @@ All notable changes to the "phpcs" extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-12-23
+
+### Fixed
+
+- Fixed `phpcs.phpcbfOnSave` setting not working - PHPCBF settings were missing
+  from the client configuration middleware, causing the server to always receive
+  default values instead of user-configured settings
+
+### Changed
+
+- Updated document selector to explicit format for better LSP compatibility
+- Extracted `resolvePhpcbfPath()` helper method to reduce code duplication
+
 ## [1.2.0] - 2025-12-23
 
 ### Added
