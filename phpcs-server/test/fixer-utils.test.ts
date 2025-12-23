@@ -134,15 +134,16 @@ suite('Fixer Utils', () => {
 		});
 
 		test('should return error for exit code 4 (v4 fix failure) when content unchanged', () => {
-			const result = parseFixResult(originalContent, '', PhpcbfExitCode.FixFailure, originalContent, false);
+			// Exit code 4 is v4-only (fix failure/fixer conflict)
+			const result = parseFixResult(originalContent, '', PhpcbfExitCode.FixFailure, originalContent, true);
 			assert.strictEqual(result.fixed, false);
 			assert.ok(result.error);
 			assert.ok(result.error!.includes('failed to fix') || result.error!.includes('fixer conflicts'));
 		});
 
 		test('should return fixed=true with warning for exit code 4 when content changed', () => {
-			// Some fixes were applied before the failure/conflict occurred
-			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.FixFailure, originalContent, false);
+			// Some fixes were applied before the failure/conflict occurred (v4 only)
+			const result = parseFixResult(fixedContent, '', PhpcbfExitCode.FixFailure, originalContent, true);
 			assert.strictEqual(result.fixed, true);
 			assert.strictEqual(result.content, fixedContent);
 			assert.strictEqual(result.hasUnfixableIssues, true);
@@ -170,13 +171,38 @@ suite('Fixer Utils', () => {
 			assert.ok(result.error!.includes('processing error'));
 		});
 
-		test('should NOT treat exit code 3 as processing error in v4+', () => {
-			// In v4+, exit code 3 is a bitmask combination (1+2), not a processing error
-			const result = parseFixResult(originalContent, '', 3, originalContent, true);
-			// Should fall through to default case since 3 is not a defined v4 code
-			assert.strictEqual(result.fixed, false);
+		test('should handle exit code 3 as bitmask (1+2) in v4+', () => {
+			// In v4+, exit code 3 is a bitmask combination: fixable (1) + non-fixable (2)
+			const result = parseFixResult(fixedContent, '', 3, originalContent, true);
+			assert.strictEqual(result.fixed, true);
+			assert.strictEqual(result.content, fixedContent);
+			assert.strictEqual(result.hasUnfixableIssues, true); // bit 2 set
+			assert.strictEqual(result.error, undefined); // no fix failure bit
+		});
+
+		test('should handle exit code 5 as bitmask (1+4) in v4+', () => {
+			// Exit code 5 = fixable issues (1) + fix failure (4)
+			const result = parseFixResult(fixedContent, '', 5, originalContent, true);
+			assert.strictEqual(result.fixed, true);
+			assert.strictEqual(result.hasUnfixableIssues, true); // fix failure implies unfixable
 			assert.ok(result.error);
-			assert.ok(result.error!.includes('unexpected exit code'));
+			assert.ok(result.error!.includes('failed to fix'));
+		});
+
+		test('should handle exit code 6 as bitmask (2+4) in v4+', () => {
+			// Exit code 6 = non-fixable issues (2) + fix failure (4)
+			const result = parseFixResult(fixedContent, '', 6, originalContent, true);
+			assert.strictEqual(result.fixed, true);
+			assert.strictEqual(result.hasUnfixableIssues, true);
+			assert.ok(result.error);
+		});
+
+		test('should handle exit code 7 as bitmask (1+2+4) in v4+', () => {
+			// Exit code 7 = fixable (1) + non-fixable (2) + fix failure (4)
+			const result = parseFixResult(fixedContent, '', 7, originalContent, true);
+			assert.strictEqual(result.fixed, true);
+			assert.strictEqual(result.hasUnfixableIssues, true);
+			assert.ok(result.error);
 		});
 
 		test('should return error for fatal error in stderr', () => {
