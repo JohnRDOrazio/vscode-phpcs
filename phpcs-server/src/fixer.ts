@@ -5,7 +5,6 @@
 "use strict";
 
 import * as cp from "child_process";
-import * as extfs from "./base/node/extfs";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
@@ -17,7 +16,7 @@ import { URI } from "vscode-uri";
 
 import { StringResources as SR } from "./strings";
 import { PhpcsSettings } from "./settings";
-import { prepareFileText, shouldIgnoreFile } from "./linter-utils";
+import { prepareFileText, shouldIgnoreFile, resolveStandard } from "./linter-utils";
 
 import {
 	buildFixArguments,
@@ -147,28 +146,8 @@ export class PhpcbfFixer {
 			};
 		}
 
-		// Check if a config file exists and handle it
-		let standard: string | null = null;
-		if (settings.autoConfigSearch && workspaceRoot !== null && filePath !== undefined) {
-			const confFileNames = [
-				'.phpcs.xml',
-				'.phpcs.xml.dist',
-				'phpcs.xml',
-				'phpcs.xml.dist',
-				'phpcs.ruleset.xml',
-				'ruleset.xml',
-			];
-
-			const fileDir = path.relative(workspaceRoot, path.dirname(filePath));
-
-			const confFile = !shouldIgnoreFile(filePath, settings.ignorePatterns)
-				? await extfs.findAsync(workspaceRoot, fileDir, confFileNames)
-				: null;
-
-			standard = confFile || settings.standard;
-		} else {
-			standard = settings.standard;
-		}
+		// Resolve coding standard (uses shared utility to find config files)
+		const standard = await resolveStandard(settings, filePath);
 
 		// Check if file should be ignored
 		if (

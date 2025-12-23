@@ -29,6 +29,7 @@ import {
 	getV4ExitCodeError,
 	parsePhpcsOutput,
 	prepareFileText,
+	resolveStandard,
 	shouldIgnoreFile,
 	PhpcsExecutionContext,
 } from "./linter-utils";
@@ -133,28 +134,8 @@ export class PhpcsLinter {
 			return [];
 		}
 
-		// Check if a config file exists and handle it
-		let standard: string | null = null;
-		if (settings.autoConfigSearch && workspaceRoot !== null && filePath !== undefined) {
-			const confFileNames = [
-				'.phpcs.xml',
-				'.phpcs.xml.dist',
-				'phpcs.xml',
-				'phpcs.xml.dist',
-				'phpcs.ruleset.xml',
-				'ruleset.xml',
-			];
-
-			const fileDir = path.relative(workspaceRoot, path.dirname(filePath));
-
-			const confFile = !shouldIgnoreFile(filePath, settings.ignorePatterns)
-				? await extfs.findAsync(workspaceRoot, fileDir, confFileNames)
-				: null;
-
-			standard = confFile || settings.standard;
-		} else {
-			standard = settings.standard;
-		}
+		// Resolve coding standard (uses shared utility to find config files)
+		const standard = await resolveStandard(settings, filePath);
 
 		// Check if file should be ignored for PHPCS < 3.0.0 (Skip for in-memory documents)
 		if (
