@@ -252,7 +252,7 @@ If omitted, the plugin will derive the path from the `phpcs.executablePath` by r
 
 [ *Scope:* All | Optional | *Type:* boolean | *Default:* false ]
 
-Automatically run PHPCBF to fix issues when saving a file. This applies fixes before the file is saved.
+Configure PHPCBF to automatically fix issues when saving a file.
 
 ```json
 {
