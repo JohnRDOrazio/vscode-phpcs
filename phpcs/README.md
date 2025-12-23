@@ -245,7 +245,7 @@ Enable or disable PHPCBF integration. When enabled, a "Fix all auto-fixable issu
 
 [ *Scope:* All | Optional | *Type:* string | *Default:* null ]
 
-This setting controls the executable path for `phpcbf`. You may specify the absolute path or workspace relative path to the `phpcbf` executable.
+This setting controls the executable path for `phpcbf`. You may specify the absolute path or workspace-relative path to the `phpcbf` executable.
 If omitted, the plugin will derive the path from the `phpcs.executablePath` by replacing `phpcs` with `phpcbf`.
 
 ### **phpcs.phpcbfOnSave**
