@@ -307,7 +307,10 @@ class PhpcsServer {
 		// Resolve PHPCBF executable path
 		let phpcbfPath = settings.phpcbfExecutablePath;
 		if (!phpcbfPath && settings.executablePath) {
-			// Try to derive phpcbf path from phpcs path
+			// Try to derive phpcbf path from phpcs path.
+			// Note: This only handles standard naming (phpcs, phpcs.bat, phpcs.phar).
+			// For non-standard names, users should set phpcs.phpcbfExecutablePath explicitly.
+			// The derived path is verified by PhpcbfFixer.create() which throws if invalid.
 			phpcbfPath = settings.executablePath.replace(/phpcs(\.bat|\.phar)?$/i, 'phpcbf$1');
 		}
 
