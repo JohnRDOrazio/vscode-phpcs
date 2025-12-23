@@ -2,28 +2,28 @@
  * Copyright (c) John R. D'Orazio. All rights reserved.
  * Licensed under the MIT License. See License.md in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-"use strict";
+'use strict';
 
-import * as cp from "child_process";
-import * as os from "os";
-import * as path from "path";
-import * as semver from "semver";
-import * as spawn from "cross-spawn";
-import * as strings from "./base/common/strings";
+import * as cp from 'child_process';
+import * as os from 'os';
+import * as path from 'path';
+import * as semver from 'semver';
+import * as spawn from 'cross-spawn';
+import * as strings from './base/common/strings';
 
-import { TextDocument } from "vscode-languageserver-textdocument";
-import { URI } from "vscode-uri";
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { URI } from 'vscode-uri';
 
-import { StringResources as SR } from "./strings";
-import { PhpcsSettings } from "./settings";
-import { prepareFileText, shouldIgnoreFile, resolveStandard } from "./linter-utils";
+import { StringResources as SR } from './strings';
+import { PhpcsSettings } from './settings';
+import { prepareFileText, shouldIgnoreFile, resolveStandard } from './linter-utils';
 
 import {
 	buildFixArguments,
 	parseFixResult,
 	extractPhpcbfStdoutError,
 	FixResult,
-} from "./fixer-utils";
+} from './fixer-utils';
 
 export type LoggerFunction = (message: string) => void;
 
