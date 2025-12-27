@@ -6,8 +6,6 @@
 
 import * as cp from 'child_process';
 import * as os from 'os';
-import * as path from 'path';
-import * as semver from 'semver';
 import * as spawn from 'cross-spawn';
 import * as strings from './base/common/strings';
 
@@ -22,6 +20,11 @@ import {
 	buildFixArguments,
 	parseFixResult,
 	extractPhpcbfStdoutError,
+	normalizeWindowsPath,
+	createEmptyFileResult,
+	createIgnoredFileResult,
+	parseVersionString,
+	isVersionV4OrAbove,
 	FixResult,
 } from './fixer-utils';
 
@@ -41,7 +44,7 @@ export class PhpcbfFixer {
 		this.executablePath = executablePath;
 		this.executableVersion = executableVersion;
 		// Cache version check for performance
-		this.isV4 = semver.gte(executableVersion, '4.0.0');
+		this.isV4 = isVersionV4OrAbove(executableVersion);
 	}
 
 	/**
@@ -73,16 +76,13 @@ export class PhpcbfFixer {
 	 */
 	static async create(executablePath: string): Promise<PhpcbfFixer> {
 		try {
-			let result: Buffer = cp.execSync(`"${executablePath}" --version`);
+			const result: Buffer = cp.execSync(`"${executablePath}" --version`);
+			const executableVersion = parseVersionString(result.toString());
 
-			const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/i;
-			const versionMatches = result.toString().match(versionPattern);
-
-			if (versionMatches === null) {
+			if (executableVersion === null) {
 				throw new Error(SR.InvalidVersionStringError);
 			}
 
-			const executableVersion = versionMatches[1];
 			return new PhpcbfFixer(executablePath, executableVersion);
 
 		} catch (error: unknown) {
@@ -130,20 +130,14 @@ export class PhpcbfFixer {
 
 		// Make sure we capitalize the drive letter in paths on Windows
 		if (filePath !== undefined && /^win/.test(process.platform)) {
-			let pathRoot: string = path.parse(filePath).root;
-			let noDrivePath = filePath.slice(Math.max(pathRoot.length - 1, 0));
-			filePath = path.join(pathRoot.toUpperCase(), noDrivePath);
+			filePath = normalizeWindowsPath(filePath);
 		}
 
-		let fileText = document.getText();
+		const fileText = document.getText();
 
 		// Return early on empty text
 		if (fileText === '') {
-			return {
-				fixed: false,
-				content: fileText,
-				hasUnfixableIssues: false,
-			};
+			return createEmptyFileResult(fileText);
 		}
 
 		// Resolve coding standard (uses shared utility to find config files)
@@ -155,11 +149,7 @@ export class PhpcbfFixer {
 			settings.ignorePatterns.length &&
 			shouldIgnoreFile(filePath, settings.ignorePatterns)
 		) {
-			return {
-				fixed: false,
-				content: fileText,
-				hasUnfixableIssues: false,
-			};
+			return createIgnoredFileResult(fileText);
 		}
 
 		// Build fix arguments

@@ -1,7 +1,7 @@
 {
-	"name": "phpcs",
+	"name": "vscode-phpcs",
 	"description": "PHP CodeSniffer for Visual Studio Code",
-	"version": "1.2.1",
+	"version": "1.2.2",
 	"author": "Ioannis Kappas",
 	"publisher": "johnrdorazio",
 	"contributors": [
@@ -44,6 +44,16 @@
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"commands": [
+			{
+				"command": "phpcs.fixCurrentFile",
+				"title": "PHPCS: Fix this file with PHPCBF"
+			},
+			{
+				"command": "phpcs.fixWorkspace",
+				"title": "PHPCS: Fix all files in workspace with PHPCBF"
+			}
+		],
 		"configuration": {
 			"type": "object",
 			"title": "PHP CodeSniffer configuration",

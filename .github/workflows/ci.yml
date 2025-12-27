@@ -104,6 +104,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Install PHPCS/PHPCBF globally
+        run: composer global require "squizlabs/php_codesniffer:^3.10"
+
+      - name: Verify PHPCS installation
+        run: |
+          phpcs --version
+          phpcbf --version
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

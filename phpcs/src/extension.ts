@@ -9,12 +9,15 @@ import * as proto from "./protocol";
 
 import {
 	CancellationToken,
+	commands,
 	ExtensionContext,
+	ProgressLocation,
 	window,
 	workspace
 } from "vscode";
 
 import {
+	ExecuteCommandRequest,
 	LanguageClient,
 	LanguageClientOptions,
 	Middleware,
@@ -26,6 +29,7 @@ import { ConfigurationParams } from "vscode-languageserver-protocol";
 
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
+import { StringResources as SR, format } from "./strings";
 
 /**
  * Activates the extension: starts and configures the PHPCS language client, registers notifications and disposables.
@@ -63,8 +67,10 @@ export function activate(context: ExtensionContext) {
 		// Register the server for php documents
 		documentSelector: [{ scheme: 'file', language: 'php' }],
 		synchronize: {
-			// Notify the server about file changes to 'ruleset.xml' files contain in the workspace
-			fileEvents: workspace.createFileSystemWatcher("**/ruleset.xml")
+			// Notify the server about file changes to PHPCS ruleset files in the workspace
+			fileEvents: workspace.createFileSystemWatcher(
+				"**/{phpcs.xml,phpcs.xml.dist,.phpcs.xml,.phpcs.xml.dist,phpcs.ruleset.xml,ruleset.xml}"
+			)
 		},
 		middleware: middleware
 	};
@@ -94,12 +100,169 @@ export function activate(context: ExtensionContext) {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
 
+		/**
+		 * Command handler for fixing the current file with PHPCBF.
+		 * Validates that a PHP file is open, saves if dirty, and sends a fix request to the language server.
+		 */
+		const fixFileCommand = commands.registerCommand('phpcs.fixCurrentFile', async () => {
+			const editor = window.activeTextEditor;
+			if (!editor) {
+				window.showWarningMessage(SR.NoActiveEditor);
+				return;
+			}
+
+			if (editor.document.languageId !== 'php') {
+				window.showWarningMessage(SR.PhpcbfOnlyPhpFiles);
+				return;
+			}
+
+			// Save document if dirty to ensure PHPCBF runs against current content
+			if (editor.document.isDirty) {
+				const saved = await editor.document.save();
+				if (!saved) {
+					window.showWarningMessage(SR.FailedToSaveBeforeFix);
+					return;
+				}
+			}
+
+			const uri = editor.document.uri.toString();
+			try {
+				await window.withProgress(
+					{
+						location: ProgressLocation.Notification,
+						title: SR.PhpcbfFixingFile,
+						cancellable: false,
+					},
+					async () => {
+						await client.sendRequest(ExecuteCommandRequest.type, {
+							command: 'phpcs.fixFile',
+							arguments: [uri],
+						});
+					}
+				);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				window.showErrorMessage(format(SR.PhpcbfError, message));
+			}
+		});
+
+		/**
+		 * Command handler for fixing all PHP files in the workspace with PHPCBF.
+		 * Shows a confirmation dialog, finds all PHP files, and processes them with progress reporting.
+		 */
+		const fixAllFilesCommand = commands.registerCommand('phpcs.fixWorkspace', async () => {
+			const workspaceFolders = workspace.workspaceFolders;
+			if (!workspaceFolders || workspaceFolders.length === 0) {
+				window.showWarningMessage(SR.NoWorkspaceFolder);
+				return;
+			}
+
+			// Confirm with user before fixing all files
+			const confirm = await window.showWarningMessage(
+				SR.ConfirmFixWorkspace,
+				{ modal: true },
+				SR.ConfirmYes,
+				SR.ConfirmNo
+			);
+
+			if (confirm !== SR.ConfirmYes) {
+				return;
+			}
+
+			// Find all PHP files in the workspace
+			const phpFiles = await workspace.findFiles('**/*.php', '**/vendor/**');
+
+			if (phpFiles.length === 0) {
+				window.showInformationMessage(SR.NoPhpFilesFound);
+				return;
+			}
+
+			// Build a set of PHP file URIs for quick lookup
+			const phpFileUris = new Set(phpFiles.map(f => f.toString()));
+
+			// Save all dirty PHP documents that are in our file list
+			const dirtyPhpDocs = workspace.textDocuments.filter(
+				doc => doc.isDirty && doc.languageId === 'php' && phpFileUris.has(doc.uri.toString())
+			);
+
+			if (dirtyPhpDocs.length > 0) {
+				let failedSaves = 0;
+				for (const doc of dirtyPhpDocs) {
+					const saved = await doc.save();
+					if (!saved) {
+						failedSaves++;
+					}
+				}
+				if (failedSaves > 0) {
+					window.showWarningMessage(format(SR.FailedToSaveSomeFiles, failedSaves));
+				}
+			}
+
+			// Show progress while fixing files
+			// TODO: For large workspaces, consider adding a server-side batch fix command
+			// that accepts multiple URIs to reduce IPC overhead from sequential requests.
+			await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: SR.PhpcbfFixingFiles,
+					cancellable: true,
+				},
+				async (progress, token) => {
+					let fixed = 0;
+					let failed = 0;
+					const total = phpFiles.length;
+
+					for (let i = 0; i < phpFiles.length; i++) {
+						if (token.isCancellationRequested) {
+							window.showInformationMessage(
+								format(SR.PhpcbfCancelled, fixed, total)
+							);
+							return;
+						}
+
+						const file = phpFiles[i];
+						const uri = file.toString();
+						const fileName = path.basename(file.fsPath);
+
+						progress.report({
+							message: `(${i + 1}/${total}) ${fileName}`,
+							increment: (1 / total) * 100,
+						});
+
+						try {
+							await client.sendRequest(ExecuteCommandRequest.type, {
+								command: 'phpcs.fixFile',
+								arguments: [uri],
+							});
+							fixed++;
+						} catch (error) {
+							failed++;
+							const message = error instanceof Error ? error.message : String(error);
+							console.error(`PHPCBF failed for ${uri}: ${message}`);
+						}
+					}
+
+					if (failed > 0) {
+						window.showWarningMessage(
+							format(SR.PhpcbfFixedWithFailures, fixed, failed)
+						);
+					} else {
+						window.showInformationMessage(
+							format(SR.PhpcbfFixedSuccess, fixed)
+						);
+					}
+				}
+			);
+		});
+
 		// Only register disposables after successful start
 		context.subscriptions.push(status);
 		context.subscriptions.push(config);
+		context.subscriptions.push(fixFileCommand);
+		context.subscriptions.push(fixAllFilesCommand);
 	}).catch((error) => {
 		const message = error instanceof Error ? error.message : String(error);
-		window.showErrorMessage(`Failed to start PHPCS language server: ${message}`);
+		window.showErrorMessage(format(SR.FailedToStartServer, message));
 		console.error('Failed to start PHPCS language client:', error);
 	});
 

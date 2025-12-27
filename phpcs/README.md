@@ -1,7 +1,27 @@
 # vscode-phpcs
 
-This linter plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to
-[phpcs](https://pear.php.net/package/PHP_CodeSniffer/). It will be used with files that have the "PHP" language mode.
+This plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to
+[phpcs](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP_CodeSniffer) for linting and
+[phpcbf](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP Code Beautifier and Fixer) for auto-fixing
+code style issues. It will be used with files that have the "PHP" language mode.
+
+## Extension History
+
+This extension is the actively maintained continuation of the original PHPCS extensions:
+
+- **`ikappas.phpcs`** (versions 1.0.1 – 1.0.4) — The original extension by Ioannis Kappas
+- **`shevaua.phpcs`** (versions 1.0.6 – 1.0.8) — Maintained by Igor Sheviakov
+
+Both previous extensions are no longer maintained. This fork continues development with
+new features, bug fixes, and support for PHP_CodeSniffer v4.
+
+> **Note for Open VSX users:** This extension was previously published on the
+> [Open VSX Registry](https://open-vsx.org/) as `johnrdorazio.phpcs` (versions 1.1.0 – 1.2.1).
+> That extension ID is now deprecated in favor of `johnrdorazio.vscode-phpcs`.
+> Please uninstall the old extension and install this one to receive future updates.
+
+If you were using any of the previous extensions, you can safely uninstall them and
+switch to this one to receive continued updates.
 
 ## Supported PHPCS Versions
 

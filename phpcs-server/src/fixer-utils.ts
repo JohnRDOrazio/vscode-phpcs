@@ -4,6 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
+import * as path from 'path';
 import * as semver from 'semver';
 
 /**
@@ -314,4 +315,63 @@ export function extractPhpcbfStdoutError(stdout: string): string | null {
 		return match[1].trim();
 	}
 	return null;
+}
+
+/**
+ * Normalize a Windows file path by capitalizing the drive letter.
+ * @param filePath The file path to normalize
+ * @returns The normalized path with uppercase drive letter
+ */
+export function normalizeWindowsPath(filePath: string): string {
+	const parsed = path.parse(filePath);
+	return path.format({
+		...parsed,
+		root: parsed.root.toUpperCase(),
+	});
+}
+
+/**
+ * Create an early return result for empty file content.
+ * @param fileText The original file text
+ * @returns A FixResult indicating no fixes were needed
+ */
+export function createEmptyFileResult(fileText: string): FixResult {
+	return {
+		fixed: false,
+		content: fileText,
+		hasUnfixableIssues: false,
+	};
+}
+
+/**
+ * Create an early return result for ignored files.
+ * @param fileText The original file text
+ * @returns A FixResult indicating no fixes were applied due to ignore pattern
+ */
+export function createIgnoredFileResult(fileText: string): FixResult {
+	return {
+		fixed: false,
+		content: fileText,
+		hasUnfixableIssues: false,
+	};
+}
+
+/**
+ * Parse version string from PHPCS/PHPCBF --version output.
+ * @param output The output from --version command
+ * @returns The version string (e.g., '3.7.2') or null if not found
+ */
+export function parseVersionString(output: string): string | null {
+	const versionPattern = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/i;
+	const match = output.match(versionPattern);
+	return match ? match[1] : null;
+}
+
+/**
+ * Check if a PHPCS/PHPCBF version is 4.0.0 or above.
+ * @param version The version string to check
+ * @returns True if version is >= 4.0.0
+ */
+export function isVersionV4OrAbove(version: string): boolean {
+	return semver.gte(version, '4.0.0');
 }
