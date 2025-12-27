@@ -303,11 +303,11 @@ If user triggers multiple fixes quickly:
 
 ## Success Criteria (v1)
 
-- [x] "Fix all issues in this file" code action is displayed on PHPCS diagnostics
-- [x] Clicking "Fix" applies PHPCBF and updates the file
-- [x] Diagnostics refresh after fix is applied
-- [x] "Fix this file" command works from command palette
-- [x] "Fix all files in workspace" command works with progress indicator
+- [x] "Fix all auto-fixable issues in this file (PHPCBF)" code action is displayed on PHPCS diagnostics
+- [x] Selecting the code action applies PHPCBF and updates the file
+- [x] Diagnostics refresh after fixes are applied
+- [x] "PHPCS: Fix this file with PHPCBF" command works from command palette
+- [x] "PHPCS: Fix all files in workspace with PHPCBF" command works with progress indicator
 - [x] Auto-fix on save works when enabled
 - [x] Settings allow customizing PHPCBF behavior
 - [x] Errors are handled gracefully (missing PHPCBF, syntax errors, etc.)
