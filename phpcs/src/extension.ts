@@ -9,12 +9,15 @@ import * as proto from "./protocol";
 
 import {
 	CancellationToken,
+	commands,
 	ExtensionContext,
+	ProgressLocation,
 	window,
 	workspace
 } from "vscode";
 
 import {
+	ExecuteCommandRequest,
 	LanguageClient,
 	LanguageClientOptions,
 	Middleware,
@@ -96,9 +99,117 @@ export function activate(context: ExtensionContext) {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
 
+		// Register command: Fix current file with PHPCBF
+		const fixFileCommand = commands.registerCommand('phpcs.fixFile', async () => {
+			const editor = window.activeTextEditor;
+			if (!editor) {
+				window.showWarningMessage('No active editor. Open a PHP file to fix.');
+				return;
+			}
+
+			if (editor.document.languageId !== 'php') {
+				window.showWarningMessage('PHPCBF can only fix PHP files.');
+				return;
+			}
+
+			const uri = editor.document.uri.toString();
+			try {
+				await client.sendRequest(ExecuteCommandRequest.type, {
+					command: 'phpcs.fixFile',
+					arguments: [uri],
+				});
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				window.showErrorMessage(`PHPCBF error: ${message}`);
+			}
+		});
+
+		// Register command: Fix all files in workspace with PHPCBF
+		const fixAllFilesCommand = commands.registerCommand('phpcs.fixAllFiles', async () => {
+			const workspaceFolders = workspace.workspaceFolders;
+			if (!workspaceFolders || workspaceFolders.length === 0) {
+				window.showWarningMessage('No workspace folder open.');
+				return;
+			}
+
+			// Confirm with user before fixing all files
+			const confirm = await window.showWarningMessage(
+				'This will run PHPCBF on all PHP files in the workspace. Continue?',
+				{ modal: true },
+				'Yes',
+				'No'
+			);
+
+			if (confirm !== 'Yes') {
+				return;
+			}
+
+			// Find all PHP files in the workspace
+			const phpFiles = await workspace.findFiles('**/*.php', '**/vendor/**');
+
+			if (phpFiles.length === 0) {
+				window.showInformationMessage('No PHP files found in the workspace.');
+				return;
+			}
+
+			// Show progress while fixing files
+			await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: 'PHPCBF: Fixing files',
+					cancellable: true,
+				},
+				async (progress, token) => {
+					let fixed = 0;
+					let failed = 0;
+					const total = phpFiles.length;
+
+					for (let i = 0; i < phpFiles.length; i++) {
+						if (token.isCancellationRequested) {
+							window.showInformationMessage(
+								`PHPCBF cancelled. Fixed ${fixed} of ${total} files.`
+							);
+							return;
+						}
+
+						const file = phpFiles[i];
+						const uri = file.toString();
+						const fileName = path.basename(file.fsPath);
+
+						progress.report({
+							message: `(${i + 1}/${total}) ${fileName}`,
+							increment: (1 / total) * 100,
+						});
+
+						try {
+							await client.sendRequest(ExecuteCommandRequest.type, {
+								command: 'phpcs.fixFile',
+								arguments: [uri],
+							});
+							fixed++;
+						} catch {
+							failed++;
+						}
+					}
+
+					if (failed > 0) {
+						window.showWarningMessage(
+							`PHPCBF: Fixed ${fixed} files, ${failed} failed.`
+						);
+					} else {
+						window.showInformationMessage(
+							`PHPCBF: Successfully processed ${fixed} files.`
+						);
+					}
+				}
+			);
+		});
+
 		// Only register disposables after successful start
 		context.subscriptions.push(status);
 		context.subscriptions.push(config);
+		context.subscriptions.push(fixFileCommand);
+		context.subscriptions.push(fixAllFilesCommand);
 	}).catch((error) => {
 		const message = error instanceof Error ? error.message : String(error);
 		window.showErrorMessage(`Failed to start PHPCS language server: ${message}`);

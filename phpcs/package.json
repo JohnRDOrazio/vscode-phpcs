@@ -44,6 +44,16 @@
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"commands": [
+			{
+				"command": "phpcs.fixFile",
+				"title": "PHPCS: Fix this file with PHPCBF"
+			},
+			{
+				"command": "phpcs.fixAllFiles",
+				"title": "PHPCS: Fix all files in workspace with PHPCBF"
+			}
+		],
 		"configuration": {
 			"type": "object",
 			"title": "PHP CodeSniffer configuration",

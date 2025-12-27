@@ -21,10 +21,10 @@ This appears in:
 - Right-click context menu under "Quick Fix..." ✅
 - The Problems panel (click on diagnostic → Quick Fix) ✅
 
-#### 2. Commands (Command Palette)
+#### 2. Commands (Command Palette) ✅
 
-- **"PHPCS: Fix this file with PHPCBF"** - Fix current file ❌ (not yet implemented)
-- **"PHPCS: Fix all files in workspace"** - Fix all PHP files (with confirmation/progress) ❌ (not yet implemented)
+- **"PHPCS: Fix this file with PHPCBF"** - Fix current file ✅
+- **"PHPCS: Fix all files in workspace with PHPCBF"** - Fix all PHP files (with confirmation/progress) ✅
 
 #### 3. Format on Save Integration ✅
 
@@ -120,18 +120,18 @@ phpcs-server/test/
 
 3. Re-lint after fix to refresh diagnostics ✅
 
-### Phase 3: Commands, Workspace Fixes, and Auto-Fix (Partial)
+### Phase 3: Commands, Workspace Fixes, and Auto-Fix ✅
 
 **Goal**: Command palette integration, workspace-wide fixes, and format-on-save
 
-1. Register commands in extension ❌
-   - "Fix this file" command ❌
-   - "Fix all files in workspace" command ❌
+1. Register commands in extension ✅
+   - "Fix this file" command ✅
+   - "Fix all files in workspace" command ✅
 
-2. Implement workspace-wide fixes ❌
-   - Find all PHP files in workspace ❌
-   - Show progress indicator during operation ❌
-   - Report summary (X files fixed, Y errors, etc.) ❌
+2. Implement workspace-wide fixes ✅
+   - Find all PHP files in workspace ✅
+   - Show progress indicator during operation ✅
+   - Report summary (X files fixed, Y errors, etc.) ✅
 
 3. Implement auto-fix on save ✅
    - Hook into `onWillSave` event ✅
@@ -303,11 +303,11 @@ If user triggers multiple fixes quickly:
 
 ## Success Criteria (v1)
 
-- [x] "Fix all issues in this file" code action appears on PHPCS diagnostics
+- [x] "Fix all issues in this file" code action is displayed on PHPCS diagnostics
 - [x] Clicking "Fix" applies PHPCBF and updates the file
 - [x] Diagnostics refresh after fix is applied
-- [ ] "Fix this file" command works from command palette
-- [ ] "Fix all files in workspace" command works with progress indicator
+- [x] "Fix this file" command works from command palette
+- [x] "Fix all files in workspace" command works with progress indicator
 - [x] Auto-fix on save works when enabled
 - [x] Settings allow customizing PHPCBF behavior
 - [x] Errors are handled gracefully (missing PHPCBF, syntax errors, etc.)

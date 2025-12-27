@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.2] - 2025-12-27
 
+### Added
+
+- **Command Palette Commands** for PHPCBF:
+  - `PHPCS: Fix this file with PHPCBF` - Fix the current file
+  - `PHPCS: Fix all files in workspace with PHPCBF` - Fix all PHP files with
+    confirmation dialog and progress indicator
+
 ### Changed
 
 - **Extension renamed** from `phpcs` to `vscode-phpcs` to avoid naming conflict
