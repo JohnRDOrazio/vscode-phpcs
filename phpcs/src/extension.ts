@@ -235,8 +235,10 @@ export function activate(context: ExtensionContext) {
 								arguments: [uri],
 							});
 							fixed++;
-						} catch {
+						} catch (error) {
 							failed++;
+							const message = error instanceof Error ? error.message : String(error);
+							console.error(`PHPCBF failed for ${uri}: ${message}`);
 						}
 					}
 
