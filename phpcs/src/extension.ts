@@ -169,6 +169,8 @@ export function activate(context: ExtensionContext) {
 			}
 
 			// Show progress while fixing files
+			// TODO: For large workspaces, consider adding a server-side batch fix command
+			// that accepts multiple URIs to reduce IPC overhead from sequential requests.
 			await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
