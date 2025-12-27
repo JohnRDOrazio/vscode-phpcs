@@ -10,7 +10,9 @@
 | VS Marketplace | [![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/johnrdorazio.vscode-phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=johnrdorazio.vscode-phpcs) | [![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/johnrdorazio.vscode-phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=johnrdorazio.vscode-phpcs) | [![VS Code Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/johnrdorazio.vscode-phpcs?cacheSeconds=86400)](https://marketplace.visualstudio.com/items?itemName=johnrdorazio.vscode-phpcs) |
 | Open VSX       | [![Open VSX Version](https://img.shields.io/open-vsx/v/johnrdorazio/vscode-phpcs?cacheSeconds=86400)](https://open-vsx.org/extension/johnrdorazio/vscode-phpcs)                                                  | [![Open VSX Downloads](https://img.shields.io/open-vsx/dt/johnrdorazio/vscode-phpcs?cacheSeconds=86400)](https://open-vsx.org/extension/johnrdorazio/vscode-phpcs)                                                | [![Open VSX Rating](https://img.shields.io/open-vsx/rating/johnrdorazio/vscode-phpcs?cacheSeconds=86400)](https://open-vsx.org/extension/johnrdorazio/vscode-phpcs)                                             |
 
-Integrates [phpcs](https://github.com/squizlabs/PHP_CodeSniffer.git) into [Visual Studio Code](https://code.visualstudio.com/).
+Integrates [phpcs](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP_CodeSniffer) for linting and
+[phpcbf](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP Code Beautifier and Fixer) for auto-fixing
+code style issues into [Visual Studio Code](https://code.visualstudio.com/).
 
 ## Extension History
 

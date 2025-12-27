@@ -1,7 +1,9 @@
 # vscode-phpcs
 
-This linter plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to
-[phpcs](https://pear.php.net/package/PHP_CodeSniffer/). It will be used with files that have the "PHP" language mode.
+This plugin for [Visual Studio Code](https://code.visualstudio.com/) provides an interface to
+[phpcs](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP_CodeSniffer) for linting and
+[phpcbf](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP Code Beautifier and Fixer) for auto-fixing
+code style issues. It will be used with files that have the "PHP" language mode.
 
 ## Extension History
 
