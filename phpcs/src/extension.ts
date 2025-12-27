@@ -29,6 +29,7 @@ import { ConfigurationParams } from "vscode-languageserver-protocol";
 
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
+import { StringResources as SR, format } from "./strings";
 
 /**
  * Activates the extension: starts and configures the PHPCS language client, registers notifications and disposables.
@@ -99,16 +100,19 @@ export function activate(context: ExtensionContext) {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
 
-		// Register command: Fix current file with PHPCBF
+		/**
+		 * Command handler for fixing the current file with PHPCBF.
+		 * Validates that a PHP file is open and sends a fix request to the language server.
+		 */
 		const fixFileCommand = commands.registerCommand('phpcs.fixCurrentFile', async () => {
 			const editor = window.activeTextEditor;
 			if (!editor) {
-				window.showWarningMessage('No active editor. Open a PHP file to fix.');
+				window.showWarningMessage(SR.NoActiveEditor);
 				return;
 			}
 
 			if (editor.document.languageId !== 'php') {
-				window.showWarningMessage('PHPCBF can only fix PHP files.');
+				window.showWarningMessage(SR.PhpcbfOnlyPhpFiles);
 				return;
 			}
 
@@ -117,7 +121,7 @@ export function activate(context: ExtensionContext) {
 				await window.withProgress(
 					{
 						location: ProgressLocation.Notification,
-						title: 'PHPCBF: Fixing file...',
+						title: SR.PhpcbfFixingFile,
 						cancellable: false,
 					},
 					async () => {
@@ -129,27 +133,30 @@ export function activate(context: ExtensionContext) {
 				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				window.showErrorMessage(`PHPCBF error: ${message}`);
+				window.showErrorMessage(format(SR.PhpcbfError, message));
 			}
 		});
 
-		// Register command: Fix all files in workspace with PHPCBF
+		/**
+		 * Command handler for fixing all PHP files in the workspace with PHPCBF.
+		 * Shows a confirmation dialog, finds all PHP files, and processes them with progress reporting.
+		 */
 		const fixAllFilesCommand = commands.registerCommand('phpcs.fixWorkspace', async () => {
 			const workspaceFolders = workspace.workspaceFolders;
 			if (!workspaceFolders || workspaceFolders.length === 0) {
-				window.showWarningMessage('No workspace folder open.');
+				window.showWarningMessage(SR.NoWorkspaceFolder);
 				return;
 			}
 
 			// Confirm with user before fixing all files
 			const confirm = await window.showWarningMessage(
-				'This will run PHPCBF on all PHP files in the workspace. Continue?',
+				SR.ConfirmFixWorkspace,
 				{ modal: true },
-				'Yes',
-				'No'
+				SR.ConfirmYes,
+				SR.ConfirmNo
 			);
 
-			if (confirm !== 'Yes') {
+			if (confirm !== SR.ConfirmYes) {
 				return;
 			}
 
@@ -157,7 +164,7 @@ export function activate(context: ExtensionContext) {
 			const phpFiles = await workspace.findFiles('**/*.php', '**/vendor/**');
 
 			if (phpFiles.length === 0) {
-				window.showInformationMessage('No PHP files found in the workspace.');
+				window.showInformationMessage(SR.NoPhpFilesFound);
 				return;
 			}
 
@@ -165,7 +172,7 @@ export function activate(context: ExtensionContext) {
 			await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: 'PHPCBF: Fixing files',
+					title: SR.PhpcbfFixingFiles,
 					cancellable: true,
 				},
 				async (progress, token) => {
@@ -176,7 +183,7 @@ export function activate(context: ExtensionContext) {
 					for (let i = 0; i < phpFiles.length; i++) {
 						if (token.isCancellationRequested) {
 							window.showInformationMessage(
-								`PHPCBF cancelled. Fixed ${fixed} of ${total} files.`
+								format(SR.PhpcbfCancelled, fixed, total)
 							);
 							return;
 						}
@@ -203,11 +210,11 @@ export function activate(context: ExtensionContext) {
 
 					if (failed > 0) {
 						window.showWarningMessage(
-							`PHPCBF: Fixed ${fixed} files, ${failed} failed.`
+							format(SR.PhpcbfFixedWithFailures, fixed, failed)
 						);
 					} else {
 						window.showInformationMessage(
-							`PHPCBF: Successfully processed ${fixed} files.`
+							format(SR.PhpcbfFixedSuccess, fixed)
 						);
 					}
 				}
@@ -221,7 +228,7 @@ export function activate(context: ExtensionContext) {
 		context.subscriptions.push(fixAllFilesCommand);
 	}).catch((error) => {
 		const message = error instanceof Error ? error.message : String(error);
-		window.showErrorMessage(`Failed to start PHPCS language server: ${message}`);
+		window.showErrorMessage(format(SR.FailedToStartServer, message));
 		console.error('Failed to start PHPCS language client:', error);
 	});
 
