@@ -1,9 +1,22 @@
 # Changelog
 
-All notable changes to the "phpcs" extension will be documented in this file.
+All notable changes to the "vscode-phpcs" extension will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.2] - 2025-12-27
+
+### Changed
+
+- **Extension renamed** from `phpcs` to `vscode-phpcs` to avoid naming conflict
+  with the original abandoned extensions on the VS Code Marketplace
+- Added "Extension History" section to README documenting the lineage from
+  `ikappas.phpcs` and `shevaua.phpcs`
+
+> **Note for existing users:** Your settings will continue to work as the
+> settings namespace remains `phpcs.*`. However, you may need to reinstall
+> the extension under its new name.
 
 ## [1.2.1] - 2025-12-23
 

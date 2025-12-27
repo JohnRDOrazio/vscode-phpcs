@@ -53,11 +53,11 @@ These features are deferred until v1 is stable:
 
 ## New Settings (v1)
 
-| Setting                      | Type    | Default | Description                                        |
-| ---------------------------- | ------- | ------- | -------------------------------------------------- |
-| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                  |
-| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)  |
-| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                   |
+| Setting                      | Type    | Default | Description                                       |
+| ---------------------------- | ------- | ------- | ------------------------------------------------- |
+| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                 |
+| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null) |
+| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                  |
 
 ---
 
@@ -195,25 +195,25 @@ for details.
 
 **PHPCBF v3.x:**
 
-| Code | Meaning                                    |
-| ---- | ------------------------------------------ |
-| 0    | no fixable errors, nothing was fixed       |
-| 1    | all fixable errors were fixed correctly    |
-| 2    | phpcbf failed to fix some fixable errors   |
-| 3    | processing error                           |
+| Code | Meaning                                  |
+| ---- | ---------------------------------------- |
+| 0    | no fixable errors, nothing was fixed     |
+| 1    | all fixable errors were fixed correctly  |
+| 2    | phpcbf failed to fix some fixable errors |
+| 3    | processing error                         |
 
 **PHPCBF v4.0.0+ (cumulative/bitmask):**
 
-| Code | Meaning                                                |
-| ---- | ------------------------------------------------------ |
-| 0    | clean code base / auto-fixed with no issues remaining  |
-| 1    | issues found/remaining, auto-fixable                   |
-| 2    | issues found/remaining, non-auto-fixable               |
-| 4    | failure to fix some files/fixer conflict               |
-| 5    | 1 + 4: auto-fixable issues with some fix failures      |
-| 7    | 1 + 2 + 4: mixed issues with some fix failures         |
-| 16   | processing error blocking the run                      |
-| 64   | requirements not met (e.g., minimum PHP version)       |
+| Code | Meaning                                               |
+| ---- | ----------------------------------------------------- |
+| 0    | clean code base / auto-fixed with no issues remaining |
+| 1    | issues found/remaining, auto-fixable                  |
+| 2    | issues found/remaining, non-auto-fixable              |
+| 4    | failure to fix some files/fixer conflict              |
+| 5    | 1 + 4: auto-fixable issues with some fix failures     |
+| 7    | 1 + 2 + 4: mixed issues with some fix failures        |
+| 16   | processing error blocking the run                     |
+| 64   | requirements not met (e.g., minimum PHP version)      |
 
 **Note**: In v4+, the `ignore_non_auto_fixable_on_exit` config option can make
 PHPCBF return exit code 0 even when non-fixable issues remain. This is useful
@@ -236,9 +236,9 @@ Or use `WorkspaceEdit` for batch operations:
 ```typescript
 connection.workspace.applyEdit({
   changes: {
-    [uri]: [textEdit]
-  }
-})
+    [uri]: [textEdit],
+  },
+});
 ```
 
 ---
