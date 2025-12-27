@@ -63,8 +63,10 @@ export function activate(context: ExtensionContext) {
 		// Register the server for php documents
 		documentSelector: [{ scheme: 'file', language: 'php' }],
 		synchronize: {
-			// Notify the server about file changes to 'ruleset.xml' files contain in the workspace
-			fileEvents: workspace.createFileSystemWatcher("**/ruleset.xml")
+			// Notify the server about file changes to PHPCS ruleset files in the workspace
+			fileEvents: workspace.createFileSystemWatcher(
+				"**/{phpcs.xml,phpcs.xml.dist,.phpcs.xml,.phpcs.xml.dist,phpcs.ruleset.xml,ruleset.xml}"
+			)
 		},
 		middleware: middleware
 	};
