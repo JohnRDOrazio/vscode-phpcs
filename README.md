@@ -19,10 +19,15 @@ This extension is the actively maintained continuation of the original PHPCS ext
 - **`ikappas.phpcs`** (versions 1.0.1 – 1.0.4) — The original extension by Ioannis Kappas
 - **`shevaua.phpcs`** (versions 1.0.6 – 1.0.8) — Maintained by Igor Sheviakov
 
-Both previous extensions are no longer maintained. This fork (`johnrdorazio.vscode-phpcs`)
-continues development with new features, bug fixes, and support for PHP_CodeSniffer v4.
+Both previous extensions are no longer maintained. This fork continues development with
+new features, bug fixes, and support for PHP_CodeSniffer v4.
 
-If you were using either of the previous extensions, you can safely uninstall them and
+> **Note for Open VSX users:** This extension was previously published on the
+> [Open VSX Registry](https://open-vsx.org/) as `johnrdorazio.phpcs` (versions 1.1.0 – 1.2.1).
+> That extension ID is now deprecated in favor of `johnrdorazio.vscode-phpcs`.
+> Please uninstall the old extension and install this one to receive future updates.
+
+If you were using any of the previous extensions, you can safely uninstall them and
 switch to this one to receive continued updates.
 
 **Supports PHPCS versions 1.x, 2.x, 3.x, and 4.x.**
