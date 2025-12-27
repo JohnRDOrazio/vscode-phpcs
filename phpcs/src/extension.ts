@@ -177,6 +177,27 @@ export function activate(context: ExtensionContext) {
 				return;
 			}
 
+			// Build a set of PHP file URIs for quick lookup
+			const phpFileUris = new Set(phpFiles.map(f => f.toString()));
+
+			// Save all dirty PHP documents that are in our file list
+			const dirtyPhpDocs = workspace.textDocuments.filter(
+				doc => doc.isDirty && doc.languageId === 'php' && phpFileUris.has(doc.uri.toString())
+			);
+
+			if (dirtyPhpDocs.length > 0) {
+				let failedSaves = 0;
+				for (const doc of dirtyPhpDocs) {
+					const saved = await doc.save();
+					if (!saved) {
+						failedSaves++;
+					}
+				}
+				if (failedSaves > 0) {
+					window.showWarningMessage(format(SR.FailedToSaveSomeFiles, failedSaves));
+				}
+			}
+
 			// Show progress while fixing files
 			// TODO: For large workspaces, consider adding a server-side batch fix command
 			// that accepts multiple URIs to reduce IPC overhead from sequential requests.

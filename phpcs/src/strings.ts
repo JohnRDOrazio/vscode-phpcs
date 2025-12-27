@@ -22,6 +22,7 @@ export class StringResources {
 	// Fix workspace command
 	static readonly NoWorkspaceFolder: string = 'No workspace folder open.';
 	static readonly ConfirmFixWorkspace: string = 'This will run PHPCBF on all PHP files in the workspace. Continue?';
+	static readonly FailedToSaveSomeFiles: string = 'Failed to save {0} file(s). These files will be skipped.';
 	static readonly ConfirmYes: string = 'Yes';
 	static readonly ConfirmNo: string = 'No';
 	static readonly NoPhpFilesFound: string = 'No PHP files found in the workspace.';
