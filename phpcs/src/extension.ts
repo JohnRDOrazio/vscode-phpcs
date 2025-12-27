@@ -100,7 +100,7 @@ export function activate(context: ExtensionContext) {
 		});
 
 		// Register command: Fix current file with PHPCBF
-		const fixFileCommand = commands.registerCommand('phpcs.fixFile', async () => {
+		const fixFileCommand = commands.registerCommand('phpcs.fixCurrentFile', async () => {
 			const editor = window.activeTextEditor;
 			if (!editor) {
 				window.showWarningMessage('No active editor. Open a PHP file to fix.');
@@ -114,10 +114,19 @@ export function activate(context: ExtensionContext) {
 
 			const uri = editor.document.uri.toString();
 			try {
-				await client.sendRequest(ExecuteCommandRequest.type, {
-					command: 'phpcs.fixFile',
-					arguments: [uri],
-				});
+				await window.withProgress(
+					{
+						location: ProgressLocation.Notification,
+						title: 'PHPCBF: Fixing file...',
+						cancellable: false,
+					},
+					async () => {
+						await client.sendRequest(ExecuteCommandRequest.type, {
+							command: 'phpcs.fixFile',
+							arguments: [uri],
+						});
+					}
+				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				window.showErrorMessage(`PHPCBF error: ${message}`);
@@ -125,7 +134,7 @@ export function activate(context: ExtensionContext) {
 		});
 
 		// Register command: Fix all files in workspace with PHPCBF
-		const fixAllFilesCommand = commands.registerCommand('phpcs.fixAllFiles', async () => {
+		const fixAllFilesCommand = commands.registerCommand('phpcs.fixWorkspace', async () => {
 			const workspaceFolders = workspace.workspaceFolders;
 			if (!workspaceFolders || workspaceFolders.length === 0) {
 				window.showWarningMessage('No workspace folder open.');

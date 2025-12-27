@@ -44,7 +44,7 @@
     "watch": "tsc --watch -p .",
     "test": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
     "test:unit": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/linter.test.ts test/linter-utils.test.ts test/fixer-utils.test.ts test/code-actions.test.ts test/base/common/strings.test.ts",
-    "test:integration": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts",
+    "test:integration": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts test/fixer.test.ts",
     "test:coverage": "c8 --reporter=lcov --reporter=text node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts || true",
     "clean": "rimraf ../phpcs/server"
   }

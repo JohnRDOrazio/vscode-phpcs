@@ -46,11 +46,11 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "phpcs.fixFile",
+				"command": "phpcs.fixCurrentFile",
 				"title": "PHPCS: Fix this file with PHPCBF"
 			},
 			{
-				"command": "phpcs.fixAllFiles",
+				"command": "phpcs.fixWorkspace",
 				"title": "PHPCS: Fix all files in workspace with PHPCBF"
 			}
 		],

@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Command Palette Commands** for PHPCBF:
-  - `PHPCS: Fix this file with PHPCBF` - Fix the current file
-  - `PHPCS: Fix all files in workspace with PHPCBF` - Fix all PHP files with
-    confirmation dialog and progress indicator
+  - `PHPCS: Fix this file with PHPCBF` (`phpcs.fixCurrentFile`) - Fix the current file
+  - `PHPCS: Fix all files in workspace with PHPCBF` (`phpcs.fixWorkspace`) - Fix all
+    PHP files with confirmation dialog and progress indicator
+- Integration tests for PHPCBF fixer (`fixer.test.ts`)
 
 ### Changed
 
