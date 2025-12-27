@@ -9,24 +9,24 @@ and Fixer) support to vscode-phpcs.
 
 ### v1 Scope (File-Level Fixes)
 
-#### 1. Quick Fix Code Actions
+#### 1. Quick Fix Code Actions ✅
 
 When a user clicks on a PHPCS diagnostic (squiggly line), they'll see:
 
-- **"Fix all auto-fixable issues in this file (PHPCBF)"** - Run PHPCBF on entire file
+- **"Fix all auto-fixable issues in this file (PHPCBF)"** - Run PHPCBF on entire file ✅
 
 This appears in:
 
-- The lightbulb menu (Cmd/Ctrl + .)
-- Right-click context menu under "Quick Fix..."
-- The Problems panel (click on diagnostic → Quick Fix)
+- The lightbulb menu (Cmd/Ctrl + .) ✅
+- Right-click context menu under "Quick Fix..." ✅
+- The Problems panel (click on diagnostic → Quick Fix) ✅
 
 #### 2. Commands (Command Palette)
 
-- **"PHPCS: Fix this file with PHPCBF"** - Fix current file
-- **"PHPCS: Fix all files in workspace"** - Fix all PHP files (with confirmation/progress)
+- **"PHPCS: Fix this file with PHPCBF"** - Fix current file ❌ (not yet implemented)
+- **"PHPCS: Fix all files in workspace"** - Fix all PHP files (with confirmation/progress) ❌ (not yet implemented)
 
-#### 3. Format on Save Integration
+#### 3. Format on Save Integration ✅
 
 Optional setting to auto-fix on save:
 
@@ -38,7 +38,7 @@ Optional setting to auto-fix on save:
 
 #### 4. Status Bar Feedback
 
-Show progress indicator when PHPCBF is running (especially for workspace-wide fixes).
+Show progress indicator when PHPCBF is running (especially for workspace-wide fixes). ❌ (not yet implemented)
 
 ### Future Enhancements (Post-v1)
 
@@ -51,13 +51,13 @@ These features are deferred until v1 is stable:
 
 ---
 
-## New Settings (v1)
+## New Settings (v1) ✅
 
-| Setting                      | Type    | Default | Description                                       |
-| ---------------------------- | ------- | ------- | ------------------------------------------------- |
-| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                 |
-| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null) |
-| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                  |
+| Setting                      | Type    | Default | Description                                       | Status |
+| ---------------------------- | ------- | ------- | ------------------------------------------------- | ------ |
+| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                 | ✅     |
+| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null) | ✅     |
+| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                  | ✅     |
 
 ---
 
@@ -67,91 +67,92 @@ These features are deferred until v1 is stable:
 
 ```text
 phpcs-server/src/
-├── fixer.ts              # PhpcbfFixer class (mirrors PhpcsLinter)
-├── fixer-utils.ts        # Utility functions for PHPCBF operations
-└── code-actions.ts       # Code action provider logic (file-level fixes)
+├── fixer.ts              # PhpcbfFixer class (mirrors PhpcsLinter) ✅
+├── fixer-utils.ts        # Utility functions for PHPCBF operations ✅
+└── code-actions.ts       # Code action provider logic (file-level fixes) ✅
 
 phpcs-server/test/
-├── fixer.test.ts         # Unit tests for fixer
-└── fixer-utils.test.ts   # Unit tests for utilities
+├── fixer.test.ts         # Integration tests for fixer ❌ (not yet created)
+├── fixer-utils.test.ts   # Unit tests for utilities ✅
+└── code-actions.test.ts  # Unit tests for code actions ✅
 ```
 
 ### Key Integration Points
 
-1. **server.ts**: Add `codeActionProvider` capability and `onCodeAction` handler
-2. **settings.ts**: Add PHPCBF settings to interface
-3. **phpcs/package.json**: Add configuration properties
-4. **strings.ts**: Add PHPCBF-related error messages
+1. **server.ts**: Add `codeActionProvider` capability and `onCodeAction` handler ✅
+2. **settings.ts**: Add PHPCBF settings to interface ✅
+3. **phpcs/package.json**: Add configuration properties ✅
+4. **strings.ts**: Add PHPCBF-related error messages ✅
 
 ---
 
 ## Implementation Phases (v1)
 
-### Phase 1: Core PHPCBF Execution
+### Phase 1: Core PHPCBF Execution ✅
 
 **Goal**: Basic PHPCBF execution that can fix a file
 
-1. Create `fixer.ts` with `PhpcbfFixer` class
-   - Factory method to create fixer (detect phpcbf path)
-   - `fix(document, settings)` method that runs PHPCBF
-   - Version detection (reuse PHPCS version since they're bundled together)
+1. Create `fixer.ts` with `PhpcbfFixer` class ✅
+   - Factory method to create fixer (detect phpcbf path) ✅
+   - `fix(document, settings)` method that runs PHPCBF ✅
+   - Version detection (reuse PHPCS version since they're bundled together) ✅
 
-2. Create `fixer-utils.ts` with utility functions
-   - `buildFixArguments()` - Build CLI arguments for PHPCBF
-   - `parseFixResult()` - Parse PHPCBF output/exit codes
-   - Exit codes: 0 = no issues, 1 = issues fixed, 2 = unfixable issues, 3 = both
+2. Create `fixer-utils.ts` with utility functions ✅
+   - `buildFixArguments()` - Build CLI arguments for PHPCBF ✅
+   - `parseFixResult()` - Parse PHPCBF output/exit codes ✅
+   - Exit codes: 0 = no issues, 1 = issues fixed, 2 = unfixable issues, 3 = both ✅
 
-3. Add settings to `settings.ts`
+3. Add settings to `settings.ts` ✅
 
-4. Add unit tests for utilities
+4. Add unit tests for utilities ✅
 
-### Phase 2: File-Level Code Actions
+### Phase 2: File-Level Code Actions ✅
 
 **Goal**: Quick fix action to address all issues in a file
 
-1. Create `code-actions.ts` with code action logic
-   - Generate "Fix all issues in this file" action when diagnostics exist
+1. Create `code-actions.ts` with code action logic ✅
+   - Generate "Fix all issues in this file" action when diagnostics exist ✅
 
-2. Update `server.ts`
-   - Add `codeActionProvider: true` to capabilities
-   - Implement `onCodeAction` handler
-   - Execute PHPCBF and apply text edits (full file replacement)
+2. Update `server.ts` ✅
+   - Add `codeActionProvider: true` to capabilities ✅
+   - Implement `onCodeAction` handler ✅
+   - Execute PHPCBF and apply text edits (full file replacement) ✅
 
-3. Re-lint after fix to refresh diagnostics
+3. Re-lint after fix to refresh diagnostics ✅
 
-### Phase 3: Commands, Workspace Fixes, and Auto-Fix
+### Phase 3: Commands, Workspace Fixes, and Auto-Fix (Partial)
 
 **Goal**: Command palette integration, workspace-wide fixes, and format-on-save
 
-1. Register commands in extension
-   - "Fix this file" command
-   - "Fix all files in workspace" command
+1. Register commands in extension ❌
+   - "Fix this file" command ❌
+   - "Fix all files in workspace" command ❌
 
-2. Implement workspace-wide fixes
-   - Find all PHP files in workspace
-   - Show progress indicator during operation
-   - Report summary (X files fixed, Y errors, etc.)
+2. Implement workspace-wide fixes ❌
+   - Find all PHP files in workspace ❌
+   - Show progress indicator during operation ❌
+   - Report summary (X files fixed, Y errors, etc.) ❌
 
-3. Implement auto-fix on save
-   - Hook into `onDidSave` event
-   - Run PHPCBF before/after save based on setting
+3. Implement auto-fix on save ✅
+   - Hook into `onWillSave` event ✅
+   - Run PHPCBF before save based on setting ✅
 
-4. Add status bar integration
-   - Show "Fixing..." indicator during operations
+4. Add status bar integration ❌
+   - Show "Fixing..." indicator during operations ❌
 
-### Phase 4: Polish and Edge Cases
+### Phase 4: Polish and Edge Cases (Partial)
 
 **Goal**: Robust error handling and user experience
 
 1. Handle edge cases
-   - PHPCBF not installed/not found
-   - File has syntax errors (PHPCBF can't fix)
-   - Concurrent fix requests
-   - Large files / timeout handling
+   - PHPCBF not installed/not found ✅
+   - File has syntax errors (PHPCBF can't fix) ✅
+   - Concurrent fix requests ❌
+   - Large files / timeout handling ❌
 
-2. Documentation
-   - Update README with PHPCBF features
-   - Add configuration examples
+2. Documentation ✅
+   - Update README with PHPCBF features ✅
+   - Add configuration examples ✅
 
 ---
 
@@ -302,13 +303,13 @@ If user triggers multiple fixes quickly:
 
 ## Success Criteria (v1)
 
-- [ ] "Fix all issues in this file" code action appears on PHPCS diagnostics
-- [ ] Clicking "Fix" applies PHPCBF and updates the file
-- [ ] Diagnostics refresh after fix is applied
+- [x] "Fix all issues in this file" code action appears on PHPCS diagnostics
+- [x] Clicking "Fix" applies PHPCBF and updates the file
+- [x] Diagnostics refresh after fix is applied
 - [ ] "Fix this file" command works from command palette
 - [ ] "Fix all files in workspace" command works with progress indicator
-- [ ] Auto-fix on save works when enabled
-- [ ] Settings allow customizing PHPCBF behavior
-- [ ] Errors are handled gracefully (missing PHPCBF, syntax errors, etc.)
-- [ ] Unit tests cover utility functions
+- [x] Auto-fix on save works when enabled
+- [x] Settings allow customizing PHPCBF behavior
+- [x] Errors are handled gracefully (missing PHPCBF, syntax errors, etc.)
+- [x] Unit tests cover utility functions
 - [ ] Integration tests verify end-to-end flow
