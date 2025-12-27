@@ -15,6 +15,7 @@ export class StringResources {
 	// Fix current file command
 	static readonly NoActiveEditor: string = 'No active editor. Open a PHP file to fix.';
 	static readonly PhpcbfOnlyPhpFiles: string = 'PHPCBF can only fix PHP files.';
+	static readonly FailedToSaveBeforeFix: string = 'Failed to save the file before fixing. Please save manually and try again.';
 	static readonly PhpcbfFixingFile: string = 'PHPCBF: Fixing file...';
 	static readonly PhpcbfError: string = 'PHPCBF error: {0}';
 

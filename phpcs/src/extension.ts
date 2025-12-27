@@ -102,7 +102,7 @@ export function activate(context: ExtensionContext) {
 
 		/**
 		 * Command handler for fixing the current file with PHPCBF.
-		 * Validates that a PHP file is open and sends a fix request to the language server.
+		 * Validates that a PHP file is open, saves if dirty, and sends a fix request to the language server.
 		 */
 		const fixFileCommand = commands.registerCommand('phpcs.fixCurrentFile', async () => {
 			const editor = window.activeTextEditor;
@@ -114,6 +114,15 @@ export function activate(context: ExtensionContext) {
 			if (editor.document.languageId !== 'php') {
 				window.showWarningMessage(SR.PhpcbfOnlyPhpFiles);
 				return;
+			}
+
+			// Save document if dirty to ensure PHPCBF runs against current content
+			if (editor.document.isDirty) {
+				const saved = await editor.document.save();
+				if (!saved) {
+					window.showWarningMessage(SR.FailedToSaveBeforeFix);
+					return;
+				}
 			}
 
 			const uri = editor.document.uri.toString();
