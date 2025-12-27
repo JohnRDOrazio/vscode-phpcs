@@ -323,9 +323,11 @@ export function extractPhpcbfStdoutError(stdout: string): string | null {
  * @returns The normalized path with uppercase drive letter
  */
 export function normalizeWindowsPath(filePath: string): string {
-	const pathRoot = path.parse(filePath).root;
-	const noDrivePath = filePath.slice(Math.max(pathRoot.length - 1, 0));
-	return path.join(pathRoot.toUpperCase(), noDrivePath);
+	const parsed = path.parse(filePath);
+	return path.format({
+		...parsed,
+		root: parsed.root.toUpperCase(),
+	});
 }
 
 /**
