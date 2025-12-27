@@ -36,14 +36,12 @@ Optional setting to auto-fix on save:
 }
 ```
 
-#### 4. Status Bar Feedback
-
-Show progress indicator when PHPCBF is running (especially for workspace-wide fixes). ❌ (not yet implemented)
-
 ### Future Enhancements (Post-v1)
 
 These features are deferred until v1 is stable:
 
+- **Status bar feedback** - Show progress indicator when PHPCBF is running
+  (especially for workspace-wide fixes)
 - **Single diagnostic fixes** - Fix only the specific violation at cursor
 - **Diff preview** - Show changes before applying (optional setting)
 - **Document formatter registration** - Register as VS Code's document formatter
@@ -136,9 +134,6 @@ phpcs-server/test/
 3. Implement auto-fix on save ✅
    - Hook into `onWillSave` event ✅
    - Run PHPCBF before save based on setting ✅
-
-4. Add status bar integration ❌
-   - Show "Fixing..." indicator during operations ❌
 
 ### Phase 4: Polish and Edge Cases (Partial)
 
