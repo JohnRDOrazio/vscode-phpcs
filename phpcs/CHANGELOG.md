@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the original abandoned extensions on the VS Code Marketplace
 - Added "Extension History" section to README documenting the lineage from
   `ikappas.phpcs` and `shevaua.phpcs`
+- Updated README to document PHPCBF (auto-fix) support alongside PHPCS (linting)
+- Updated PHP_CodeSniffer repository links from deprecated `squizlabs` to
+  `PHPCSStandards`
+
+### Fixed
+
+- File watcher now monitors all PHPCS ruleset file types (`phpcs.xml`,
+  `phpcs.xml.dist`, `.phpcs.xml`, `.phpcs.xml.dist`, `phpcs.ruleset.xml`,
+  `ruleset.xml`) instead of only `ruleset.xml`
 
 > **Note for existing users:** Your settings will continue to work as the
 > settings namespace remains `phpcs.*`. However, you may need to reinstall
