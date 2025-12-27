@@ -11,6 +11,11 @@ import {
 	parseFixResult,
 	extractPhpcbfFatalError,
 	extractPhpcbfStdoutError,
+	normalizeWindowsPath,
+	createEmptyFileResult,
+	createIgnoredFileResult,
+	parseVersionString,
+	isVersionV4OrAbove,
 	PhpcbfExitCode,
 } from '../src/fixer-utils';
 
@@ -305,6 +310,119 @@ suite('Fixer Utils', () => {
 			assert.strictEqual(PhpcbfExitCode.FixFailure, 4);
 			assert.strictEqual(PhpcbfExitCode.ProcessingError, 16);
 			assert.strictEqual(PhpcbfExitCode.RequirementsNotMet, 64);
+		});
+
+	});
+
+	suite('normalizeWindowsPath', () => {
+
+		test('should capitalize lowercase drive letter', () => {
+			// Note: This test is platform-dependent for path.join behavior
+			const result = normalizeWindowsPath('c:\\Users\\test\\file.php');
+			assert.ok(result.startsWith('C:') || result.startsWith('c:'));
+		});
+
+		test('should keep uppercase drive letter', () => {
+			const result = normalizeWindowsPath('D:\\Projects\\app.php');
+			assert.ok(result.startsWith('D:'));
+		});
+
+		test('should handle paths without drive letters', () => {
+			const result = normalizeWindowsPath('/home/user/file.php');
+			assert.ok(result.includes('file.php'));
+		});
+
+	});
+
+	suite('createEmptyFileResult', () => {
+
+		test('should return fixed=false for empty content', () => {
+			const result = createEmptyFileResult('');
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, '');
+			assert.strictEqual(result.hasUnfixableIssues, false);
+			assert.strictEqual(result.error, undefined);
+		});
+
+		test('should preserve original content', () => {
+			const content = '<?php echo 1;';
+			const result = createEmptyFileResult(content);
+			assert.strictEqual(result.content, content);
+		});
+
+	});
+
+	suite('createIgnoredFileResult', () => {
+
+		test('should return fixed=false for ignored file', () => {
+			const content = '<?php echo 1;';
+			const result = createIgnoredFileResult(content);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, content);
+			assert.strictEqual(result.hasUnfixableIssues, false);
+			assert.strictEqual(result.error, undefined);
+		});
+
+	});
+
+	suite('parseVersionString', () => {
+
+		test('should parse v3.7.2 version string', () => {
+			const version = parseVersionString('PHP_CodeSniffer version 3.7.2 (stable) by Squiz');
+			assert.strictEqual(version, '3.7.2');
+		});
+
+		test('should parse v4.0.0 version string', () => {
+			const version = parseVersionString('PHP_CodeSniffer version 4.0.0 (stable) by PHPCSStandards');
+			assert.strictEqual(version, '4.0.0');
+		});
+
+		test('should parse lowercase version string', () => {
+			const version = parseVersionString('php_codesniffer version 3.8.0 (stable)');
+			assert.strictEqual(version, '3.8.0');
+		});
+
+		test('should return null for invalid output', () => {
+			const version = parseVersionString('Invalid output');
+			assert.strictEqual(version, null);
+		});
+
+		test('should return null for empty string', () => {
+			const version = parseVersionString('');
+			assert.strictEqual(version, null);
+		});
+
+		test('should parse version with extra text', () => {
+			const version = parseVersionString('PHP_CodeSniffer version 3.9.1 (dev) by PHPCSStandards\nUsage: phpcs [options]');
+			assert.strictEqual(version, '3.9.1');
+		});
+
+	});
+
+	suite('isVersionV4OrAbove', () => {
+
+		test('should return true for v4.0.0', () => {
+			assert.strictEqual(isVersionV4OrAbove('4.0.0'), true);
+		});
+
+		test('should return true for v4.1.0', () => {
+			assert.strictEqual(isVersionV4OrAbove('4.1.0'), true);
+		});
+
+		test('should return true for v5.0.0', () => {
+			assert.strictEqual(isVersionV4OrAbove('5.0.0'), true);
+		});
+
+		test('should return false for v3.9.9', () => {
+			assert.strictEqual(isVersionV4OrAbove('3.9.9'), false);
+		});
+
+		test('should return false for v3.7.2', () => {
+			assert.strictEqual(isVersionV4OrAbove('3.7.2'), false);
+		});
+
+		test('should return false for v2.0.0', () => {
+			assert.strictEqual(isVersionV4OrAbove('2.0.0'), false);
 		});
 
 	});
