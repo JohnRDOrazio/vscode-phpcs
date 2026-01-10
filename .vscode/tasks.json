@@ -70,12 +70,16 @@
 				"owner": "esbuild-client",
 				"source": "esbuild",
 				"fileLocation": ["relative", "${workspaceFolder}/phpcs"],
-				"pattern": {
-					"regexp": "^\\s+(.+):(\\d+):(\\d+):$",
-					"file": 1,
-					"line": 2,
-					"column": 3
-				},
+				"pattern": [
+					{
+						"regexp": "^\\s+(.+):(\\d+):(\\d+):\\s+(ERROR|WARNING|error|warning):\\s+(.+)$",
+						"file": 1,
+						"line": 2,
+						"column": 3,
+						"severity": 4,
+						"message": 5
+					}
+				],
 				"background": {
 					"activeOnStart": true,
 					"beginsPattern": "^\\[watch\\] build started$",
@@ -97,12 +101,16 @@
 				"owner": "esbuild-server",
 				"source": "esbuild",
 				"fileLocation": ["relative", "${workspaceFolder}/phpcs-server"],
-				"pattern": {
-					"regexp": "^\\s+(.+):(\\d+):(\\d+):$",
-					"file": 1,
-					"line": 2,
-					"column": 3
-				},
+				"pattern": [
+					{
+						"regexp": "^\\s+(.+):(\\d+):(\\d+):\\s+(ERROR|WARNING|error|warning):\\s+(.+)$",
+						"file": 1,
+						"line": 2,
+						"column": 3,
+						"severity": 4,
+						"message": 5
+					}
+				],
 				"background": {
 					"activeOnStart": true,
 					"beginsPattern": "^\\[watch\\] build started$",
