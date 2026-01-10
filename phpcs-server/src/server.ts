@@ -382,12 +382,6 @@ class PhpcsServer {
 	private async fixDocument(document: TextDocument): Promise<void> {
 		const uri = document.uri;
 
-		// Check if a fix is already in progress for this document
-		if (this.fixingDocuments.has(uri)) {
-			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
-			return;
-		}
-
 		const settings = await this.getDocumentSettings(document);
 
 		if (!settings.phpcbfEnable) {
@@ -399,6 +393,13 @@ class PhpcsServer {
 			this.connection.window.showWarningMessage(
 				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
 			);
+			return;
+		}
+
+		// Check if a fix is already in progress for this document
+		// This check is placed after async operations to minimize race window
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
 			return;
 		}
 
