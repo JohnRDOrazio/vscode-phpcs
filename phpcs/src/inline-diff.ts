@@ -186,6 +186,7 @@ export class InlineDiffPreview implements Disposable {
 	private applyCommandRegistration: Disposable | null = null;
 	private cancelCommandRegistration: Disposable | null = null;
 	private pendingResolve: ((value: boolean) => void) | null = null;
+	private timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	constructor() {
 		// Green background for additions
@@ -217,29 +218,24 @@ export class InlineDiffPreview implements Disposable {
 	}
 
 	/**
-	 * Show inline diff preview in the editor and wait for user decision.
+	 * Compute diff and apply decorations to the editor.
 	 * @param editor The text editor
 	 * @param originalContent The original file content
 	 * @param fixedContent The fixed content from PHPCBF
-	 * @returns Promise that resolves to true if user accepts, false if cancels
+	 * @returns Object with line counts and decorations applied
 	 */
-	public async showPreviewAndWait(
+	private computeAndApplyDecorations(
 		editor: TextEditor,
 		originalContent: string,
 		fixedContent: string
-	): Promise<boolean> {
-		this.activeEditor = editor;
+	): { additions: number; deletions: number } {
 		this.deletedLinesContent.clear();
-
 		const changes = computeLineDiff(originalContent, fixedContent);
-
 		const additionDecorations: DecorationOptions[] = [];
 
 		let additions = 0;
 		let deletions = 0;
 
-		// We need to show the preview on the FIXED content
-		// So we'll track which lines in the fixed content are new
 		const fixedLines = fixedContent.split('\n');
 
 		for (const change of changes) {
@@ -257,14 +253,68 @@ export class InlineDiffPreview implements Disposable {
 				}
 			} else if (change.type === 'delete') {
 				deletions++;
-				// For deletions, we'll show them at the corresponding position
-				// Since the line won't exist in the preview, we show at nearest line
 				this.deletedLinesContent.set(change.lineNumber, change.oldText || '');
 			}
 		}
 
-		// Apply decorations for additions
 		editor.setDecorations(this.additionDecorationType, additionDecorations);
+
+		return { additions, deletions };
+	}
+
+	/**
+	 * Clean up CodeLens registrations and pending state.
+	 */
+	private cleanupCodeLens(): void {
+		// Clear timeout if active
+		if (this.timeoutId) {
+			clearTimeout(this.timeoutId);
+			this.timeoutId = null;
+		}
+
+		// Cleanup CodeLens provider
+		this.codeLensProvider.clearActiveDocument();
+		if (this.codeLensRegistration) {
+			this.codeLensRegistration.dispose();
+			this.codeLensRegistration = null;
+		}
+		if (this.applyCommandRegistration) {
+			this.applyCommandRegistration.dispose();
+			this.applyCommandRegistration = null;
+		}
+		if (this.cancelCommandRegistration) {
+			this.cancelCommandRegistration.dispose();
+			this.cancelCommandRegistration = null;
+		}
+	}
+
+	/**
+	 * Show inline diff preview in the editor and wait for user decision.
+	 * @param editor The text editor
+	 * @param originalContent The original file content
+	 * @param fixedContent The fixed content from PHPCBF
+	 * @returns Promise that resolves to true if user accepts, false if cancels
+	 */
+	public async showPreviewAndWait(
+		editor: TextEditor,
+		originalContent: string,
+		fixedContent: string
+	): Promise<boolean> {
+		// Clear any existing preview state to prevent race conditions
+		if (this.pendingResolve) {
+			this.pendingResolve(false);
+			this.pendingResolve = null;
+		}
+		this.cleanupCodeLens();
+
+		this.activeEditor = editor;
+
+		// Compute and apply decorations
+		const { additions, deletions } = this.computeAndApplyDecorations(
+			editor,
+			originalContent,
+			fixedContent
+		);
 
 		// Register CodeLens provider and commands
 		this.codeLensProvider.setActiveDocument(editor.document.uri.toString(), { additions, deletions });
@@ -290,14 +340,29 @@ export class InlineDiffPreview implements Disposable {
 			this.codeLensProvider
 		);
 
-		// Wait for user decision
+		// Wait for user decision with timeout (5 minutes)
+		const timeoutMs = 300000;
+
 		return new Promise<boolean>((resolve) => {
-			this.pendingResolve = resolve;
+			this.pendingResolve = (value: boolean) => {
+				if (this.timeoutId) {
+					clearTimeout(this.timeoutId);
+					this.timeoutId = null;
+				}
+				resolve(value);
+			};
+
+			this.timeoutId = setTimeout(() => {
+				if (this.pendingResolve) {
+					this.pendingResolve(false);
+					this.pendingResolve = null;
+				}
+			}, timeoutMs);
 		});
 	}
 
 	/**
-	 * Show inline diff preview in the editor (legacy method for stats only).
+	 * Show inline diff preview in the editor (without waiting for user decision).
 	 * @param editor The text editor
 	 * @param originalContent The original file content
 	 * @param fixedContent The fixed content from PHPCBF
@@ -309,44 +374,7 @@ export class InlineDiffPreview implements Disposable {
 		fixedContent: string
 	): { additions: number; deletions: number } {
 		this.activeEditor = editor;
-		this.deletedLinesContent.clear();
-
-		const changes = computeLineDiff(originalContent, fixedContent);
-
-		const additionDecorations: DecorationOptions[] = [];
-
-		let additions = 0;
-		let deletions = 0;
-
-		// We need to show the preview on the FIXED content
-		// So we'll track which lines in the fixed content are new
-		const fixedLines = fixedContent.split('\n');
-
-		for (const change of changes) {
-			if (change.type === 'add') {
-				additions++;
-				const line = change.lineNumber;
-				if (line < fixedLines.length) {
-					additionDecorations.push({
-						range: new Range(
-							new Position(line, 0),
-							new Position(line, fixedLines[line].length)
-						),
-						hoverMessage: '**Added line**'
-					});
-				}
-			} else if (change.type === 'delete') {
-				deletions++;
-				// For deletions, we'll show them at the corresponding position
-				// Since the line won't exist in the preview, we show at nearest line
-				this.deletedLinesContent.set(change.lineNumber, change.oldText || '');
-			}
-		}
-
-		// Apply decorations for additions (deletions are trickier since the lines don't exist in preview)
-		editor.setDecorations(this.additionDecorationType, additionDecorations);
-
-		return { additions, deletions };
+		return this.computeAndApplyDecorations(editor, originalContent, fixedContent);
 	}
 
 	/**
@@ -362,19 +390,7 @@ export class InlineDiffPreview implements Disposable {
 		this.deletedLinesContent.clear();
 
 		// Cleanup CodeLens
-		this.codeLensProvider.clearActiveDocument();
-		if (this.codeLensRegistration) {
-			this.codeLensRegistration.dispose();
-			this.codeLensRegistration = null;
-		}
-		if (this.applyCommandRegistration) {
-			this.applyCommandRegistration.dispose();
-			this.applyCommandRegistration = null;
-		}
-		if (this.cancelCommandRegistration) {
-			this.cancelCommandRegistration.dispose();
-			this.cancelCommandRegistration = null;
-		}
+		this.cleanupCodeLens();
 
 		// Resolve any pending promise as cancelled
 		if (this.pendingResolve) {

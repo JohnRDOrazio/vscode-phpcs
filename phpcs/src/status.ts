@@ -44,8 +44,8 @@ export class PhpcsStatus {
 		this.processing -= 1;
 		this.buffered = buffered;
 		let index = this.documents.indexOf(uri);
-		if (index !== undefined) {
-			this.documents.slice(index, 1);
+		if (index !== -1) {
+			this.documents.splice(index, 1);
 		}
 		if (this.processing === 0 && this.fixing === 0) {
 			this.getTimer().stop();

@@ -59,6 +59,7 @@ export class PhpcbfDiffContentProvider implements TextDocumentContentProvider, D
 	public clearContent(originalUri: string): void {
 		const previewUri = this.createPreviewUri(originalUri);
 		this.contentMap.delete(previewUri.toString());
+		this._onDidChange.fire(previewUri);
 	}
 
 	/**

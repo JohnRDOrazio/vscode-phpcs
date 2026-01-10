@@ -257,7 +257,7 @@ suite('Code Actions', () => {
 			const action = createFixSingleIssueAction(document, diagnostic);
 
 			assert.ok(action);
-			assert.ok(action!.title.includes('Fix this issue'));
+			assert.ok(action!.title.includes('Fix this and other'));
 			assert.strictEqual(action!.kind, CodeActionKind.QuickFix);
 			assert.strictEqual(action!.isPreferred, false);
 			assert.ok(action!.command);
@@ -308,7 +308,7 @@ suite('Code Actions', () => {
 			const actions = generateCodeActions(params, document, [diagnostic]);
 
 			assert.strictEqual(actions.length, 2);
-			assert.ok(actions.some(a => a.title.includes('Fix this issue')));
+			assert.ok(actions.some(a => a.title.includes('Fix this and other')));
 			assert.ok(actions.some(a => a.title.includes('Fix all')));
 		});
 
@@ -339,7 +339,7 @@ suite('Code Actions', () => {
 
 			// 2 single issue actions + 1 fix all action
 			assert.strictEqual(actions.length, 3);
-			const singleActions = actions.filter(a => a.title.includes('Fix this issue'));
+			const singleActions = actions.filter(a => a.title.includes('Fix this and other'));
 			assert.strictEqual(singleActions.length, 2);
 		});
 

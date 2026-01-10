@@ -104,8 +104,9 @@ export function isDiagnosticFixable(diagnostic: Diagnostic): boolean {
 }
 
 /**
- * Create a "Fix this issue" code action for a fixable diagnostic.
- * Note: PHPCBF will fix all issues in the file, not just this one.
+ * Create a code action for a fixable diagnostic.
+ * Note: PHPCBF operates on the entire file, so this will fix all auto-fixable
+ * issues in the file, not just the specific diagnostic.
  * @param document The text document
  * @param diagnostic The diagnostic to fix
  * @returns A code action for fixing the issue, or null if not fixable
@@ -119,12 +120,12 @@ export function createFixSingleIssueAction(
 	}
 
 	const action: CodeAction = {
-		title: 'Fix this issue (PHPCBF)',
+		title: 'Fix this and other auto-fixable issues (PHPCBF)',
 		kind: CodeActionKind.QuickFix,
 		diagnostics: [diagnostic],
 		isPreferred: false,
 		command: {
-			title: 'Fix with PHPCBF',
+			title: 'Fix file with PHPCBF',
 			command: PHPCBF_FIX_FILE_COMMAND,
 			arguments: [document.uri],
 		},

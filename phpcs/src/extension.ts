@@ -149,9 +149,17 @@ export function activate(context: ExtensionContext) {
 					const fullRange = editor.document.validateRange(
 						new Range(0, 0, editor.document.lineCount, 0)
 					);
-					await editor.edit(editBuilder => {
+					const applied = await editor.edit(editBuilder => {
 						editBuilder.replace(fullRange, params.fixedContent);
 					});
+
+					if (!applied) {
+						// Fallback to diff editor if edit failed
+						return showDiffEditor(originalUri, params, diffProvider);
+					}
+
+					// Track document version after applying fix to detect concurrent edits
+					const versionAfterFix = editor.document.version;
 
 					// Show decorations and CodeLens, wait for user decision
 					const accepted = await inlineDiffPreview.showPreviewAndWait(
@@ -161,13 +169,24 @@ export function activate(context: ExtensionContext) {
 					);
 
 					if (!accepted) {
+						// Check if document was modified during preview
+						if (editor.document.version !== versionAfterFix) {
+							window.showWarningMessage(
+								'Document was modified during preview. Original content was not restored.'
+							);
+							return false;
+						}
+
 						// Restore original content
 						const currentRange = editor.document.validateRange(
 							new Range(0, 0, editor.document.lineCount, 0)
 						);
-						await editor.edit(editBuilder => {
+						const restored = await editor.edit(editBuilder => {
 							editBuilder.replace(currentRange, originalContent);
 						});
+						if (!restored) {
+							window.showErrorMessage('Failed to restore original content');
+						}
 						return false;
 					}
 

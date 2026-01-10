@@ -176,7 +176,7 @@ phpcs-server/test/
 - Added `phpcs.phpcbfShowDiff` setting
 - Shows side-by-side diff view before applying changes
 - User can accept or cancel the fix
-- Uses virtual document provider with `phpcbf-preview://` scheme
+- Uses virtual document provider with `phpcbf-preview:` scheme
 - **Inline diff option** (`phpcs.phpcbfDiffInline`): Shows diff decorations in the current editor
   instead of opening a separate diff tab. Highlights additions in green with line counts.
 
