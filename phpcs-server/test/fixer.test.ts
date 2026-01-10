@@ -514,15 +514,14 @@ echo "fix me";
 				content
 			);
 
-			// Test with undefined timeout (should use default of 60)
+			// Test with undefined timeout (should use default of 60 via ?? operator)
 			const settingsWithUndefinedTimeout = {
 				...defaultSettings,
 			};
-			// @ts-ignore - Testing undefined case
+			// @ts-ignore - Testing undefined case to exercise settings.phpcbfTimeout ?? 60
 			delete settingsWithUndefinedTimeout.phpcbfTimeout;
 
-			// Manually set a valid timeout for this test
-			const result = await fixer.fix(document, { ...settingsWithUndefinedTimeout, phpcbfTimeout: 60 });
+			const result = await fixer.fix(document, settingsWithUndefinedTimeout as typeof defaultSettings);
 
 			// Should complete without error
 			assert.ok(
