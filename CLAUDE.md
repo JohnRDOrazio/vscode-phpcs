@@ -44,7 +44,9 @@ Run all commands from the **root** directory:
 
 ```bash
 npm install                # Install all dependencies (runs postinstall for subdirs)
-npm run compile            # Build both client and server
+npm run compile            # Build both client and server (TypeScript only)
+npm run bundle-dev         # Bundle for development with esbuild (required for Run+Debug)
+npm run bundle-watch       # Watch mode for development (auto-rebuilds on changes)
 npm test                   # Run all tests
 npm run test:server        # Run server tests only
 npm run test:server:unit   # Run server unit tests only
@@ -53,6 +55,22 @@ npm run lint:md            # Check markdown files
 npm run lint:md:fix        # Auto-fix markdown issues
 npm run format:md          # Format markdown files with Prettier
 ```
+
+### Running and Debugging in VS Code
+
+The extension uses esbuild to bundle files to `phpcs/dist/`. Before using
+**Run and Debug** (F5), you must build the extension:
+
+```bash
+npm run bundle-dev         # One-time build
+# OR
+npm run bundle-watch       # Continuous watch mode (recommended for development)
+```
+
+Then use VS Code's **Run and Debug** panel to launch:
+
+- **Launch Extension** - Starts the extension in a new VS Code window
+- **Client+Server** - Launches extension with server debugging attached
 
 ## PHPCS Version Compatibility
 

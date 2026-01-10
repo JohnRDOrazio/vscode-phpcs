@@ -56,6 +56,7 @@ These features are deferred until v1 is stable:
 | `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                 | ✅     |
 | `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null) | ✅     |
 | `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                  | ✅     |
+| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations          | ✅     |
 
 ---
 
@@ -135,15 +136,15 @@ phpcs-server/test/
    - Hook into `onWillSave` event ✅
    - Run PHPCBF before save based on setting ✅
 
-### Phase 4: Polish and Edge Cases (Partial)
+### Phase 4: Polish and Edge Cases ✅
 
 **Goal**: Robust error handling and user experience
 
 1. Handle edge cases
    - PHPCBF not installed/not found ✅
    - File has syntax errors (PHPCBF can't fix) ✅
-   - Concurrent fix requests ❌
-   - Large files / timeout handling ❌
+   - Concurrent fix requests ✅
+   - Large files / timeout handling ✅
 
 2. Documentation ✅
    - Update README with PHPCBF features ✅
@@ -262,13 +263,17 @@ Not all PHPCS violations can be auto-fixed. For v1, we use the **optimistic appr
 This is simple and works well for file-level fixes. Single diagnostic fixes (post-v1)
 may need `--dry-run` analysis to determine fixability.
 
-### Concurrent Requests
+### Concurrent Requests ✅
 
 If user triggers multiple fixes quickly:
 
-- Queue requests
-- Cancel pending if new request comes in
-- Or debounce fix operations
+- ~~Queue requests~~
+- ~~Cancel pending if new request comes in~~
+- ~~Or debounce fix operations~~
+
+**Implemented**: The server tracks ongoing fix operations per-document using a Map.
+When a fix is already in progress for a document, subsequent fix requests are skipped
+with a log message. This prevents race conditions and resource contention.
 
 ---
 

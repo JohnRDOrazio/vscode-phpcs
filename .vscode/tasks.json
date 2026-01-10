@@ -59,30 +59,56 @@
 		{
 			"label": "watch:client",
 			"type": "npm",
-			"script": "watch:client",
+			"script": "esbuild-watch:client",
 			"isBackground": true,
 			"group": "build",
 			"presentation": {
 				"panel": "dedicated",
 				"reveal": "never"
 			},
-			"problemMatcher": [
-				"$tsc-watch"
-			]
+			"problemMatcher": {
+				"owner": "esbuild-client",
+				"source": "esbuild",
+				"fileLocation": ["relative", "${workspaceFolder}/phpcs"],
+				"pattern": {
+					"regexp": "^\\s+(.+):(\\d+):(\\d+):$",
+					"file": 1,
+					"line": 2,
+					"column": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^\\[watch\\] build started$",
+					"endsPattern": "^\\[watch\\] build finished$"
+				}
+			}
 		},
 		{
 			"label": "watch:server",
 			"type": "npm",
-			"script": "watch:server",
+			"script": "esbuild-watch:server",
 			"isBackground": true,
 			"group": "build",
 			"presentation": {
 				"panel": "dedicated",
 				"reveal": "never"
 			},
-			"problemMatcher": [
-				"$tsc-watch"
-			]
+			"problemMatcher": {
+				"owner": "esbuild-server",
+				"source": "esbuild",
+				"fileLocation": ["relative", "${workspaceFolder}/phpcs-server"],
+				"pattern": {
+					"regexp": "^\\s+(.+):(\\d+):(\\d+):$",
+					"file": 1,
+					"line": 2,
+					"column": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^\\[watch\\] build started$",
+					"endsPattern": "^\\[watch\\] build finished$"
+				}
+			}
 		}
 	]
 }

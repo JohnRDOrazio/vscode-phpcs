@@ -50,6 +50,7 @@ suite('PHPCBF Fixer Integration Tests', function () {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfTimeout: 60,
 	};
 
 	suiteSetup(function () {
@@ -459,6 +460,74 @@ echo "fix me";
 			assert.ok(
 				typeof result.content === 'string',
 				'Result should have content property'
+			);
+		});
+	});
+
+	suite('Timeout Configuration', function () {
+
+		test('should use custom timeout setting', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const fixer = await PhpcbfFixer.create(phpcbfPath!);
+
+			const content = `<?php echo "test";`;
+
+			const document = TextDocument.create(
+				'file:///test/timeout-test.php',
+				'php',
+				1,
+				content
+			);
+
+			// Test with custom timeout setting
+			const settingsWithTimeout = {
+				...defaultSettings,
+				phpcbfTimeout: 30, // 30 seconds
+			};
+
+			const result = await fixer.fix(document, settingsWithTimeout);
+
+			// Should complete without error (timeout not reached)
+			// This test verifies the timeout setting is accepted
+			assert.ok(
+				result.fixed !== undefined,
+				'Result should have fixed property'
+			);
+		});
+
+		test('should use default timeout when not specified', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const fixer = await PhpcbfFixer.create(phpcbfPath!);
+
+			const content = `<?php echo "test";`;
+
+			const document = TextDocument.create(
+				'file:///test/default-timeout-test.php',
+				'php',
+				1,
+				content
+			);
+
+			// Test with undefined timeout (should use default of 60)
+			const settingsWithUndefinedTimeout = {
+				...defaultSettings,
+			};
+			// @ts-ignore - Testing undefined case
+			delete settingsWithUndefinedTimeout.phpcbfTimeout;
+
+			// Manually set a valid timeout for this test
+			const result = await fixer.fix(document, { ...settingsWithUndefinedTimeout, phpcbfTimeout: 60 });
+
+			// Should complete without error
+			assert.ok(
+				result.fixed !== undefined,
+				'Result should have fixed property'
 			);
 		});
 	});

@@ -48,6 +48,8 @@ class PhpcsServer {
 	private validating: Map<string, TextDocument>;
 	private queue: Map<string, TextDocument>;
 	private documentDiagnostics: Map<string, Diagnostic[]>;
+	// Track ongoing PHPCBF fix operations to prevent concurrent fixes on the same file
+	private fixingDocuments: Map<string, Promise<void>>;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -76,6 +78,7 @@ class PhpcsServer {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfTimeout: 60,
 	};
 	private documentSettings: Map<string, Promise<PhpcsSettings>> = new Map();
 
@@ -89,6 +92,7 @@ class PhpcsServer {
 		this.openedFiles = new Map();
 		this.queue = new Map();
 		this.documentDiagnostics = new Map();
+		this.fixingDocuments = new Map();
 		this.connection = createConnection(ProposedFeatures.all);
 		this.documents = new TextDocuments(TextDocument);
 		this.documents.listen(this.connection);
@@ -223,6 +227,14 @@ class PhpcsServer {
 	private async onWillSaveTextDocument(params: WillSaveTextDocumentParams): Promise<TextEdit[]> {
 		const document = this.documents.get(params.textDocument.uri);
 		if (!document) {
+			return [];
+		}
+
+		const uri = document.uri;
+
+		// Skip if a fix is already in progress for this document
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping on-save fix`);
 			return [];
 		}
 
@@ -369,6 +381,13 @@ class PhpcsServer {
 	 */
 	private async fixDocument(document: TextDocument): Promise<void> {
 		const uri = document.uri;
+
+		// Check if a fix is already in progress for this document
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
+			return;
+		}
+
 		const settings = await this.getDocumentSettings(document);
 
 		if (!settings.phpcbfEnable) {
@@ -383,6 +402,33 @@ class PhpcsServer {
 			return;
 		}
 
+		// Create the fix operation promise and track it
+		const fixOperation = this.executeFixOperation(document, settings, phpcbfPath, uri);
+		this.fixingDocuments.set(uri, fixOperation);
+
+		try {
+			await fixOperation;
+		} finally {
+			// Always clean up the tracking entry when done
+			this.fixingDocuments.delete(uri);
+		}
+	}
+
+	/**
+	 * Execute the actual fix operation for a document.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param uri The document URI.
+	 * @return void
+	 */
+	private async executeFixOperation(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		uri: string
+	): Promise<void> {
 		try {
 			this.connection.console.log(`[PHPCBF] Fixing document: ${uri}`);
 			const fixer = await PhpcbfFixer.create(phpcbfPath);

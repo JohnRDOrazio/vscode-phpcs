@@ -198,6 +198,14 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Automatically fix issues with PHPCBF when saving a file."
+				},
+				"phpcs.phpcbfTimeout": {
+					"scope": "resource",
+					"type": "number",
+					"default": 60,
+					"minimum": 1,
+					"maximum": 300,
+					"description": "Timeout in seconds for PHPCBF operations. Increase for large files. Default: 60 seconds."
 				}
 			}
 		}
