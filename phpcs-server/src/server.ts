@@ -430,14 +430,14 @@ class PhpcsServer {
 		uri: string
 	): Promise<void> {
 		try {
-			this.connection.console.log(`[PHPCBF] Fixing document: ${uri}`);
+			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
 			const fixer = await PhpcbfFixer.create(phpcbfPath);
 			fixer.setLogger((message) => this.connection.console.log(message));
 
 			const result = await fixer.fix(document, settings);
 
 			if (result.error) {
-				this.connection.window.showErrorMessage(`PHPCBF: ${result.error}`);
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
 				return;
 			}
 
@@ -451,7 +451,7 @@ class PhpcsServer {
 				});
 
 				if (applied.applied) {
-					this.connection.console.log(`[PHPCBF] Fixed document: ${uri}`);
+					this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
 
 					// Re-lint the document to refresh diagnostics
 					// We need to get the updated document after the edit is applied
@@ -462,21 +462,19 @@ class PhpcsServer {
 						await this.validateSingle(updatedDocument);
 					}
 				} else {
-					this.connection.console.warn(`[PHPCBF] Failed to apply edit to: ${uri}`);
+					this.connection.console.warn(strings.format(SR.PhpcbfFixFailed, uri));
 				}
 			} else {
-				this.connection.console.log(`[PHPCBF] No fixes applied to: ${uri}`);
+				this.connection.console.log(strings.format(SR.PhpcbfNoFixesApplied, uri));
 			}
 
 			if (result.hasUnfixableIssues) {
-				this.connection.window.showInformationMessage(
-					'PHPCBF: Some issues could not be automatically fixed.'
-				);
+				this.connection.window.showInformationMessage(SR.PhpcbfUnfixableIssues);
 			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.connection.console.error(`[PHPCBF] Error: ${message}`);
-			this.connection.window.showErrorMessage(`PHPCBF: ${message}`);
+			this.connection.console.error(strings.format(SR.PhpcbfError, message));
+			this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
 		}
 	}
 
