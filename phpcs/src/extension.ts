@@ -12,9 +12,14 @@ import {
 	commands,
 	ExtensionContext,
 	ProgressLocation,
+	Range,
+	Uri,
 	window,
 	workspace
 } from "vscode";
+
+import { PhpcbfDiffContentProvider, PHPCBF_DIFF_SCHEME } from "./diff-provider";
+import { InlineDiffPreview } from "./inline-diff";
 
 import {
 	ExecuteCommandRequest,
@@ -86,6 +91,17 @@ export function activate(context: ExtensionContext) {
 	// Create the status monitor.
 	let status = new PhpcsStatus();
 
+	// Create and register the diff content provider for PHPCBF preview.
+	const diffProvider = new PhpcbfDiffContentProvider();
+	context.subscriptions.push(
+		workspace.registerTextDocumentContentProvider(PHPCBF_DIFF_SCHEME, diffProvider)
+	);
+	context.subscriptions.push(diffProvider);
+
+	// Create the inline diff preview manager.
+	const inlineDiffPreview = new InlineDiffPreview();
+	context.subscriptions.push(inlineDiffPreview);
+
 	// Track whether the client has started successfully
 	let clientStarted = false;
 
@@ -99,6 +115,102 @@ export function activate(context: ExtensionContext) {
 		client.onNotification(proto.DidEndValidateTextDocumentNotification.type, event => {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
+		client.onNotification(proto.DidStartFixTextDocumentNotification.type, event => {
+			status.startFixing(event.textDocument.uri);
+		});
+		client.onNotification(proto.DidEndFixTextDocumentNotification.type, event => {
+			status.endFixing(event.textDocument.uri, event.fixed);
+		});
+
+		// Handle diff preview request from server
+		client.onRequest(proto.ShowDiffPreviewRequest.type, async (params) => {
+			const originalUri = Uri.parse(params.uri);
+
+			// Check if inline diff is preferred
+			const phpcsConfig = workspace.getConfiguration('phpcs');
+			const useInlineDiff = phpcsConfig.get<boolean>('phpcbfDiffInline', false);
+
+			if (useInlineDiff) {
+				// Use inline decorations in the current editor
+				const editor = window.visibleTextEditors.find(
+					e => e.document.uri.toString() === originalUri.toString()
+				);
+
+				if (!editor) {
+					// Fallback to diff editor if can't find the editor
+					return showDiffEditor(originalUri, params, diffProvider);
+				}
+
+				// Store original content before applying fixes
+				const originalContent = editor.document.getText();
+
+				try {
+					// Apply the fixed content temporarily
+					const fullRange = editor.document.validateRange(
+						new Range(0, 0, editor.document.lineCount, 0)
+					);
+					await editor.edit(editBuilder => {
+						editBuilder.replace(fullRange, params.fixedContent);
+					});
+
+					// Show decorations and CodeLens, wait for user decision
+					const accepted = await inlineDiffPreview.showPreviewAndWait(
+						editor,
+						originalContent,
+						params.fixedContent
+					);
+
+					if (!accepted) {
+						// Restore original content
+						const currentRange = editor.document.validateRange(
+							new Range(0, 0, editor.document.lineCount, 0)
+						);
+						await editor.edit(editBuilder => {
+							editBuilder.replace(currentRange, originalContent);
+						});
+						return false;
+					}
+
+					return true;
+				} finally {
+					// Clear decorations and CodeLens
+					inlineDiffPreview.clearPreview();
+				}
+			} else {
+				// Use separate diff editor
+				return showDiffEditor(originalUri, params, diffProvider);
+			}
+		});
+
+		// Helper function for diff editor approach
+		async function showDiffEditor(
+			originalUri: Uri,
+			params: proto.ShowDiffPreviewParams,
+			provider: PhpcbfDiffContentProvider
+		): Promise<boolean> {
+			const previewUri = provider.setContent(params.uri, params.fixedContent);
+
+			try {
+				// Show diff editor
+				await commands.executeCommand(
+					'vscode.diff',
+					originalUri,
+					previewUri,
+					`PHPCBF Preview: ${path.basename(originalUri.fsPath)}`
+				);
+
+				// Ask user to apply changes
+				const apply = await window.showInformationMessage(
+					SR.PhpcbfDiffApplyQuestion,
+					SR.PhpcbfDiffApply,
+					SR.PhpcbfDiffCancel
+				);
+
+				return apply === SR.PhpcbfDiffApply;
+			} finally {
+				provider.clearContent(params.uri);
+			}
+		}
 
 		/**
 		 * Command handler for fixing the current file with PHPCBF.

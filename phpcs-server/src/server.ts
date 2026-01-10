@@ -78,6 +78,7 @@ class PhpcsServer {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfShowDiff: false,
 		phpcbfTimeout: 60,
 	};
 	private documentSettings: Map<string, Promise<PhpcsSettings>> = new Map();
@@ -444,6 +445,15 @@ class PhpcsServer {
 		phpcbfPath: string,
 		uri: string
 	): Promise<void> {
+		// Send start notification
+		this.connection.sendNotification(
+			proto.DidStartFixTextDocumentNotification.type,
+			{ textDocument: TextDocumentIdentifier.create(uri) }
+		);
+
+		let fixed = false;
+		let errorMessage: string | undefined;
+
 		try {
 			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
 			const fixer = await PhpcbfFixer.create(phpcbfPath);
@@ -452,11 +462,29 @@ class PhpcsServer {
 			const result = await fixer.fix(document, settings);
 
 			if (result.error) {
+				errorMessage = result.error;
 				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
 				return;
 			}
 
 			if (result.fixed) {
+				// Check if diff preview is enabled
+				if (settings.phpcbfShowDiff) {
+					const shouldApply = await this.connection.sendRequest(
+						proto.ShowDiffPreviewRequest.type,
+						{
+							uri,
+							originalContent: document.getText(),
+							fixedContent: result.content,
+						}
+					);
+
+					if (!shouldApply) {
+						this.connection.console.log(strings.format(SR.PhpcbfDiffCancelled, uri));
+						return;
+					}
+				}
+
 				// Apply the fix using workspace edit
 				const edit = createFullDocumentEdit(document, result.content);
 				const applied = await this.connection.workspace.applyEdit({
@@ -466,6 +494,7 @@ class PhpcsServer {
 				});
 
 				if (applied.applied) {
+					fixed = true;
 					this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
 
 					// Re-lint the document to refresh diagnostics
@@ -488,8 +517,19 @@ class PhpcsServer {
 			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
+			errorMessage = message;
 			this.connection.console.error(strings.format(SR.PhpcbfError, message));
 			this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
+		} finally {
+			// Send end notification
+			this.connection.sendNotification(
+				proto.DidEndFixTextDocumentNotification.type,
+				{
+					textDocument: TextDocumentIdentifier.create(uri),
+					fixed,
+					error: errorMessage,
+				}
+			);
 		}
 	}
 

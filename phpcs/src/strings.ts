@@ -30,6 +30,12 @@ export class StringResources {
 	static readonly PhpcbfCancelled: string = 'PHPCBF cancelled. Fixed {0} of {1} files.';
 	static readonly PhpcbfFixedWithFailures: string = 'PHPCBF: Fixed {0} files, {1} failed.';
 	static readonly PhpcbfFixedSuccess: string = 'PHPCBF: Successfully processed {0} files.';
+
+	// Diff preview
+	static readonly PhpcbfDiffApplyQuestion: string = 'Apply PHPCBF fixes?';
+	static readonly PhpcbfDiffApplyQuestionWithStats: string = 'Apply PHPCBF fixes? ({0} additions, {1} deletions)';
+	static readonly PhpcbfDiffApply: string = 'Apply';
+	static readonly PhpcbfDiffCancel: string = 'Cancel';
 }
 
 /**

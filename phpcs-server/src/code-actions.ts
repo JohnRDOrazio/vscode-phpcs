@@ -20,6 +20,14 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 export const PHPCBF_FIX_FILE_COMMAND = 'phpcs.fixFile';
 
 /**
+ * Data stored in a PHPCS diagnostic.
+ */
+export interface PhpcsDiagnosticData {
+	fixable: boolean;
+	source?: string;
+}
+
+/**
  * Check if a document has any PHPCS diagnostics.
  * @param diagnostics The diagnostics for the document
  * @returns True if there are PHPCS diagnostics
@@ -86,6 +94,46 @@ export function createFullDocumentEdit(
 }
 
 /**
+ * Check if a diagnostic is marked as fixable.
+ * @param diagnostic The diagnostic to check
+ * @returns True if the diagnostic is fixable
+ */
+export function isDiagnosticFixable(diagnostic: Diagnostic): boolean {
+	const data = diagnostic.data as PhpcsDiagnosticData | undefined;
+	return data?.fixable === true;
+}
+
+/**
+ * Create a "Fix this issue" code action for a fixable diagnostic.
+ * Note: PHPCBF will fix all issues in the file, not just this one.
+ * @param document The text document
+ * @param diagnostic The diagnostic to fix
+ * @returns A code action for fixing the issue, or null if not fixable
+ */
+export function createFixSingleIssueAction(
+	document: TextDocument,
+	diagnostic: Diagnostic
+): CodeAction | null {
+	if (!isDiagnosticFixable(diagnostic)) {
+		return null;
+	}
+
+	const action: CodeAction = {
+		title: 'Fix this issue (PHPCBF)',
+		kind: CodeActionKind.QuickFix,
+		diagnostics: [diagnostic],
+		isPreferred: false,
+		command: {
+			title: 'Fix with PHPCBF',
+			command: PHPCBF_FIX_FILE_COMMAND,
+			arguments: [document.uri],
+		},
+	};
+
+	return action;
+}
+
+/**
  * Generate code actions for a code action request.
  * @param params The code action parameters
  * @param document The text document
@@ -106,14 +154,24 @@ export function generateCodeActions(
 
 	// Check if any diagnostics in the requested range are from PHPCS
 	const contextDiagnostics = params.context.diagnostics || [];
-	const hasPhpcsInRange = hasPhpcsDiagnostics(contextDiagnostics);
+	const phpcsInContext = getPhpcsDiagnostics(contextDiagnostics);
 
-	// If the user clicked on a PHPCS diagnostic, offer to fix all issues
-	if (hasPhpcsInRange) {
-		const fixAllAction = createFixAllInFileAction(document, documentDiagnostics);
-		if (fixAllAction) {
-			actions.push(fixAllAction);
+	if (phpcsInContext.length === 0) {
+		return actions;
+	}
+
+	// Add "Fix this issue" for each fixable diagnostic in context
+	for (const diagnostic of phpcsInContext) {
+		const singleAction = createFixSingleIssueAction(document, diagnostic);
+		if (singleAction) {
+			actions.push(singleAction);
 		}
+	}
+
+	// Add "Fix all issues in file" action
+	const fixAllAction = createFixAllInFileAction(document, documentDiagnostics);
+	if (fixAllAction) {
+		actions.push(fixAllAction);
 	}
 
 	return actions;

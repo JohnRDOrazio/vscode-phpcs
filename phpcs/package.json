@@ -199,6 +199,18 @@
 					"default": false,
 					"description": "Automatically fix issues with PHPCBF when saving a file."
 				},
+				"phpcs.phpcbfShowDiff": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Show a diff preview before applying PHPCBF fixes. When enabled, you can review changes before they are applied."
+				},
+				"phpcs.phpcbfDiffInline": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Show the diff preview in inline mode instead of side-by-side. Only applies when phpcbfShowDiff is enabled."
+				},
 				"phpcs.phpcbfTimeout": {
 					"scope": "resource",
 					"type": "number",

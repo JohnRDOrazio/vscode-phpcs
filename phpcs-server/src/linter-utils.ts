@@ -323,7 +323,15 @@ export function createDiagnosticFromMessage(
 		? DiagnosticSeverity.Warning
 		: DiagnosticSeverity.Error;
 
-	return Diagnostic.create(range, diagnosticMessage, severity, undefined, 'phpcs');
+	const diagnostic = Diagnostic.create(range, diagnosticMessage, severity, undefined, 'phpcs');
+
+	// Store fixable flag and source in data property for use by code actions
+	diagnostic.data = {
+		fixable: message.fixable,
+		source: message.source,
+	};
+
+	return diagnostic;
 }
 
 /**

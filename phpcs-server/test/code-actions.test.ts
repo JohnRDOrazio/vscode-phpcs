@@ -14,7 +14,10 @@ import {
 	createFixAllInFileAction,
 	createFullDocumentEdit,
 	generateCodeActions,
+	isDiagnosticFixable,
+	createFixSingleIssueAction,
 	PHPCBF_FIX_FILE_COMMAND,
+	PhpcsDiagnosticData,
 } from '../src/code-actions';
 
 suite('Code Actions', () => {
@@ -23,8 +26,8 @@ suite('Code Actions', () => {
 		return TextDocument.create(uri, 'php', 1, content);
 	};
 
-	const createPhpcsDiagnostic = (message: string, line: number = 1): Diagnostic => {
-		return {
+	const createPhpcsDiagnostic = (message: string, line: number = 1, fixable: boolean = false): Diagnostic => {
+		const diagnostic: Diagnostic = {
 			range: {
 				start: { line: line - 1, character: 0 },
 				end: { line: line - 1, character: 10 },
@@ -33,6 +36,10 @@ suite('Code Actions', () => {
 			severity: DiagnosticSeverity.Error,
 			source: 'phpcs',
 		};
+		if (fixable) {
+			diagnostic.data = { fixable: true, source: 'TestSniff.Rule' } as PhpcsDiagnosticData;
+		}
+		return diagnostic;
 	};
 
 	const createOtherDiagnostic = (message: string, line: number = 1): Diagnostic => {
@@ -213,6 +220,127 @@ suite('Code Actions', () => {
 		test('should be a valid command string', () => {
 			assert.strictEqual(typeof PHPCBF_FIX_FILE_COMMAND, 'string');
 			assert.ok(PHPCBF_FIX_FILE_COMMAND.length > 0);
+		});
+
+	});
+
+	suite('isDiagnosticFixable', () => {
+
+		test('should return true for fixable diagnostic', () => {
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
+			assert.strictEqual(isDiagnosticFixable(diagnostic), true);
+		});
+
+		test('should return false for non-fixable diagnostic', () => {
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, false);
+			assert.strictEqual(isDiagnosticFixable(diagnostic), false);
+		});
+
+		test('should return false when data is undefined', () => {
+			const diagnostic = createPhpcsDiagnostic('Error 1');
+			assert.strictEqual(isDiagnosticFixable(diagnostic), false);
+		});
+
+		test('should return false when fixable is explicitly false', () => {
+			const diagnostic = createPhpcsDiagnostic('Error 1');
+			diagnostic.data = { fixable: false } as PhpcsDiagnosticData;
+			assert.strictEqual(isDiagnosticFixable(diagnostic), false);
+		});
+
+	});
+
+	suite('createFixSingleIssueAction', () => {
+
+		test('should create action for fixable diagnostic', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
+			const action = createFixSingleIssueAction(document, diagnostic);
+
+			assert.ok(action);
+			assert.ok(action!.title.includes('Fix this issue'));
+			assert.strictEqual(action!.kind, CodeActionKind.QuickFix);
+			assert.strictEqual(action!.isPreferred, false);
+			assert.ok(action!.command);
+			assert.strictEqual(action!.command!.command, PHPCBF_FIX_FILE_COMMAND);
+		});
+
+		test('should return null for non-fixable diagnostic', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, false);
+			const action = createFixSingleIssueAction(document, diagnostic);
+
+			assert.strictEqual(action, null);
+		});
+
+		test('should include document URI in command arguments', () => {
+			const uri = 'file:///path/to/test.php';
+			const document = createTestDocument('<?php echo 1;', uri);
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
+			const action = createFixSingleIssueAction(document, diagnostic);
+
+			assert.ok(action);
+			assert.ok(action!.command);
+			assert.deepStrictEqual(action!.command!.arguments, [uri]);
+		});
+
+		test('should only include the single diagnostic in action', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
+			const action = createFixSingleIssueAction(document, diagnostic);
+
+			assert.ok(action);
+			assert.strictEqual(action!.diagnostics!.length, 1);
+			assert.strictEqual(action!.diagnostics![0], diagnostic);
+		});
+
+	});
+
+	suite('generateCodeActions with single issue actions', () => {
+
+		test('should return single issue action and fix all action for fixable diagnostic', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
+			const params: CodeActionParams = {
+				textDocument: { uri: document.uri },
+				range: { start: { line: 0, character: 0 }, end: { line: 0, character: 10 } },
+				context: { diagnostics: [diagnostic] },
+			};
+			const actions = generateCodeActions(params, document, [diagnostic]);
+
+			assert.strictEqual(actions.length, 2);
+			assert.ok(actions.some(a => a.title.includes('Fix this issue')));
+			assert.ok(actions.some(a => a.title.includes('Fix all')));
+		});
+
+		test('should return only fix all action for non-fixable diagnostic', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, false);
+			const params: CodeActionParams = {
+				textDocument: { uri: document.uri },
+				range: { start: { line: 0, character: 0 }, end: { line: 0, character: 10 } },
+				context: { diagnostics: [diagnostic] },
+			};
+			const actions = generateCodeActions(params, document, [diagnostic]);
+
+			assert.strictEqual(actions.length, 1);
+			assert.ok(actions[0].title.includes('Fix all'));
+		});
+
+		test('should return multiple single issue actions for multiple fixable diagnostics', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diag1 = createPhpcsDiagnostic('Error 1', 1, true);
+			const diag2 = createPhpcsDiagnostic('Error 2', 1, true);
+			const params: CodeActionParams = {
+				textDocument: { uri: document.uri },
+				range: { start: { line: 0, character: 0 }, end: { line: 0, character: 10 } },
+				context: { diagnostics: [diag1, diag2] },
+			};
+			const actions = generateCodeActions(params, document, [diag1, diag2]);
+
+			// 2 single issue actions + 1 fix all action
+			assert.strictEqual(actions.length, 3);
+			const singleActions = actions.filter(a => a.title.includes('Fix this issue'));
+			assert.strictEqual(singleActions.length, 2);
 		});
 
 	});

@@ -41,9 +41,9 @@ Optional setting to auto-fix on save:
 These features are deferred until v1 is stable:
 
 - **Status bar feedback** - Show progress indicator when PHPCBF is running
-  (especially for workspace-wide fixes)
-- **Single diagnostic fixes** - Fix only the specific violation at cursor
-- **Diff preview** - Show changes before applying (optional setting)
+  (especially for workspace-wide fixes) ✅
+- **Single diagnostic fixes** - Fix only the specific violation at cursor ✅
+- **Diff preview** - Show changes before applying (optional setting) ✅
 - **Document formatter registration** - Register as VS Code's document formatter
   (lowest priority, may not implement)
 
@@ -51,12 +51,14 @@ These features are deferred until v1 is stable:
 
 ## New Settings (v1) ✅
 
-| Setting                      | Type    | Default | Description                                       | Status |
-| ---------------------------- | ------- | ------- | ------------------------------------------------- | ------ |
-| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                 | ✅     |
-| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null) | ✅     |
-| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                  | ✅     |
-| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations          | ✅     |
+| Setting                      | Type    | Default | Description                                             | Status |
+| ---------------------------- | ------- | ------- | ------------------------------------------------------- | ------ |
+| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                       | ✅     |
+| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)       | ✅     |
+| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                        | ✅     |
+| `phpcs.phpcbfShowDiff`       | boolean | `false` | Show diff preview before applying fixes                 | ✅     |
+| `phpcs.phpcbfDiffInline`     | boolean | `false` | Show inline diff decorations instead of separate editor | ✅     |
+| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                | ✅     |
 
 ---
 
@@ -69,6 +71,9 @@ phpcs-server/src/
 ├── fixer.ts              # PhpcbfFixer class (mirrors PhpcsLinter) ✅
 ├── fixer-utils.ts        # Utility functions for PHPCBF operations ✅
 └── code-actions.ts       # Code action provider logic (file-level fixes) ✅
+
+phpcs/src/
+└── diff-provider.ts      # Virtual document provider for diff preview ✅
 
 phpcs-server/test/
 ├── fixer.test.ts         # Integration tests for fixer ✅
@@ -154,16 +159,26 @@ phpcs-server/test/
 
 ## Future Phases (Post-v1)
 
-### Single Diagnostic Fixes
+### Status Bar Feedback ✅
 
-- Add "Fix this issue" action for individual diagnostics
-- May require running PHPCBF with line-specific options or `--dry-run` analysis
+- Show progress indicator when PHPCBF is running
+- Uses wrench icon with spinner animation
+- Tracks multiple concurrent fix operations
 
-### Diff Preview
+### Single Diagnostic Fixes ✅
 
-- Add `phpcs.phpcbfShowDiff` setting
-- Show changes in diff view before applying
-- Allow user to accept/reject
+- Added "Fix this issue (PHPCBF)" action for individual fixable diagnostics
+- Diagnostics now include `fixable` flag from PHPCS output
+- Note: PHPCBF still fixes the entire file, but the action is scoped to the clicked diagnostic
+
+### Diff Preview ✅
+
+- Added `phpcs.phpcbfShowDiff` setting
+- Shows side-by-side diff view before applying changes
+- User can accept or cancel the fix
+- Uses virtual document provider with `phpcbf-preview://` scheme
+- **Inline diff option** (`phpcs.phpcbfDiffInline`): Shows diff decorations in the current editor
+  instead of opening a separate diff tab. Highlights additions in green with line counts.
 
 ### Document Formatter Registration
 

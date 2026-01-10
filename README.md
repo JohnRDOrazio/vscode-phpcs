@@ -151,3 +151,31 @@ This extension is larger (~650KB uncompressed) compared to simpler alternatives
 
 The trade-off is worth it: the LSP approach ensures VS Code remains responsive
 even when linting large files or projects with many PHP files.
+
+## PHPCBF Integration
+
+The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PHP_CodeSniffer)
+(PHP Code Beautifier and Fixer) to automatically fix code style issues.
+
+### Features
+
+- **Quick Fix Actions**: Click on a PHPCS diagnostic (squiggly line) and select
+  "Fix this issue (PHPCBF)" or "Fix all auto-fixable issues in this file (PHPCBF)"
+- **Command Palette**: Use "PHPCS: Fix this file with PHPCBF" or "PHPCS: Fix all
+  files in workspace with PHPCBF"
+- **Auto-fix on Save**: Enable `phpcs.phpcbfOnSave` to automatically fix issues
+  when saving a file
+- **Diff Preview**: Enable `phpcs.phpcbfShowDiff` to preview changes before
+  applying them. Use `phpcs.phpcbfDiffInline` to show the diff as inline
+  decorations in the current editor instead of a separate diff tab.
+
+### Settings
+
+| Setting                      | Type    | Default | Description                                             |
+| ---------------------------- | ------- | ------- | ------------------------------------------------------- |
+| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                       |
+| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)       |
+| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                        |
+| `phpcs.phpcbfShowDiff`       | boolean | `false` | Show diff preview before applying fixes                 |
+| `phpcs.phpcbfDiffInline`     | boolean | `false` | Show inline diff decorations instead of separate editor |
+| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                |
