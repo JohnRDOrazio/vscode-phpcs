@@ -15,11 +15,14 @@ const esbuildProblemMatcherPlugin = {
 		});
 		build.onEnd((result) => {
 			result.errors.forEach(({ text, location }) => {
-				console.error(`✘ [ERROR] ${text}`);
 				if (location) {
+					// Output in format: file:line:column: ERROR: message
+					// This matches the VS Code problemMatcher pattern
 					console.error(
-						`    ${location.file}:${location.line}:${location.column}:`
+						`    ${location.file}:${location.line}:${location.column}: ERROR: ${text}`
 					);
+				} else {
+					console.error(`✘ [ERROR] ${text}`);
 				}
 			});
 			console.log("[watch] build finished");

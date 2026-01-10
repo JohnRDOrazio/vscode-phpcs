@@ -6,6 +6,7 @@
 
 import * as assert from 'assert';
 import * as strings from '../../../src/base/common/strings';
+import { StringResources as SR } from '../../../src/strings';
 
 suite('Strings', () => {
 
@@ -31,6 +32,14 @@ suite('Strings', () => {
 		assert.strictEqual(strings.rtrim('///', '/'), '');
 		assert.strictEqual(strings.rtrim('', ''), '');
 		assert.strictEqual(strings.rtrim('', '/'), '');
+	});
+
+	test('PhpcbfTimeoutError format', function () {
+		const result = strings.format(SR.PhpcbfTimeoutError, '60');
+		assert.strictEqual(
+			result,
+			'PHPCBF operation timed out after 60 seconds. Try increasing phpcs.phpcbfTimeout for large files.'
+		);
 	});
 
 });

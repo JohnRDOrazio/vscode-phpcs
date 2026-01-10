@@ -5,6 +5,32 @@ All notable changes to the "vscode-phpcs" extension will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-01-10
+
+### Added
+
+- **Configurable PHPCBF timeout**: New `phpcs.phpcbfTimeout` setting (1-300 seconds,
+  default: 60) to handle large files that may take longer to fix
+- Unit tests for timeout handling utilities (`isTimeoutSignal`, `createTimeoutResult`,
+  `getTimeoutMs`)
+
+### Changed
+
+- Improved concurrency handling: PHPCBF fix operations now properly track in-flight
+  requests to prevent duplicate fixes on the same document
+- Moved PHPCBF user-facing messages to centralized string resources for consistency
+- Updated README to reference VS Code compatible editors (VS Code, Cursor, Windsurf,
+  etc.) since the extension is published to Open VSX
+- Fixed VS Code development setup to use esbuild watch instead of tsc for proper
+  `dist/` output
+
+### Fixed
+
+- Fixed `onWillSaveTextDocument` concurrency guard - now properly tracks its fix
+  operation in the shared `fixingDocuments` map
+- Fixed esbuild problemMatcher output format to correctly capture build errors
+  in the Problems panel
+
 ## [1.2.2] - 2025-12-27
 
 ### Added

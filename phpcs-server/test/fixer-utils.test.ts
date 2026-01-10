@@ -14,8 +14,12 @@ import {
 	normalizeWindowsPath,
 	createEmptyFileResult,
 	createIgnoredFileResult,
+	createTimeoutResult,
+	isTimeoutSignal,
 	parseVersionString,
 	isVersionV4OrAbove,
+	getTimeoutMs,
+	DEFAULT_PHPCBF_TIMEOUT_SECONDS,
 	PhpcbfExitCode,
 } from '../src/fixer-utils';
 
@@ -365,6 +369,46 @@ suite('Fixer Utils', () => {
 
 	});
 
+	suite('isTimeoutSignal', () => {
+
+		test('should return true for SIGTERM', () => {
+			assert.strictEqual(isTimeoutSignal('SIGTERM'), true);
+		});
+
+		test('should return false for SIGKILL', () => {
+			assert.strictEqual(isTimeoutSignal('SIGKILL'), false);
+		});
+
+		test('should return false for SIGINT', () => {
+			assert.strictEqual(isTimeoutSignal('SIGINT'), false);
+		});
+
+		test('should return false for null', () => {
+			assert.strictEqual(isTimeoutSignal(null), false);
+		});
+
+	});
+
+	suite('createTimeoutResult', () => {
+
+		test('should return fixed=false with provided error message', () => {
+			const content = '<?php echo 1;';
+			const errorMessage = 'PHPCBF operation timed out after 60 seconds. Try increasing phpcs.phpcbfTimeout for large files.';
+			const result = createTimeoutResult(content, errorMessage);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, content);
+			assert.strictEqual(result.hasUnfixableIssues, false);
+			assert.strictEqual(result.error, errorMessage);
+		});
+
+		test('should preserve original content in result', () => {
+			const content = '<?php echo "test";';
+			const result = createTimeoutResult(content, 'Timeout error');
+			assert.strictEqual(result.content, content);
+		});
+
+	});
+
 	suite('parseVersionString', () => {
 
 		test('should parse v3.7.2 version string', () => {
@@ -423,6 +467,30 @@ suite('Fixer Utils', () => {
 
 		test('should return false for v2.0.0', () => {
 			assert.strictEqual(isVersionV4OrAbove('2.0.0'), false);
+		});
+
+	});
+
+	suite('getTimeoutMs', () => {
+
+		test('should convert seconds to milliseconds', () => {
+			assert.strictEqual(getTimeoutMs(30), 30000);
+			assert.strictEqual(getTimeoutMs(60), 60000);
+			assert.strictEqual(getTimeoutMs(120), 120000);
+		});
+
+		test('should use default timeout when undefined', () => {
+			assert.strictEqual(getTimeoutMs(undefined), DEFAULT_PHPCBF_TIMEOUT_SECONDS * 1000);
+			assert.strictEqual(getTimeoutMs(undefined), 60000);
+		});
+
+		test('should handle edge values', () => {
+			assert.strictEqual(getTimeoutMs(1), 1000);
+			assert.strictEqual(getTimeoutMs(300), 300000);
+		});
+
+		test('DEFAULT_PHPCBF_TIMEOUT_SECONDS should be 60', () => {
+			assert.strictEqual(DEFAULT_PHPCBF_TIMEOUT_SECONDS, 60);
 		});
 
 	});

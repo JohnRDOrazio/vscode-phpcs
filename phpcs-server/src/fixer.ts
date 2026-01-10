@@ -23,8 +23,11 @@ import {
 	normalizeWindowsPath,
 	createEmptyFileResult,
 	createIgnoredFileResult,
+	createTimeoutResult,
+	isTimeoutSignal,
 	parseVersionString,
 	isVersionV4OrAbove,
+	DEFAULT_PHPCBF_TIMEOUT_SECONDS,
 	FixResult,
 } from './fixer-utils';
 
@@ -162,17 +165,21 @@ export class PhpcbfFixer {
 		// Prepare file text (handles version-specific requirements)
 		const text = prepareFileText(fileText, filePath, this.executableVersion, os.EOL);
 
-		const forcedKillTime = 1000 * 60 * 5; // ms * s * m: 5 minutes
+		// Use configurable timeout (in seconds), convert to milliseconds
+		const timeoutSeconds = settings.phpcbfTimeout ?? DEFAULT_PHPCBF_TIMEOUT_SECONDS;
+		const timeoutMs = timeoutSeconds * 1000;
+
 		const options = {
 			cwd: workspaceRoot !== null ? workspaceRoot : undefined,
 			env: process.env,
 			encoding: "utf8" as const,
-			timeout: forcedKillTime,
+			timeout: timeoutMs,
 			input: text,
 		};
 
 		this.log(`[PHPCBF] Running: ${this.executablePath} ${fixArgs.join(' ')}`);
 		this.log(`[PHPCBF] Input content length: ${text.length} chars`);
+		this.log(`[PHPCBF] Timeout: ${timeoutSeconds} seconds`);
 
 		const phpcbf = spawn.sync(this.executablePath, fixArgs, options);
 		const stdout = (phpcbf.stdout ?? '').toString();
@@ -180,6 +187,11 @@ export class PhpcbfFixer {
 		const exitCode = phpcbf.status;
 
 		this.log(`[PHPCBF] Exit code: ${exitCode}`);
+
+		// Check for timeout (process killed by signal)
+		if (isTimeoutSignal(phpcbf.signal)) {
+			return createTimeoutResult(fileText, strings.format(SR.PhpcbfTimeoutError, String(timeoutSeconds)));
+		}
 
 		// Check for stdout errors first (e.g., "ERROR: the standard is not installed")
 		const stdoutError = extractPhpcbfStdoutError(stdout);

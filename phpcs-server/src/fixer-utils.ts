@@ -357,6 +357,30 @@ export function createIgnoredFileResult(fileText: string): FixResult {
 }
 
 /**
+ * Check if a process was terminated due to timeout.
+ * @param signal The signal that terminated the process (if any)
+ * @returns true if the process was killed due to timeout (SIGTERM)
+ */
+export function isTimeoutSignal(signal: NodeJS.Signals | null): boolean {
+	return signal === 'SIGTERM';
+}
+
+/**
+ * Create an error result for timeout.
+ * @param fileText The original file text
+ * @param errorMessage The formatted error message (from string resources)
+ * @returns FixResult with timeout error
+ */
+export function createTimeoutResult(fileText: string, errorMessage: string): FixResult {
+	return {
+		fixed: false,
+		content: fileText,
+		hasUnfixableIssues: false,
+		error: errorMessage,
+	};
+}
+
+/**
  * Parse version string from PHPCS/PHPCBF --version output.
  * @param output The output from --version command
  * @returns The version string (e.g., '3.7.2') or null if not found
@@ -374,4 +398,19 @@ export function parseVersionString(output: string): string | null {
  */
 export function isVersionV4OrAbove(version: string): boolean {
 	return semver.gte(version, '4.0.0');
+}
+
+/**
+ * Default timeout for PHPCBF operations in seconds.
+ */
+export const DEFAULT_PHPCBF_TIMEOUT_SECONDS = 60;
+
+/**
+ * Calculate the timeout value in milliseconds for spawn options.
+ * @param timeoutSeconds The timeout setting value in seconds (may be undefined)
+ * @returns The timeout in milliseconds
+ */
+export function getTimeoutMs(timeoutSeconds: number | undefined): number {
+	const seconds = timeoutSeconds ?? DEFAULT_PHPCBF_TIMEOUT_SECONDS;
+	return seconds * 1000;
 }

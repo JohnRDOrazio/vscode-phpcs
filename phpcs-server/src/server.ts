@@ -48,6 +48,8 @@ class PhpcsServer {
 	private validating: Map<string, TextDocument>;
 	private queue: Map<string, TextDocument>;
 	private documentDiagnostics: Map<string, Diagnostic[]>;
+	// Track ongoing PHPCBF fix operations to prevent concurrent fixes on the same file
+	private fixingDocuments: Map<string, Promise<void>>;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -76,6 +78,7 @@ class PhpcsServer {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfTimeout: 60,
 	};
 	private documentSettings: Map<string, Promise<PhpcsSettings>> = new Map();
 
@@ -89,6 +92,7 @@ class PhpcsServer {
 		this.openedFiles = new Map();
 		this.queue = new Map();
 		this.documentDiagnostics = new Map();
+		this.fixingDocuments = new Map();
 		this.connection = createConnection(ProposedFeatures.all);
 		this.documents = new TextDocuments(TextDocument);
 		this.documents.listen(this.connection);
@@ -226,6 +230,8 @@ class PhpcsServer {
 			return [];
 		}
 
+		const uri = document.uri;
+
 		// Only process PHP files
 		if (document.languageId !== 'php') {
 			return [];
@@ -243,20 +249,38 @@ class PhpcsServer {
 			return [];
 		}
 
-		try {
-			const fixer = await PhpcbfFixer.create(phpcbfPath);
-			fixer.setLogger((message) => this.connection.console.log(message));
-
-			const result = await fixer.fix(document, settings);
-			if (result.fixed && result.content !== document.getText()) {
-				return [createFullDocumentEdit(document, result.content)];
-			}
-		} catch (error) {
-			// Log error but don't block save
-			this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, String(error)));
+		// Check if a fix is already in progress for this document.
+		// Note: A small race window exists where two callers could both pass this check
+		// before either registers in fixingDocuments. This is acceptable since double-fixing
+		// is a UX annoyance rather than a correctness issue, and the window is small in practice.
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping on-save fix`);
+			return [];
 		}
 
-		return [];
+		const fixOperation = (async (): Promise<TextEdit[]> => {
+			try {
+				const fixer = await PhpcbfFixer.create(phpcbfPath);
+				fixer.setLogger((message) => this.connection.console.log(message));
+
+				const result = await fixer.fix(document, settings);
+				if (result.fixed && result.content !== document.getText()) {
+					return [createFullDocumentEdit(document, result.content)];
+				}
+			} catch (error) {
+				// Log error but don't block save
+				this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, String(error)));
+			}
+			return [];
+		})();
+
+		// Track for concurrency control across on-save + command-based fixes
+		this.fixingDocuments.set(uri, fixOperation.then((): void => undefined, (): void => undefined));
+		try {
+			return await fixOperation;
+		} finally {
+			this.fixingDocuments.delete(uri);
+		}
 	}
 
 	/**
@@ -369,6 +393,7 @@ class PhpcsServer {
 	 */
 	private async fixDocument(document: TextDocument): Promise<void> {
 		const uri = document.uri;
+
 		const settings = await this.getDocumentSettings(document);
 
 		if (!settings.phpcbfEnable) {
@@ -383,15 +408,51 @@ class PhpcsServer {
 			return;
 		}
 
+		// Check if a fix is already in progress for this document.
+		// Note: A small race window exists where two callers could both pass this check
+		// before either registers in fixingDocuments. This is acceptable since double-fixing
+		// is a UX annoyance rather than a correctness issue, and the window is small in practice.
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
+			return;
+		}
+
+		// Create the fix operation promise and track it
+		const fixOperation = this.executeFixOperation(document, settings, phpcbfPath, uri);
+		this.fixingDocuments.set(uri, fixOperation);
+
 		try {
-			this.connection.console.log(`[PHPCBF] Fixing document: ${uri}`);
+			await fixOperation;
+		} finally {
+			// Always clean up the tracking entry when done
+			this.fixingDocuments.delete(uri);
+		}
+	}
+
+	/**
+	 * Execute the actual fix operation for a document.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param uri The document URI.
+	 * @return void
+	 */
+	private async executeFixOperation(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		uri: string
+	): Promise<void> {
+		try {
+			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
 			const fixer = await PhpcbfFixer.create(phpcbfPath);
 			fixer.setLogger((message) => this.connection.console.log(message));
 
 			const result = await fixer.fix(document, settings);
 
 			if (result.error) {
-				this.connection.window.showErrorMessage(`PHPCBF: ${result.error}`);
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
 				return;
 			}
 
@@ -405,7 +466,7 @@ class PhpcsServer {
 				});
 
 				if (applied.applied) {
-					this.connection.console.log(`[PHPCBF] Fixed document: ${uri}`);
+					this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
 
 					// Re-lint the document to refresh diagnostics
 					// We need to get the updated document after the edit is applied
@@ -416,21 +477,19 @@ class PhpcsServer {
 						await this.validateSingle(updatedDocument);
 					}
 				} else {
-					this.connection.console.warn(`[PHPCBF] Failed to apply edit to: ${uri}`);
+					this.connection.console.warn(strings.format(SR.PhpcbfFixFailed, uri));
 				}
 			} else {
-				this.connection.console.log(`[PHPCBF] No fixes applied to: ${uri}`);
+				this.connection.console.log(strings.format(SR.PhpcbfNoFixesApplied, uri));
 			}
 
 			if (result.hasUnfixableIssues) {
-				this.connection.window.showInformationMessage(
-					'PHPCBF: Some issues could not be automatically fixed.'
-				);
+				this.connection.window.showInformationMessage(SR.PhpcbfUnfixableIssues);
 			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.connection.console.error(`[PHPCBF] Error: ${message}`);
-			this.connection.window.showErrorMessage(`PHPCBF: ${message}`);
+			this.connection.console.error(strings.format(SR.PhpcbfError, message));
+			this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
 		}
 	}
 
