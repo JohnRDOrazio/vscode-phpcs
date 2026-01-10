@@ -92,13 +92,17 @@ This runs tests for both the server and client.
 To run the development version of the `phpcs` extension:
 
 1. Open the cloned repository folder using VS Code
-2. Build the extension first (required before debugging):
+2. (Optional) Build the extension before debugging to ensure artifacts are ready:
 
    ```bash
    npm run bundle-dev         # One-time build
    # OR
    npm run bundle-watch       # Continuous watch mode (auto-rebuilds on changes)
    ```
+
+   **Note:** The debug configurations automatically start the watch tasks via
+   `preLaunchTask`, but running `bundle-dev` first ensures the initial build
+   completes before the extension launches.
 
 3. Select sidebar option `Run and Debug` (Ctrl+Shift+D)
 4. Select `Client + Server` from the Debug dropdown menu
