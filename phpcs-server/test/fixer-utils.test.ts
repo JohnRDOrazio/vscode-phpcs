@@ -389,21 +389,20 @@ suite('Fixer Utils', () => {
 
 	suite('createTimeoutResult', () => {
 
-		test('should return fixed=false with timeout error', () => {
+		test('should return fixed=false with provided error message', () => {
 			const content = '<?php echo 1;';
-			const result = createTimeoutResult(content, 60);
+			const errorMessage = 'PHPCBF operation timed out after 60 seconds. Try increasing phpcs.phpcbfTimeout for large files.';
+			const result = createTimeoutResult(content, errorMessage);
 			assert.strictEqual(result.fixed, false);
 			assert.strictEqual(result.content, content);
 			assert.strictEqual(result.hasUnfixableIssues, false);
-			assert.ok(result.error);
-			assert.ok(result.error!.includes('60 seconds'));
-			assert.ok(result.error!.includes('timed out'));
-			assert.ok(result.error!.includes('phpcs.phpcbfTimeout'));
+			assert.strictEqual(result.error, errorMessage);
 		});
 
-		test('should include custom timeout value in error message', () => {
-			const result = createTimeoutResult('<?php', 120);
-			assert.ok(result.error!.includes('120 seconds'));
+		test('should preserve original content in result', () => {
+			const content = '<?php echo "test";';
+			const result = createTimeoutResult(content, 'Timeout error');
+			assert.strictEqual(result.content, content);
 		});
 
 	});

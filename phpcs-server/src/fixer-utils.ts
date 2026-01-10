@@ -368,15 +368,15 @@ export function isTimeoutSignal(signal: NodeJS.Signals | null): boolean {
 /**
  * Create an error result for timeout.
  * @param fileText The original file text
- * @param timeoutSeconds The timeout value in seconds
+ * @param errorMessage The formatted error message (from string resources)
  * @returns FixResult with timeout error
  */
-export function createTimeoutResult(fileText: string, timeoutSeconds: number): FixResult {
+export function createTimeoutResult(fileText: string, errorMessage: string): FixResult {
 	return {
 		fixed: false,
 		content: fileText,
 		hasUnfixableIssues: false,
-		error: `PHPCBF operation timed out after ${timeoutSeconds} seconds. Try increasing phpcs.phpcbfTimeout for large files.`,
+		error: errorMessage,
 	};
 }
 

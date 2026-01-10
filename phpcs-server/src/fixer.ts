@@ -189,7 +189,7 @@ export class PhpcbfFixer {
 
 		// Check for timeout (process killed by signal)
 		if (isTimeoutSignal(phpcbf.signal)) {
-			return createTimeoutResult(fileText, timeoutSeconds);
+			return createTimeoutResult(fileText, strings.format(SR.PhpcbfTimeoutError, String(timeoutSeconds)));
 		}
 
 		// Check for stdout errors first (e.g., "ERROR: the standard is not installed")
