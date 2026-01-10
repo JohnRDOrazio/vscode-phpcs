@@ -232,12 +232,6 @@ class PhpcsServer {
 
 		const uri = document.uri;
 
-		// Skip if a fix is already in progress for this document
-		if (this.fixingDocuments.has(uri)) {
-			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping on-save fix`);
-			return [];
-		}
-
 		// Only process PHP files
 		if (document.languageId !== 'php') {
 			return [];
@@ -255,20 +249,35 @@ class PhpcsServer {
 			return [];
 		}
 
-		try {
-			const fixer = await PhpcbfFixer.create(phpcbfPath);
-			fixer.setLogger((message) => this.connection.console.log(message));
-
-			const result = await fixer.fix(document, settings);
-			if (result.fixed && result.content !== document.getText()) {
-				return [createFullDocumentEdit(document, result.content)];
-			}
-		} catch (error) {
-			// Log error but don't block save
-			this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, String(error)));
+		// Re-check after async work to avoid overlapping with fixDocument() / other in-flight fixes
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping on-save fix`);
+			return [];
 		}
 
-		return [];
+		const fixOperation = (async (): Promise<TextEdit[]> => {
+			try {
+				const fixer = await PhpcbfFixer.create(phpcbfPath);
+				fixer.setLogger((message) => this.connection.console.log(message));
+
+				const result = await fixer.fix(document, settings);
+				if (result.fixed && result.content !== document.getText()) {
+					return [createFullDocumentEdit(document, result.content)];
+				}
+			} catch (error) {
+				// Log error but don't block save
+				this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, String(error)));
+			}
+			return [];
+		})();
+
+		// Track for concurrency control across on-save + command-based fixes
+		this.fixingDocuments.set(uri, fixOperation.then((): void => undefined, (): void => undefined));
+		try {
+			return await fixOperation;
+		} finally {
+			this.fixingDocuments.delete(uri);
+		}
 	}
 
 	/**
