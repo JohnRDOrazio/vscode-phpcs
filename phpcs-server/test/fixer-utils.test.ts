@@ -18,6 +18,8 @@ import {
 	isTimeoutSignal,
 	parseVersionString,
 	isVersionV4OrAbove,
+	getTimeoutMs,
+	DEFAULT_PHPCBF_TIMEOUT_SECONDS,
 	PhpcbfExitCode,
 } from '../src/fixer-utils';
 
@@ -465,6 +467,30 @@ suite('Fixer Utils', () => {
 
 		test('should return false for v2.0.0', () => {
 			assert.strictEqual(isVersionV4OrAbove('2.0.0'), false);
+		});
+
+	});
+
+	suite('getTimeoutMs', () => {
+
+		test('should convert seconds to milliseconds', () => {
+			assert.strictEqual(getTimeoutMs(30), 30000);
+			assert.strictEqual(getTimeoutMs(60), 60000);
+			assert.strictEqual(getTimeoutMs(120), 120000);
+		});
+
+		test('should use default timeout when undefined', () => {
+			assert.strictEqual(getTimeoutMs(undefined), DEFAULT_PHPCBF_TIMEOUT_SECONDS * 1000);
+			assert.strictEqual(getTimeoutMs(undefined), 60000);
+		});
+
+		test('should handle edge values', () => {
+			assert.strictEqual(getTimeoutMs(1), 1000);
+			assert.strictEqual(getTimeoutMs(300), 300000);
+		});
+
+		test('DEFAULT_PHPCBF_TIMEOUT_SECONDS should be 60', () => {
+			assert.strictEqual(DEFAULT_PHPCBF_TIMEOUT_SECONDS, 60);
 		});
 
 	});

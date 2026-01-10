@@ -27,6 +27,7 @@ import {
 	isTimeoutSignal,
 	parseVersionString,
 	isVersionV4OrAbove,
+	getTimeoutMs,
 	FixResult,
 } from './fixer-utils';
 
@@ -165,8 +166,8 @@ export class PhpcbfFixer {
 		const text = prepareFileText(fileText, filePath, this.executableVersion, os.EOL);
 
 		// Use configurable timeout (in seconds), convert to milliseconds
+		const timeoutMs = getTimeoutMs(settings.phpcbfTimeout);
 		const timeoutSeconds = settings.phpcbfTimeout ?? 60;
-		const timeoutMs = timeoutSeconds * 1000;
 
 		const options = {
 			cwd: workspaceRoot !== null ? workspaceRoot : undefined,
