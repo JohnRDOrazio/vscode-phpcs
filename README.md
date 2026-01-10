@@ -12,7 +12,7 @@
 
 Integrates [phpcs](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP_CodeSniffer) for linting and
 [phpcbf](https://github.com/PHPCSStandards/PHP_CodeSniffer) (PHP Code Beautifier and Fixer) for auto-fixing
-code style issues into [Visual Studio Code](https://code.visualstudio.com/).
+code style issues into [VS Code](https://code.visualstudio.com/) and compatible editors.
 
 ## Extension History
 
@@ -45,7 +45,7 @@ For release notes and version history, see the [Changelog](phpcs/CHANGELOG.md).
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) v20 or later
-- [Visual Studio Code](https://code.visualstudio.com/) v1.106.3 or later
+- [VS Code](https://code.visualstudio.com/) v1.106.3 or later (or compatible editor)
 
 ### Installation
 
