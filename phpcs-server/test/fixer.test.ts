@@ -516,13 +516,13 @@ echo "fix me";
 			);
 
 			// Test with undefined timeout (should use default of 60 via ?? operator)
-			const settingsWithUndefinedTimeout = {
+			// Use Partial type to safely delete phpcbfTimeout for testing the fallback case
+			const settingsWithUndefinedTimeout: Partial<PhpcsSettings> & { enable: boolean } = {
 				...defaultSettings,
 			};
-			// @ts-ignore - Testing undefined case to exercise settings.phpcbfTimeout ?? 60
 			delete settingsWithUndefinedTimeout.phpcbfTimeout;
 
-			const result = await fixer.fix(document, settingsWithUndefinedTimeout as typeof defaultSettings);
+			const result = await fixer.fix(document, settingsWithUndefinedTimeout as PhpcsSettings);
 
 			// Should complete without error
 			assert.ok(
