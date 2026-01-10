@@ -36,9 +36,10 @@ suite('Strings', () => {
 
 	test('PhpcbfTimeoutError format', function () {
 		const result = strings.format(SR.PhpcbfTimeoutError, '60');
-		assert.ok(result.includes('60'));
-		assert.ok(result.includes('timed out'));
-		assert.ok(result.includes('phpcs.phpcbfTimeout'));
+		assert.strictEqual(
+			result,
+			'PHPCBF operation timed out after 60 seconds. Try increasing phpcs.phpcbfTimeout for large files.'
+		);
 	});
 
 });
