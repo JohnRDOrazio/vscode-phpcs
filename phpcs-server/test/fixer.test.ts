@@ -496,6 +496,7 @@ echo "fix me";
 				result.fixed !== undefined,
 				'Result should have fixed property'
 			);
+			assert.strictEqual(result.error, undefined, 'Should not have an error');
 		});
 
 		test('should use default timeout when not specified', async function () {
