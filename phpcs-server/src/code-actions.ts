@@ -18,6 +18,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
  * Code action command identifiers.
  */
 export const PHPCBF_FIX_FILE_COMMAND = 'phpcs.fixFile';
+export const PHPCBF_FIX_SINGLE_COMMAND = 'phpcs.fixSingleIssue';
 
 /**
  * Data stored in a PHPCS diagnostic.
@@ -104,14 +105,13 @@ export function isDiagnosticFixable(diagnostic: Diagnostic): boolean {
 }
 
 /**
- * Create a code action for a fixable diagnostic.
- * Note: PHPCBF operates on the entire file, so this will fix all auto-fixable
- * issues in the file, not just the specific diagnostic.
+ * Create a code action for a fixable diagnostic that fixes only this specific issue.
+ * Uses diff analysis to apply only the hunk(s) relevant to this diagnostic.
  * @param document The text document
  * @param diagnostic The diagnostic to fix
- * @returns A code action for fixing the issue, or null if not fixable
+ * @returns A code action for fixing only this issue, or null if not fixable
  */
-export function createFixSingleIssueAction(
+export function createFixOnlyThisIssueAction(
 	document: TextDocument,
 	diagnostic: Diagnostic
 ): CodeAction | null {
@@ -120,14 +120,14 @@ export function createFixSingleIssueAction(
 	}
 
 	const action: CodeAction = {
-		title: 'Fix this and other auto-fixable issues (PHPCBF)',
+		title: 'Fix only this issue (PHPCBF)',
 		kind: CodeActionKind.QuickFix,
 		diagnostics: [diagnostic],
 		isPreferred: false,
 		command: {
-			title: 'Fix file with PHPCBF',
-			command: PHPCBF_FIX_FILE_COMMAND,
-			arguments: [document.uri],
+			title: 'Fix single issue with PHPCBF',
+			command: PHPCBF_FIX_SINGLE_COMMAND,
+			arguments: [document.uri, diagnostic],
 		},
 	};
 
@@ -161,11 +161,11 @@ export function generateCodeActions(
 		return actions;
 	}
 
-	// Add "Fix this issue" for each fixable diagnostic in context
+	// Add "Fix only this issue" for each fixable diagnostic in context
 	for (const diagnostic of phpcsInContext) {
-		const singleAction = createFixSingleIssueAction(document, diagnostic);
-		if (singleAction) {
-			actions.push(singleAction);
+		const onlyThisAction = createFixOnlyThisIssueAction(document, diagnostic);
+		if (onlyThisAction) {
+			actions.push(onlyThisAction);
 		}
 	}
 

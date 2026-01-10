@@ -126,10 +126,16 @@ function computeLCS(a: string[], b: string[]): string[] {
 class DiffActionCodeLensProvider implements CodeLensProvider {
 	private documentUri: string | null = null;
 	private stats: { additions: number; deletions: number } = { additions: 0, deletions: 0 };
+	private targetLine: number = 0;
 
-	public setActiveDocument(uri: string, stats: { additions: number; deletions: number }): void {
+	public setActiveDocument(
+		uri: string,
+		stats: { additions: number; deletions: number },
+		targetLine?: number
+	): void {
 		this.documentUri = uri;
 		this.stats = stats;
+		this.targetLine = targetLine ?? 0;
 	}
 
 	public clearActiveDocument(): void {
@@ -141,7 +147,9 @@ class DiffActionCodeLensProvider implements CodeLensProvider {
 			return [];
 		}
 
-		const range = new Range(0, 0, 0, 0);
+		// Position CodeLens at the target line (or line before it for visibility)
+		const line = Math.max(0, this.targetLine);
+		const range = new Range(line, 0, line, 0);
 
 		const applyCommand: Command = {
 			title: '✓ Apply Changes',
@@ -293,12 +301,14 @@ export class InlineDiffPreview implements Disposable {
 	 * @param editor The text editor
 	 * @param originalContent The original file content
 	 * @param fixedContent The fixed content from PHPCBF
+	 * @param targetLine Optional line number for positioning the CodeLens (0-indexed)
 	 * @returns Promise that resolves to true if user accepts, false if cancels
 	 */
 	public async showPreviewAndWait(
 		editor: TextEditor,
 		originalContent: string,
-		fixedContent: string
+		fixedContent: string,
+		targetLine?: number
 	): Promise<boolean> {
 		// Clear any existing preview state to prevent race conditions
 		if (this.pendingResolve) {
@@ -317,7 +327,7 @@ export class InlineDiffPreview implements Disposable {
 		);
 
 		// Register CodeLens provider and commands
-		this.codeLensProvider.setActiveDocument(editor.document.uri.toString(), { additions, deletions });
+		this.codeLensProvider.setActiveDocument(editor.document.uri.toString(), { additions, deletions }, targetLine);
 
 		// Register commands for accept/cancel
 		this.applyCommandRegistration = commands.registerCommand('phpcs.inlineDiffApply', () => {

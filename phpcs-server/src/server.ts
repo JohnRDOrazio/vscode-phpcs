@@ -39,7 +39,11 @@ import {
 	generateCodeActions,
 	createFullDocumentEdit,
 	PHPCBF_FIX_FILE_COMMAND,
+	PHPCBF_FIX_SINGLE_COMMAND,
 } from "./code-actions";
+import { computeDiffHunks } from "./diff-utils";
+import { correlateDiagnosticsToHunks, findHunksForDiagnostic } from "./hunk-correlation";
+import { applyHunks, validateHunks } from "./selective-fix";
 
 class PhpcsServer {
 	private openedFiles: Map<string, boolean>;
@@ -78,6 +82,7 @@ class PhpcsServer {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfSaveOnFix: false,
 		phpcbfShowDiff: false,
 		phpcbfTimeout: 60,
 	};
@@ -160,7 +165,7 @@ class PhpcsServer {
 				},
 				codeActionProvider: true,
 				executeCommandProvider: {
-					commands: [PHPCBF_FIX_FILE_COMMAND],
+					commands: [PHPCBF_FIX_FILE_COMMAND, PHPCBF_FIX_SINGLE_COMMAND],
 				},
 			}
 		});
@@ -369,21 +374,239 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onExecuteCommand(params: ExecuteCommandParams): Promise<void> {
-		if (params.command !== PHPCBF_FIX_FILE_COMMAND) {
+		if (params.command === PHPCBF_FIX_FILE_COMMAND) {
+			const uri = params.arguments?.[0] as string | undefined;
+			if (!uri) {
+				return;
+			}
+
+			const document = this.documents.get(uri);
+			if (!document) {
+				return;
+			}
+
+			await this.fixDocument(document);
+		} else if (params.command === PHPCBF_FIX_SINGLE_COMMAND) {
+			const uri = params.arguments?.[0] as string | undefined;
+			const diagnostic = params.arguments?.[1] as Diagnostic | undefined;
+			if (!uri || !diagnostic) {
+				return;
+			}
+
+			const document = this.documents.get(uri);
+			if (!document) {
+				return;
+			}
+
+			await this.fixSingleIssue(document, diagnostic);
+		}
+	}
+
+	/**
+	 * Fix a single issue in a document using PHPCBF.
+	 * Runs PHPCBF to get the full fix, then applies only the hunk(s) relevant to the diagnostic.
+	 *
+	 * @param document The text document to fix.
+	 * @param targetDiagnostic The specific diagnostic to fix.
+	 * @return void
+	 */
+	private async fixSingleIssue(document: TextDocument, targetDiagnostic: Diagnostic): Promise<void> {
+		const uri = document.uri;
+
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
 			return;
 		}
 
-		const uri = params.arguments?.[0] as string | undefined;
-		if (!uri) {
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(
+				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
+			);
 			return;
 		}
 
-		const document = this.documents.get(uri);
-		if (!document) {
+		// Check if a fix is already in progress for this document.
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
 			return;
 		}
 
-		await this.fixDocument(document);
+		// Create the fix operation promise and track it
+		const fixOperation = this.executeSingleIssueFixOperation(document, settings, phpcbfPath, uri, targetDiagnostic);
+		this.fixingDocuments.set(uri, fixOperation);
+
+		try {
+			await fixOperation;
+		} finally {
+			// Always clean up the tracking entry when done
+			this.fixingDocuments.delete(uri);
+		}
+	}
+
+	/**
+	 * Execute the single issue fix operation for a document.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param uri The document URI.
+	 * @param targetDiagnostic The specific diagnostic to fix.
+	 * @return void
+	 */
+	private async executeSingleIssueFixOperation(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		uri: string,
+		targetDiagnostic: Diagnostic
+	): Promise<void> {
+		// Send start notification
+		this.connection.sendNotification(
+			proto.DidStartFixTextDocumentNotification.type,
+			{ textDocument: TextDocumentIdentifier.create(uri) }
+		);
+
+		let fixed = false;
+		let errorMessage: string | undefined;
+
+		try {
+			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
+			const fixer = await PhpcbfFixer.create(phpcbfPath);
+			fixer.setLogger((message) => this.connection.console.log(message));
+
+			// Get the fully fixed content from PHPCBF
+			const result = await fixer.fix(document, settings);
+
+			if (result.error) {
+				errorMessage = result.error;
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+				return;
+			}
+
+			if (!result.fixed) {
+				this.connection.console.log(`[PHPCBF] No fixes available for: ${uri}`);
+				return;
+			}
+
+			const originalContent = document.getText();
+
+			// Compute diff hunks between original and fully fixed content
+			const hunks = computeDiffHunks(originalContent, result.content);
+
+			this.connection.console.log(`[PHPCBF] Computed ${hunks.length} hunks for single-issue fix`);
+			for (const hunk of hunks) {
+				this.connection.console.log(`[PHPCBF]   Hunk: lines ${hunk.originalStart}-${hunk.originalStart + hunk.originalLength} (${hunk.originalLength} removed, ${hunk.modifiedLength} added)`);
+			}
+
+			if (hunks.length === 0) {
+				this.connection.console.log(`[PHPCBF] No hunks computed for: ${uri}`);
+				return;
+			}
+
+			// Get all diagnostics for correlation
+			const allDiagnostics = this.documentDiagnostics.get(uri) || [];
+			this.connection.console.log(`[PHPCBF] Target diagnostic: line ${targetDiagnostic.range.start.line}, message: "${targetDiagnostic.message.substring(0, 50)}..."`);
+			this.connection.console.log(`[PHPCBF] Document has ${allDiagnostics.length} stored diagnostics`);
+
+			// Correlate hunks to diagnostics
+			const correlations = correlateDiagnosticsToHunks(hunks, allDiagnostics);
+			for (const corr of correlations) {
+				this.connection.console.log(`[PHPCBF]   Correlation: hunk at line ${corr.hunk.originalStart} has ${corr.diagnostics.length} diagnostics (${corr.confidence})`);
+			}
+
+			// Find hunks for the specific diagnostic
+			const relevantHunks = findHunksForDiagnostic(correlations, targetDiagnostic);
+			this.connection.console.log(`[PHPCBF] Found ${relevantHunks.length} relevant hunks for target diagnostic`);
+
+			if (relevantHunks.length === 0) {
+				// No hunk found for this diagnostic - might be a side effect of another fix
+				// Log more details to help diagnose
+				this.connection.console.log(`[PHPCBF] No hunk found for diagnostic at line ${targetDiagnostic.range.start.line}`);
+				this.connection.console.log(`[PHPCBF] Target diagnostic details: ${JSON.stringify(targetDiagnostic.range)}`);
+
+				// Check if any hunk covers this line directly
+				for (const hunk of hunks) {
+					const coversLine = targetDiagnostic.range.start.line >= hunk.originalStart &&
+						targetDiagnostic.range.start.line < hunk.originalStart + Math.max(hunk.originalLength, 1);
+					this.connection.console.log(`[PHPCBF]   Hunk ${hunk.originalStart}-${hunk.originalStart + hunk.originalLength} covers line ${targetDiagnostic.range.start.line}? ${coversLine}`);
+				}
+
+				this.connection.window.showWarningMessage(
+					'Could not isolate this specific fix. The fix may depend on other changes. Use "Fix all" to apply all fixes.'
+				);
+				return;
+			}
+
+			// Validate that hunks can be applied
+			const validation = validateHunks(originalContent, relevantHunks);
+			if (!validation.valid) {
+				this.connection.console.log(`[PHPCBF] Hunk validation failed: ${validation.error}`);
+				this.connection.window.showErrorMessage(`Cannot apply fix: ${validation.error}`);
+				return;
+			}
+
+			// Apply only the relevant hunks
+			const partiallyFixedContent = applyHunks(originalContent, relevantHunks);
+
+			// Check if diff preview is enabled
+			if (settings.phpcbfShowDiff) {
+				const shouldApply = await this.connection.sendRequest(
+					proto.ShowDiffPreviewRequest.type,
+					{
+						uri,
+						originalContent,
+						fixedContent: partiallyFixedContent,
+						targetLine: targetDiagnostic.range.start.line,
+					}
+				);
+
+				if (!shouldApply) {
+					this.connection.console.log(strings.format(SR.PhpcbfDiffCancelled, uri));
+					return;
+				}
+			}
+
+			// Apply the fix using workspace edit
+			const edit = createFullDocumentEdit(document, partiallyFixedContent);
+			const applied = await this.connection.workspace.applyEdit({
+				changes: {
+					[uri]: [edit],
+				},
+			});
+
+			if (applied.applied) {
+				fixed = true;
+				this.connection.console.log(`[PHPCBF] Single issue fix applied to: ${uri}`);
+
+				// Re-lint the document to refresh diagnostics
+				const updatedDocument = this.documents.get(uri);
+				if (updatedDocument) {
+					await this.validateSingle(updatedDocument);
+				}
+
+				// Request the client to save the document if setting is enabled
+				if (settings.phpcbfSaveOnFix) {
+					this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
+				}
+			} else {
+				this.connection.console.warn(strings.format(SR.PhpcbfFixFailed, uri));
+			}
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : String(error);
+			this.connection.console.error(`[PHPCBF] Error fixing single issue: ${errorMessage}`);
+		} finally {
+			// Send end notification
+			this.connection.sendNotification(
+				proto.DidEndFixTextDocumentNotification.type,
+				{
+					textDocument: TextDocumentIdentifier.create(uri),
+					fixed,
+					error: errorMessage,
+				}
+			);
+		}
 	}
 
 	/**
@@ -504,6 +727,11 @@ class PhpcsServer {
 					const updatedDocument = this.documents.get(uri);
 					if (updatedDocument) {
 						await this.validateSingle(updatedDocument);
+					}
+
+					// Request the client to save the document if setting is enabled
+					if (settings.phpcbfSaveOnFix) {
+						this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
 					}
 				} else {
 					this.connection.console.warn(strings.format(SR.PhpcbfFixFailed, uri));

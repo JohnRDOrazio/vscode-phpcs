@@ -114,6 +114,12 @@ export interface ShowDiffPreviewParams {
 	 * The fixed content after PHPCBF.
 	 */
 	fixedContent: string;
+	/**
+	 * Optional target line for positioning the CodeLens (0-indexed).
+	 * If provided, the accept/reject CodeLens will be positioned near this line.
+	 * If not provided, it will be at the top of the file.
+	 */
+	targetLine?: number;
 }
 
 /**
@@ -122,4 +128,22 @@ export interface ShowDiffPreviewParams {
  */
 export namespace ShowDiffPreviewRequest {
 	export const type = new RequestType<ShowDiffPreviewParams, boolean, void>("phpcs/showDiffPreview");
+}
+
+/**
+ * The parameters for the save document notification.
+ */
+export interface SaveDocumentParams {
+	/**
+	 * The document URI to save.
+	 */
+	uri: string;
+}
+
+/**
+ * Notification sent from the server to the client to request saving a document.
+ * The client should save the document if the phpcbfSaveOnFix setting is enabled.
+ */
+export namespace SaveDocumentNotification {
+	export const type = new NotificationType<SaveDocumentParams>("phpcs/saveDocument");
 }

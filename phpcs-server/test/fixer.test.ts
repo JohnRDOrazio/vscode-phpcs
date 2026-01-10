@@ -50,6 +50,7 @@ suite('PHPCBF Fixer Integration Tests', function () {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfSaveOnFix: false,
 		phpcbfShowDiff: false,
 		phpcbfTimeout: 60,
 	};

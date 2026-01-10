@@ -122,6 +122,22 @@ export function activate(context: ExtensionContext) {
 			status.endFixing(event.textDocument.uri, event.fixed);
 		});
 
+		// Handle save document notification from server
+		client.onNotification(proto.SaveDocumentNotification.type, async (params) => {
+			const phpcsConfig = workspace.getConfiguration('phpcs');
+			const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
+
+			if (saveOnFix) {
+				const documentUri = Uri.parse(params.uri);
+				const document = workspace.textDocuments.find(
+					doc => doc.uri.toString() === documentUri.toString()
+				);
+				if (document && document.isDirty) {
+					await document.save();
+				}
+			}
+		});
+
 		// Handle diff preview request from server
 		client.onRequest(proto.ShowDiffPreviewRequest.type, async (params) => {
 			const originalUri = Uri.parse(params.uri);
@@ -165,7 +181,8 @@ export function activate(context: ExtensionContext) {
 					const accepted = await inlineDiffPreview.showPreviewAndWait(
 						editor,
 						originalContent,
-						params.fixedContent
+						params.fixedContent,
+						params.targetLine
 					);
 
 					if (!accepted) {
@@ -188,6 +205,12 @@ export function activate(context: ExtensionContext) {
 							window.showErrorMessage('Failed to restore original content');
 						}
 						return false;
+					}
+
+					// Save document if setting is enabled
+					const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
+					if (saveOnFix) {
+						await editor.document.save();
 					}
 
 					return true;

@@ -15,8 +15,9 @@ import {
 	createFullDocumentEdit,
 	generateCodeActions,
 	isDiagnosticFixable,
-	createFixSingleIssueAction,
+	createFixOnlyThisIssueAction,
 	PHPCBF_FIX_FILE_COMMAND,
+	PHPCBF_FIX_SINGLE_COMMAND,
 	PhpcsDiagnosticData,
 } from '../src/code-actions';
 
@@ -249,44 +250,45 @@ suite('Code Actions', () => {
 
 	});
 
-	suite('createFixSingleIssueAction', () => {
+	suite('createFixOnlyThisIssueAction', () => {
 
 		test('should create action for fixable diagnostic', () => {
 			const document = createTestDocument('<?php echo 1;');
 			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
-			const action = createFixSingleIssueAction(document, diagnostic);
+			const action = createFixOnlyThisIssueAction(document, diagnostic);
 
 			assert.ok(action);
-			assert.ok(action!.title.includes('Fix this and other'));
+			assert.ok(action!.title.includes('Fix only this issue'));
 			assert.strictEqual(action!.kind, CodeActionKind.QuickFix);
 			assert.strictEqual(action!.isPreferred, false);
 			assert.ok(action!.command);
-			assert.strictEqual(action!.command!.command, PHPCBF_FIX_FILE_COMMAND);
+			assert.strictEqual(action!.command!.command, PHPCBF_FIX_SINGLE_COMMAND);
 		});
 
 		test('should return null for non-fixable diagnostic', () => {
 			const document = createTestDocument('<?php echo 1;');
 			const diagnostic = createPhpcsDiagnostic('Error 1', 1, false);
-			const action = createFixSingleIssueAction(document, diagnostic);
+			const action = createFixOnlyThisIssueAction(document, diagnostic);
 
 			assert.strictEqual(action, null);
 		});
 
-		test('should include document URI in command arguments', () => {
+		test('should include document URI and diagnostic in command arguments', () => {
 			const uri = 'file:///path/to/test.php';
 			const document = createTestDocument('<?php echo 1;', uri);
 			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
-			const action = createFixSingleIssueAction(document, diagnostic);
+			const action = createFixOnlyThisIssueAction(document, diagnostic);
 
 			assert.ok(action);
 			assert.ok(action!.command);
-			assert.deepStrictEqual(action!.command!.arguments, [uri]);
+			assert.strictEqual(action!.command!.arguments![0], uri);
+			assert.strictEqual(action!.command!.arguments![1], diagnostic);
 		});
 
 		test('should only include the single diagnostic in action', () => {
 			const document = createTestDocument('<?php echo 1;');
 			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
-			const action = createFixSingleIssueAction(document, diagnostic);
+			const action = createFixOnlyThisIssueAction(document, diagnostic);
 
 			assert.ok(action);
 			assert.strictEqual(action!.diagnostics!.length, 1);
@@ -297,7 +299,7 @@ suite('Code Actions', () => {
 
 	suite('generateCodeActions with single issue actions', () => {
 
-		test('should return single issue action and fix all action for fixable diagnostic', () => {
+		test('should return both action types for fixable diagnostic', () => {
 			const document = createTestDocument('<?php echo 1;');
 			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
 			const params: CodeActionParams = {
@@ -307,9 +309,24 @@ suite('Code Actions', () => {
 			};
 			const actions = generateCodeActions(params, document, [diagnostic]);
 
+			// "Fix only this issue" + "Fix all"
 			assert.strictEqual(actions.length, 2);
-			assert.ok(actions.some(a => a.title.includes('Fix this and other')));
+			assert.ok(actions.some(a => a.title.includes('Fix only this issue')));
 			assert.ok(actions.some(a => a.title.includes('Fix all')));
+		});
+
+		test('should have Fix only this issue listed first', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostic = createPhpcsDiagnostic('Error 1', 1, true);
+			const params: CodeActionParams = {
+				textDocument: { uri: document.uri },
+				range: { start: { line: 0, character: 0 }, end: { line: 0, character: 10 } },
+				context: { diagnostics: [diagnostic] },
+			};
+			const actions = generateCodeActions(params, document, [diagnostic]);
+
+			// "Fix only this issue" should be first in the list
+			assert.ok(actions[0].title.includes('Fix only this issue'));
 		});
 
 		test('should return only fix all action for non-fixable diagnostic', () => {
@@ -326,7 +343,7 @@ suite('Code Actions', () => {
 			assert.ok(actions[0].title.includes('Fix all'));
 		});
 
-		test('should return multiple single issue actions for multiple fixable diagnostics', () => {
+		test('should return multiple actions for multiple fixable diagnostics', () => {
 			const document = createTestDocument('<?php echo 1;');
 			const diag1 = createPhpcsDiagnostic('Error 1', 1, true);
 			const diag2 = createPhpcsDiagnostic('Error 2', 1, true);
@@ -337,10 +354,10 @@ suite('Code Actions', () => {
 			};
 			const actions = generateCodeActions(params, document, [diag1, diag2]);
 
-			// 2 single issue actions + 1 fix all action
+			// 2 "Fix only this issue" + 1 "Fix all"
 			assert.strictEqual(actions.length, 3);
-			const singleActions = actions.filter(a => a.title.includes('Fix this and other'));
-			assert.strictEqual(singleActions.length, 2);
+			const fixOnlyActions = actions.filter(a => a.title.includes('Fix only this issue'));
+			assert.strictEqual(fixOnlyActions.length, 2);
 		});
 
 	});
