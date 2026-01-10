@@ -249,7 +249,10 @@ class PhpcsServer {
 			return [];
 		}
 
-		// Re-check after async work to avoid overlapping with fixDocument() / other in-flight fixes
+		// Check if a fix is already in progress for this document.
+		// Note: A small race window exists where two callers could both pass this check
+		// before either registers in fixingDocuments. This is acceptable since double-fixing
+		// is a UX annoyance rather than a correctness issue, and the window is small in practice.
 		if (this.fixingDocuments.has(uri)) {
 			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping on-save fix`);
 			return [];
@@ -405,8 +408,10 @@ class PhpcsServer {
 			return;
 		}
 
-		// Check if a fix is already in progress for this document
-		// This check is placed after async operations to minimize race window
+		// Check if a fix is already in progress for this document.
+		// Note: A small race window exists where two callers could both pass this check
+		// before either registers in fixingDocuments. This is acceptable since double-fixing
+		// is a UX annoyance rather than a correctness issue, and the window is small in practice.
 		if (this.fixingDocuments.has(uri)) {
 			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
 			return;
