@@ -14,6 +14,8 @@ import {
 	normalizeWindowsPath,
 	createEmptyFileResult,
 	createIgnoredFileResult,
+	createTimeoutResult,
+	isTimeoutSignal,
 	parseVersionString,
 	isVersionV4OrAbove,
 	PhpcbfExitCode,
@@ -361,6 +363,47 @@ suite('Fixer Utils', () => {
 			assert.strictEqual(result.content, content);
 			assert.strictEqual(result.hasUnfixableIssues, false);
 			assert.strictEqual(result.error, undefined);
+		});
+
+	});
+
+	suite('isTimeoutSignal', () => {
+
+		test('should return true for SIGTERM', () => {
+			assert.strictEqual(isTimeoutSignal('SIGTERM'), true);
+		});
+
+		test('should return false for SIGKILL', () => {
+			assert.strictEqual(isTimeoutSignal('SIGKILL'), false);
+		});
+
+		test('should return false for SIGINT', () => {
+			assert.strictEqual(isTimeoutSignal('SIGINT'), false);
+		});
+
+		test('should return false for null', () => {
+			assert.strictEqual(isTimeoutSignal(null), false);
+		});
+
+	});
+
+	suite('createTimeoutResult', () => {
+
+		test('should return fixed=false with timeout error', () => {
+			const content = '<?php echo 1;';
+			const result = createTimeoutResult(content, 60);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, content);
+			assert.strictEqual(result.hasUnfixableIssues, false);
+			assert.ok(result.error);
+			assert.ok(result.error!.includes('60 seconds'));
+			assert.ok(result.error!.includes('timed out'));
+			assert.ok(result.error!.includes('phpcs.phpcbfTimeout'));
+		});
+
+		test('should include custom timeout value in error message', () => {
+			const result = createTimeoutResult('<?php', 120);
+			assert.ok(result.error!.includes('120 seconds'));
 		});
 
 	});

@@ -23,6 +23,8 @@ import {
 	normalizeWindowsPath,
 	createEmptyFileResult,
 	createIgnoredFileResult,
+	createTimeoutResult,
+	isTimeoutSignal,
 	parseVersionString,
 	isVersionV4OrAbove,
 	FixResult,
@@ -186,13 +188,8 @@ export class PhpcbfFixer {
 		this.log(`[PHPCBF] Exit code: ${exitCode}`);
 
 		// Check for timeout (process killed by signal)
-		if (phpcbf.signal === 'SIGTERM') {
-			return {
-				fixed: false,
-				content: fileText,
-				hasUnfixableIssues: false,
-				error: strings.format(SR.PhpcbfTimeoutError, String(timeoutSeconds)),
-			};
+		if (isTimeoutSignal(phpcbf.signal)) {
+			return createTimeoutResult(fileText, timeoutSeconds);
 		}
 
 		// Check for stdout errors first (e.g., "ERROR: the standard is not installed")

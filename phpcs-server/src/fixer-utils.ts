@@ -357,6 +357,30 @@ export function createIgnoredFileResult(fileText: string): FixResult {
 }
 
 /**
+ * Check if a process was terminated due to timeout.
+ * @param signal The signal that terminated the process (if any)
+ * @returns true if the process was killed due to timeout (SIGTERM)
+ */
+export function isTimeoutSignal(signal: NodeJS.Signals | null): boolean {
+	return signal === 'SIGTERM';
+}
+
+/**
+ * Create an error result for timeout.
+ * @param fileText The original file text
+ * @param timeoutSeconds The timeout value in seconds
+ * @returns FixResult with timeout error
+ */
+export function createTimeoutResult(fileText: string, timeoutSeconds: number): FixResult {
+	return {
+		fixed: false,
+		content: fileText,
+		hasUnfixableIssues: false,
+		error: `PHPCBF operation timed out after ${timeoutSeconds} seconds. Try increasing phpcs.phpcbfTimeout for large files.`,
+	};
+}
+
+/**
  * Parse version string from PHPCS/PHPCBF --version output.
  * @param output The output from --version command
  * @returns The version string (e.g., '3.7.2') or null if not found
