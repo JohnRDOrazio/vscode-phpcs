@@ -171,7 +171,10 @@ export function activate(context: ExtensionContext) {
 
 			// If hunks are provided, use the per-hunk inline preview
 			if (params.hunks && params.hunks.length > 0 && editor) {
-				const originalContent = editor.document.getText();
+				// Use params.originalContent for hunk application since that's what
+				// the server used to compute the hunks. Using editor.document.getText()
+				// could differ due to timing/sync issues, causing hunks to apply incorrectly.
+				const originalContent = params.originalContent;
 
 				try {
 					// Show per-hunk preview with Accept/Reject for each change

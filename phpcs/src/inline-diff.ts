@@ -312,10 +312,22 @@ export class InlineDiffPreview implements Disposable {
 			commands.registerCommand('phpcs.hunkAccept', (index: number) => {
 				if (this.pendingResolve && index >= 0 && index < this.trackedHunks.length) {
 					const hunk = this.trackedHunks[index].hunk;
-					// Clear decorations immediately before resolving
+					const resolve = this.pendingResolve;
+
+					// Clear all state immediately to prevent stale data issues
 					this.clearDecorations();
-					this.pendingResolve([hunk]);
+					this.trackedHunks = [];
 					this.pendingResolve = null;
+					this.activeEditor = null;
+
+					// Dispose CodeLens registration to prevent refresh issues
+					if (this.codeLensRegistration) {
+						this.codeLensRegistration.dispose();
+						this.codeLensRegistration = null;
+					}
+
+					// Now resolve - this triggers the edit in extension.ts
+					resolve([hunk]);
 				}
 			})
 		);
@@ -352,10 +364,22 @@ export class InlineDiffPreview implements Disposable {
 			commands.registerCommand('phpcs.hunkAcceptAll', () => {
 				if (this.pendingResolve) {
 					const allHunks = this.trackedHunks.map(t => t.hunk);
-					// Clear decorations immediately before resolving
+					const resolve = this.pendingResolve;
+
+					// Clear all state immediately to prevent stale data issues
 					this.clearDecorations();
-					this.pendingResolve(allHunks);
+					this.trackedHunks = [];
 					this.pendingResolve = null;
+					this.activeEditor = null;
+
+					// Dispose CodeLens registration to prevent refresh issues
+					if (this.codeLensRegistration) {
+						this.codeLensRegistration.dispose();
+						this.codeLensRegistration = null;
+					}
+
+					// Now resolve - this triggers the edit in extension.ts
+					resolve(allHunks);
 				}
 			})
 		);
@@ -364,8 +388,21 @@ export class InlineDiffPreview implements Disposable {
 		this.commandRegistrations.push(
 			commands.registerCommand('phpcs.hunkCancel', () => {
 				if (this.pendingResolve) {
-					this.pendingResolve([]);
+					const resolve = this.pendingResolve;
+
+					// Clear all state immediately
+					this.clearDecorations();
+					this.trackedHunks = [];
 					this.pendingResolve = null;
+					this.activeEditor = null;
+
+					// Dispose CodeLens registration
+					if (this.codeLensRegistration) {
+						this.codeLensRegistration.dispose();
+						this.codeLensRegistration = null;
+					}
+
+					resolve([]);
 				}
 			})
 		);
@@ -470,6 +507,10 @@ export class InlineDiffPreview implements Disposable {
 			this.activeEditor.setDecorations(this.insertionDecorationType, []);
 		}
 		this.codeLensProvider.clear();
+
+		// Force VS Code to repaint the editor to ensure decorations are visually cleared
+		// This works around a VS Code rendering issue where decorations may persist visually
+		commands.executeCommand('editor.action.forceRetokenize');
 	}
 
 	/**
