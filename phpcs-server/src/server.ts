@@ -480,9 +480,7 @@ class PhpcsServer {
 
 		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
-			this.connection.window.showWarningMessage(
-				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
-			);
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFound);
 			return;
 		}
 
@@ -551,9 +549,7 @@ class PhpcsServer {
 
 			if (!result.fixed) {
 				this.connection.console.log(`[PHPCBF] No fixes available for: ${uri}`);
-				this.connection.window.showInformationMessage(
-					'No fixes available. The issue may have already been fixed or is not auto-fixable.'
-				);
+				this.connection.window.showInformationMessage(SR.PhpcbfNoFixesAvailable);
 				return;
 			}
 
@@ -607,9 +603,7 @@ class PhpcsServer {
 					this.connection.console.log(`[PHPCBF]   Hunk ${hunk.originalStart}-${hunk.originalStart + hunk.originalLength} covers line ${targetDiagnostic.range.start.line}? ${coversLine}`);
 				}
 
-				this.connection.window.showWarningMessage(
-					'Could not isolate this specific fix. The fix may depend on other changes. Use "Fix all" to apply all fixes.'
-				);
+				this.connection.window.showWarningMessage(SR.PhpcbfCannotIsolateFix);
 				return;
 			}
 
@@ -617,7 +611,7 @@ class PhpcsServer {
 			const validation = validateHunks(originalContent, relevantHunks);
 			if (!validation.valid) {
 				this.connection.console.log(`[PHPCBF] Hunk validation failed: ${validation.error}`);
-				this.connection.window.showErrorMessage(`Cannot apply fix: ${validation.error}`);
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfCannotApplyFix, validation.error));
 				return;
 			}
 
@@ -690,9 +684,7 @@ class PhpcsServer {
 
 		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
-			this.connection.window.showWarningMessage(
-				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
-			);
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFound);
 			return;
 		}
 
@@ -869,9 +861,7 @@ class PhpcsServer {
 
 		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
-			this.connection.window.showWarningMessage(
-				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
-			);
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFound);
 			return;
 		}
 
