@@ -160,9 +160,17 @@ export class InlineDiffPreview implements Disposable {
 			}
 		});
 
-		// Green background for showing replacement content inline
+		// Green background for showing where additional lines will be added
 		this.additionDecorationType = window.createTextEditorDecorationType({
+			backgroundColor: 'rgba(0, 200, 0, 0.1)',
 			isWholeLine: true,
+			overviewRulerColor: new ThemeColor('editorOverviewRuler.addedForeground'),
+			overviewRulerLane: 1,
+			before: {
+				contentText: '+',
+				color: 'rgba(0, 200, 0, 0.6)',
+				margin: '0 8px 0 0'
+			}
 		});
 
 		// Green background for pure insertions (shown as a decoration on adjacent line)
@@ -221,6 +229,31 @@ export class InlineDiffPreview implements Disposable {
 						}
 					}
 				});
+
+				// If adding more lines than removing, show indicator on next line
+				const extraLines = hunk.modifiedLength - hunk.originalLength;
+				if (extraLines > 0) {
+					const nextLine = safeEndLine + 1;
+					if (nextLine < this.activeEditor.document.lineCount) {
+						const nextLineText = this.activeEditor.document.lineAt(nextLine).text;
+						const addRange = new Range(
+							new Position(nextLine, 0),
+							new Position(nextLine, nextLineText.length)
+						);
+						additionDecorations.push({
+							range: addRange,
+							hoverMessage: `**${extraLines} line(s) will be added above**`,
+							renderOptions: {
+								after: {
+									contentText: ` ↑ ${extraLines} line(s) added`,
+									color: 'rgba(0, 180, 0, 0.9)',
+									fontStyle: 'italic',
+									margin: '0 0 0 1em'
+								}
+							}
+						});
+					}
+				}
 			} else if (hunk.originalLength > 0) {
 				// Pure deletion
 				const range = new Range(
