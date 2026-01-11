@@ -162,7 +162,8 @@ The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PH
 - **Quick Fix Actions**: Click on a PHPCS diagnostic (squiggly line) to see three options:
   - "Fix only this issue (PHPCBF)" - fixes just that specific issue immediately
   - "Fix all auto-fixable issues in this file (PHPCBF)" - fixes all issues immediately
-  - "Preview fixes (PHPCBF)" - shows a diff preview before applying changes
+  - "Preview fixes (PHPCBF)" - shows inline diff preview with per-hunk
+    accept/reject actions
 - **Command Palette**: Use "PHPCS: Fix this file with PHPCBF" or "PHPCS: Fix all
   files in workspace with PHPCBF"
 - **Auto-fix on Save**: Enable `phpcs.phpcbfOnSave` to automatically fix issues
@@ -170,9 +171,9 @@ The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PH
 - **Save on Fix**: Enable `phpcs.phpcbfSaveOnFix` to automatically save the
   document after applying PHPCBF fixes
 - **Diff Preview**: Use the "Preview fixes (PHPCBF)" quick fix action to preview
-  changes before applying them. When `phpcs.phpcbfDiffInline` is enabled, the
-  diff is shown as inline decorations in the current editor instead of a
-  separate diff tab.
+  changes before applying them. Each change is shown with inline decorations and
+  CodeLens actions (Accept, Accept all, Reject, Cancel) allowing you to
+  selectively apply fixes.
 
 ### Settings
 
@@ -182,5 +183,4 @@ The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PH
 | `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)                                       |
 | `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                                                        |
 | `phpcs.phpcbfSaveOnFix`      | boolean | `false` | Auto-save document after applying fixes                                                 |
-| `phpcs.phpcbfDiffInline`     | boolean | `false` | Show inline diff decorations instead of separate editor when using "Preview fixes"      |
 | `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                                                |
