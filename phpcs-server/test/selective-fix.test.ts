@@ -18,6 +18,12 @@ import {
 
 suite('Selective Fix', () => {
 
+	/**
+	 * Helper to create a DiffHunk for testing.
+	 * Note: modifiedStart is simplified to equal originalStart since the tested
+	 * functions don't use this field. Default content values ('old'/'new') are
+	 * provided for tests that don't verify actual line content.
+	 */
 	const createHunk = (
 		originalStart: number,
 		originalLength: number,
