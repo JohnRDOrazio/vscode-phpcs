@@ -152,6 +152,88 @@ suite('Diff Utils', () => {
 			assert.deepStrictEqual(hunks[0].modifiedLines, ['new1', 'new2', 'new3']);
 		});
 
+		test('should handle completely different content', () => {
+			const original = 'a\nb\nc';
+			const modified = 'x\ny\nz';
+			const hunks = computeDiffHunks(original, modified);
+
+			// All lines are different, should result in a single hunk
+			assert.strictEqual(hunks.length, 1);
+			assert.strictEqual(hunks[0].originalLength, 3);
+			assert.strictEqual(hunks[0].modifiedLength, 3);
+		});
+
+		test('should handle insertion at very beginning', () => {
+			const original = 'line2\nline3';
+			const modified = 'line1\nline2\nline3';
+			const hunks = computeDiffHunks(original, modified);
+
+			assert.strictEqual(hunks.length, 1);
+			assert.strictEqual(hunks[0].originalStart, 0);
+			assert.strictEqual(hunks[0].originalLength, 0);
+			assert.strictEqual(hunks[0].modifiedLength, 1);
+			assert.deepStrictEqual(hunks[0].modifiedLines, ['line1']);
+		});
+
+		test('should handle insertion at very end', () => {
+			const original = 'line1\nline2';
+			const modified = 'line1\nline2\nline3';
+			const hunks = computeDiffHunks(original, modified);
+
+			assert.strictEqual(hunks.length, 1);
+			assert.strictEqual(hunks[0].originalLength, 0);
+			assert.strictEqual(hunks[0].modifiedLength, 1);
+			assert.deepStrictEqual(hunks[0].modifiedLines, ['line3']);
+		});
+
+		test('should handle deletion at very beginning', () => {
+			const original = 'line1\nline2\nline3';
+			const modified = 'line2\nline3';
+			const hunks = computeDiffHunks(original, modified);
+
+			assert.strictEqual(hunks.length, 1);
+			assert.strictEqual(hunks[0].originalStart, 0);
+			assert.strictEqual(hunks[0].originalLength, 1);
+			assert.strictEqual(hunks[0].modifiedLength, 0);
+			assert.deepStrictEqual(hunks[0].originalLines, ['line1']);
+		});
+
+		test('should handle deletion at very end', () => {
+			const original = 'line1\nline2\nline3';
+			const modified = 'line1\nline2';
+			const hunks = computeDiffHunks(original, modified);
+
+			assert.strictEqual(hunks.length, 1);
+			assert.strictEqual(hunks[0].originalLength, 1);
+			assert.strictEqual(hunks[0].modifiedLength, 0);
+			assert.deepStrictEqual(hunks[0].originalLines, ['line3']);
+		});
+
+		test('should handle single line original and modified', () => {
+			const original = 'single';
+			const modified = 'changed';
+			const hunks = computeDiffHunks(original, modified);
+
+			assert.strictEqual(hunks.length, 1);
+			assert.deepStrictEqual(hunks[0].originalLines, ['single']);
+			assert.deepStrictEqual(hunks[0].modifiedLines, ['changed']);
+		});
+
+		test('should handle LCS backtracking with equal dp values', () => {
+			// This tests the case where dp[i-1][j] equals dp[i][j-1]
+			// The algorithm should prefer one direction consistently
+			const original = 'a\nc\ne';
+			const modified = 'b\nc\nd';
+			const hunks = computeDiffHunks(original, modified);
+
+			// Both have 'c' in common
+			assert.ok(hunks.length >= 1);
+			// Verify 'c' is preserved (not in any hunk's changes)
+			const allOriginalLines = hunks.flatMap(h => h.originalLines);
+			const allModifiedLines = hunks.flatMap(h => h.modifiedLines);
+			assert.ok(!allOriginalLines.includes('c') || !allModifiedLines.includes('c'));
+		});
+
 	});
 
 	suite('isLineInHunkRange', () => {

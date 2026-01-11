@@ -131,6 +131,16 @@ suite('Hunk Correlation', () => {
 			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), true);
 		});
 
+		test('should match header diagnostic at line 0 with replacement hunk via header proximity', () => {
+			// Replacement hunk (not pure deletion) at line 3 - still within MAX_HEADER_PROXIMITY
+			// This specifically tests the header proximity branch (lines 94-96)
+			const hunk = createHunk(3, 1, 3, 1); // Replace 1 line at line 3
+			// Diagnostic at line 0 should NOT match via standard case (line 0 not in [3,4))
+			// Diagnostic at line 0 should NOT match via pure deletion proximity (not a pure deletion)
+			// Diagnostic at line 0 SHOULD match via header proximity (hunk at line 3 <= MAX_HEADER_PROXIMITY of 3)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), true);
+		});
+
 		test('should NOT match header diagnostic with hunk beyond header proximity', () => {
 			// Header-related sniffs report at line 0, fix is beyond header proximity
 			const hunk = createHunk(4, 1, 4, 0); // Delete line 4
@@ -251,6 +261,28 @@ suite('Hunk Correlation', () => {
 			assert.strictEqual(result.length, 1);
 		});
 
+		test('should find hunk with lenient matching when useStrictMatching is false', () => {
+			// Pure deletion hunk at line 5 with diagnostic at line 3 (within proximity)
+			const hunks = [createHunk(5, 1, 5, 0)]; // Delete 1 line at line 5
+			const diagnostic = createDiagnostic(3); // 2 lines before hunk (within MAX_DELETION_PROXIMITY)
+			const diagnostics = [diagnostic];
+			const correlations = correlateDiagnosticsToHunks(hunks, diagnostics);
+
+			// Strict mode should NOT find this
+			const strictResult = findHunksForDiagnostic(correlations, diagnostic, true);
+			assert.strictEqual(strictResult.length, 0);
+
+			// Lenient mode should find this
+			const lenientResult = findHunksForDiagnostic(correlations, diagnostic, false);
+			assert.strictEqual(lenientResult.length, 1);
+		});
+
+		test('should handle empty correlations array', () => {
+			const diagnostic = createDiagnostic(5);
+			const result = findHunksForDiagnostic([], diagnostic);
+			assert.strictEqual(result.length, 0);
+		});
+
 	});
 
 	suite('getDiagnosticsForHunks', () => {
@@ -314,6 +346,22 @@ suite('Hunk Correlation', () => {
 			const correlations = correlateDiagnosticsToHunks(hunks, diagnostics);
 
 			assert.strictEqual(isHunkASideEffect(hunks[0], correlations), false);
+		});
+
+		test('should return false when hunk is not found in correlations', () => {
+			// Create correlations for one hunk, but check a different hunk
+			const correlatedHunk = createHunk(5, 1);
+			const diagnostics = [createDiagnostic(5)];
+			const correlations = correlateDiagnosticsToHunks([correlatedHunk], diagnostics);
+
+			// Check a hunk that's not in the correlations
+			const unknownHunk = createHunk(10, 1);
+			assert.strictEqual(isHunkASideEffect(unknownHunk, correlations), false);
+		});
+
+		test('should return false for empty correlations array', () => {
+			const hunk = createHunk(5, 1);
+			assert.strictEqual(isHunkASideEffect(hunk, []), false);
 		});
 
 	});

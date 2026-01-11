@@ -176,6 +176,25 @@ suite('Selective Fix', () => {
 			assert.strictEqual(hunksOverlap(insertion, regular), false);
 		});
 
+		test('should handle regular hunk with pure insertion within (reversed order)', () => {
+			// Test with b as the pure insertion (to cover line 75-77)
+			const regular = createHunk(3, 5, 5);
+			const insertion = createHunk(5, 0, 1);
+			assert.strictEqual(hunksOverlap(regular, insertion), true);
+		});
+
+		test('should handle regular hunk with pure insertion outside (reversed order)', () => {
+			const regular = createHunk(3, 2, 2);
+			const insertion = createHunk(10, 0, 1);
+			assert.strictEqual(hunksOverlap(regular, insertion), false);
+		});
+
+		test('should handle pure insertions at different points', () => {
+			const a = createHunk(5, 0, 1);
+			const b = createHunk(10, 0, 2);
+			assert.strictEqual(hunksOverlap(a, b), false);
+		});
+
 	});
 
 	suite('areHunksIndependent', () => {
@@ -305,6 +324,30 @@ suite('Selective Fix', () => {
 		test('should return valid for correct hunks', () => {
 			const content = 'line1\nline2\nline3';
 			const hunk = createHunk(1, 1, 1, ['line2'], ['modified']);
+			const result = validateHunks(content, [hunk]);
+			assert.strictEqual(result.valid, true);
+		});
+
+		test('should return valid when originalLines is empty (skip content verification)', () => {
+			const content = 'line1\nline2\nline3';
+			// Hunk with originalLength > 0 but empty originalLines array
+			const hunk = createHunk(1, 1, 1, [], ['modified']);
+			const result = validateHunks(content, [hunk]);
+			assert.strictEqual(result.valid, true);
+		});
+
+		test('should return valid for pure insertion hunks', () => {
+			const content = 'line1\nline2\nline3';
+			// Pure insertion: originalLength = 0
+			const hunk = createHunk(1, 0, 1, [], ['inserted']);
+			const result = validateHunks(content, [hunk]);
+			assert.strictEqual(result.valid, true);
+		});
+
+		test('should return valid for hunk at exact end of file', () => {
+			const content = 'line1\nline2\nline3';
+			// Hunk at the last line (index 2, which is valid for 3 lines)
+			const hunk = createHunk(2, 1, 1, ['line3'], ['modified']);
 			const result = validateHunks(content, [hunk]);
 			assert.strictEqual(result.valid, true);
 		});
