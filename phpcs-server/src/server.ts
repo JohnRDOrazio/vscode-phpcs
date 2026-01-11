@@ -939,6 +939,7 @@ class PhpcsServer {
 
 			if (result.fixed) {
 				// Apply the fix using workspace edit
+				const versionBeforeEdit = document.version;
 				const edit = createFullDocumentEdit(document, result.content);
 				const applied = await this.connection.workspace.applyEdit({
 					changes: {
@@ -950,10 +951,11 @@ class PhpcsServer {
 					fixed = true;
 					this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
 
+					// Wait for document sync before re-linting
+					// The client applied edits, so we expect version > versionBeforeEdit
+					await this.waitForDocumentChange(uri, versionBeforeEdit + 1);
+
 					// Re-lint the document to refresh diagnostics
-					// We need to get the updated document after the edit is applied
-					// The document will be updated via onDidChangeDocument, which triggers validation
-					// But we should also trigger validation explicitly in case lintOnType is disabled
 					const updatedDocument = this.documents.get(uri);
 					if (updatedDocument) {
 						await this.validateSingle(updatedDocument);
