@@ -228,10 +228,11 @@ suite('Diff Utils', () => {
 
 			// Both have 'c' in common
 			assert.ok(hunks.length >= 1);
-			// Verify 'c' is preserved (not in any hunk's changes)
+			// Verify 'c' is preserved (not in any hunk's changes on either side)
 			const allOriginalLines = hunks.flatMap(h => h.originalLines);
 			const allModifiedLines = hunks.flatMap(h => h.modifiedLines);
-			assert.ok(!allOriginalLines.includes('c') || !allModifiedLines.includes('c'));
+			assert.strictEqual(allOriginalLines.includes('c'), false, "'c' should not be in original hunk lines");
+			assert.strictEqual(allModifiedLines.includes('c'), false, "'c' should not be in modified hunk lines");
 		});
 
 	});
