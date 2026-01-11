@@ -144,6 +144,7 @@ export class InlineDiffPreview implements Disposable {
 	private codeLensProvider: HunkActionCodeLensProvider;
 	private codeLensRegistration: Disposable | null = null;
 	private commandRegistrations: Disposable[] = [];
+	private legacyCommandRegistrations: Disposable[] = [];
 	private pendingResolve: ((acceptedHunks: PreviewDiffHunk[]) => void) | null = null;
 
 	constructor() {
@@ -187,6 +188,10 @@ export class InlineDiffPreview implements Disposable {
 		});
 
 		this.codeLensProvider = new HunkActionCodeLensProvider();
+
+		// Register hunk action commands once at construction time
+		// Commands check instance state to determine behavior
+		this.registerHunkCommands();
 	}
 
 	/**
@@ -299,8 +304,9 @@ export class InlineDiffPreview implements Disposable {
 
 	/**
 	 * Register commands for hunk actions.
+	 * Called once at construction time. Commands check instance state to determine behavior.
 	 */
-	private registerCommands(): void {
+	private registerHunkCommands(): void {
 		// Accept single hunk - immediately apply just this one
 		this.commandRegistrations.push(
 			commands.registerCommand('phpcs.hunkAccept', (index: number) => {
@@ -366,16 +372,6 @@ export class InlineDiffPreview implements Disposable {
 	}
 
 	/**
-	 * Cleanup command registrations.
-	 */
-	private cleanupCommands(): void {
-		for (const reg of this.commandRegistrations) {
-			reg.dispose();
-		}
-		this.commandRegistrations = [];
-	}
-
-	/**
 	 * Show inline diff preview with per-hunk actions.
 	 * @param editor The text editor
 	 * @param originalContent The original file content
@@ -397,9 +393,6 @@ export class InlineDiffPreview implements Disposable {
 			hunk,
 			index
 		}));
-
-		// Register commands
-		this.registerCommands();
 
 		// Register CodeLens provider
 		this.codeLensProvider.setHunks(editor.document.uri.toString(), this.trackedHunks);
@@ -430,10 +423,10 @@ export class InlineDiffPreview implements Disposable {
 		this.activeEditor = editor;
 
 		return new Promise<boolean>((resolve) => {
-			this.commandRegistrations.push(
+			this.legacyCommandRegistrations.push(
 				commands.registerCommand('phpcs.inlineDiffApply', () => resolve(true))
 			);
-			this.commandRegistrations.push(
+			this.legacyCommandRegistrations.push(
 				commands.registerCommand('phpcs.inlineDiffCancel', () => resolve(false))
 			);
 
@@ -493,7 +486,11 @@ export class InlineDiffPreview implements Disposable {
 			this.codeLensRegistration = null;
 		}
 
-		this.cleanupCommands();
+		// Clean up legacy commands (registered per-preview)
+		for (const reg of this.legacyCommandRegistrations) {
+			reg.dispose();
+		}
+		this.legacyCommandRegistrations = [];
 
 		if (this.pendingResolve) {
 			this.pendingResolve([]);
@@ -507,6 +504,11 @@ export class InlineDiffPreview implements Disposable {
 		this.additionDecorationType.dispose();
 		this.insertionDecorationType.dispose();
 		this.codeLensProvider.dispose();
+		// Dispose hunk command registrations (registered once at construction)
+		for (const reg of this.commandRegistrations) {
+			reg.dispose();
+		}
+		this.commandRegistrations = [];
 	}
 }
 
