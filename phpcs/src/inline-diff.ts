@@ -342,10 +342,22 @@ export class InlineDiffPreview implements Disposable {
 					this.trackedHunks.forEach((t, i) => t.index = i);
 
 					if (this.trackedHunks.length === 0) {
-						// No more hunks to review
+						// No more hunks to review - clean up all visual artifacts
 						if (this.pendingResolve) {
-							this.pendingResolve([]);
+							const resolve = this.pendingResolve;
+
+							// Clear all state immediately to prevent stale data issues
+							this.clearDecorations();
 							this.pendingResolve = null;
+							this.activeEditor = null;
+
+							// Dispose CodeLens registration to prevent refresh issues
+							if (this.codeLensRegistration) {
+								this.codeLensRegistration.dispose();
+								this.codeLensRegistration = null;
+							}
+
+							resolve([]);
 						}
 					} else if (this.activeEditor) {
 						// Update display only if editor is still active
