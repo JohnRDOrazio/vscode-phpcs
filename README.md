@@ -184,3 +184,31 @@ The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PH
 | `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                                                        |
 | `phpcs.phpcbfSaveOnFix`      | boolean | `false` | Auto-save document after applying fixes                                                 |
 | `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                                                |
+
+## Known Issues
+
+### GitHub Copilot Next Edit Suggestions Conflict
+
+If you have GitHub Copilot installed, its "Next Edit Suggestions" feature may
+suggest reverting PHPCBF fixes after you apply them. This happens because Copilot
+learns from code patterns and may suggest "edits" that undo the alignment or
+formatting changes made by PHPCBF.
+
+**Symptoms:**
+
+- After accepting a PHPCBF fix, you see a gutter icon with a checkmark (✓)
+- Hovering shows "Inline Suggestion" with options like "Go To / Accept", "Reject"
+- Accepting the Copilot suggestion reverts the PHPCBF fix
+
+**Solution:**
+
+Disable Copilot's Next Edit Suggestions by adding this to your VS Code settings:
+
+```json
+{
+  "github.copilot.nextEditSuggestions.enabled": false
+}
+```
+
+Alternatively, press `Escape` to dismiss individual Copilot suggestions, or click
+"Snooze" in the suggestion menu to temporarily hide them.
