@@ -180,6 +180,10 @@ function groupIntoHunks(ops: LineOp[]): DiffHunk[] {
  * Compute diff hunks between original and modified content.
  * Groups consecutive changes into contiguous hunks.
  *
+ * Note: Empty content is treated as a single empty line (length 1), not zero lines.
+ * This matches JavaScript's `''.split('\n')` behavior which returns `['']`.
+ * This is intentional as it allows proper diffing between empty and non-empty content.
+ *
  * @param original Original content string
  * @param modified Modified content string
  * @returns Array of diff hunks representing changes

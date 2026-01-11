@@ -111,23 +111,27 @@ suite('Diff Utils', () => {
 		});
 
 		test('should handle empty original content', () => {
+			// Empty content is treated as a single empty line (see computeDiffHunks JSDoc)
 			const original = '';
 			const modified = 'line1\nline2';
 			const hunks = computeDiffHunks(original, modified);
 
 			assert.strictEqual(hunks.length, 1);
-			assert.strictEqual(hunks[0].originalLength, 1); // Empty string splits to ['']
+			assert.strictEqual(hunks[0].originalLength, 1, 'Empty content = 1 empty line');
 			assert.strictEqual(hunks[0].modifiedLength, 2);
+			assert.deepStrictEqual(hunks[0].originalLines, ['']);
 		});
 
 		test('should handle empty modified content', () => {
+			// Empty content is treated as a single empty line (see computeDiffHunks JSDoc)
 			const original = 'line1\nline2';
 			const modified = '';
 			const hunks = computeDiffHunks(original, modified);
 
 			assert.strictEqual(hunks.length, 1);
 			assert.strictEqual(hunks[0].originalLength, 2);
-			assert.strictEqual(hunks[0].modifiedLength, 1); // Empty string splits to ['']
+			assert.strictEqual(hunks[0].modifiedLength, 1, 'Empty content = 1 empty line');
+			assert.deepStrictEqual(hunks[0].modifiedLines, ['']);
 		});
 
 		test('should handle whitespace-only changes', () => {
