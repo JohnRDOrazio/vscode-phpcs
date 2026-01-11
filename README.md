@@ -159,23 +159,28 @@ The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PH
 
 ### Features
 
-- **Quick Fix Actions**: Click on a PHPCS diagnostic (squiggly line) and select
-  "Fix this issue (PHPCBF)" or "Fix all auto-fixable issues in this file (PHPCBF)"
+- **Quick Fix Actions**: Click on a PHPCS diagnostic (squiggly line) to see three options:
+  - "Fix only this issue (PHPCBF)" - fixes just that specific issue immediately
+  - "Fix all auto-fixable issues in this file (PHPCBF)" - fixes all issues immediately
+  - "Preview fixes (PHPCBF)" - shows a diff preview before applying changes
 - **Command Palette**: Use "PHPCS: Fix this file with PHPCBF" or "PHPCS: Fix all
   files in workspace with PHPCBF"
 - **Auto-fix on Save**: Enable `phpcs.phpcbfOnSave` to automatically fix issues
   when saving a file
-- **Diff Preview**: Enable `phpcs.phpcbfShowDiff` to preview changes before
-  applying them. Use `phpcs.phpcbfDiffInline` to show the diff as inline
-  decorations in the current editor instead of a separate diff tab.
+- **Save on Fix**: Enable `phpcs.phpcbfSaveOnFix` to automatically save the
+  document after applying PHPCBF fixes
+- **Diff Preview**: Use the "Preview fixes (PHPCBF)" quick fix action to preview
+  changes before applying them. When `phpcs.phpcbfDiffInline` is enabled, the
+  diff is shown as inline decorations in the current editor instead of a
+  separate diff tab.
 
 ### Settings
 
-| Setting                      | Type    | Default | Description                                             |
-| ---------------------------- | ------- | ------- | ------------------------------------------------------- |
-| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                       |
-| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)       |
-| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                        |
-| `phpcs.phpcbfShowDiff`       | boolean | `false` | Show diff preview before applying fixes                 |
-| `phpcs.phpcbfDiffInline`     | boolean | `false` | Show inline diff decorations instead of separate editor |
-| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                |
+| Setting                      | Type    | Default | Description                                                                             |
+| ---------------------------- | ------- | ------- | --------------------------------------------------------------------------------------- |
+| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                                                       |
+| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)                                       |
+| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                                                        |
+| `phpcs.phpcbfSaveOnFix`      | boolean | `false` | Auto-save document after applying fixes                                                 |
+| `phpcs.phpcbfDiffInline`     | boolean | `false` | Show inline diff decorations instead of separate editor when using "Preview fixes"      |
+| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                                                |

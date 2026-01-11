@@ -28,28 +28,74 @@ export interface HunkCorrelation {
 }
 
 /**
+ * Maximum number of lines between a diagnostic and a pure deletion hunk
+ * for them to be considered related. Kept small to avoid false matches.
+ */
+const MAX_DELETION_PROXIMITY = 2;
+
+/**
+ * Maximum number of lines for header-related fixes (diagnostic at line 0).
+ * Only matches hunks very close to the start of the file.
+ */
+const MAX_HEADER_PROXIMITY = 3;
+
+/**
  * Check if a diagnostic is likely fixed by a hunk based on line number.
- * For pure insertions (like adding blank lines), we also check if the diagnostic
- * is on the line immediately before or after the insertion point.
+ * Handles several cases:
+ * - Standard: diagnostic line falls within hunk's deletion range
+ * - Pure insertions: diagnostic is at or before the insertion point
+ * - Pure deletions (lenient only): diagnostic is near (within proximity) of the deletion
+ * - Header fixes (lenient only): diagnostic at line 0 correlates with nearby hunk
+ *
  * @param hunk The diff hunk
  * @param diagnostic The diagnostic to check
- * @returns True if the diagnostic's line falls within or is adjacent to the hunk's range
+ * @param strict If true, only use direct line matching (for single-issue fixes)
+ * @returns True if the diagnostic is likely fixed by this hunk
  */
-export function isDiagnosticInHunk(hunk: DiffHunk, diagnostic: Diagnostic): boolean {
+export function isDiagnosticInHunk(hunk: DiffHunk, diagnostic: Diagnostic, strict: boolean = false): boolean {
 	// Diagnostics use 0-indexed line numbers
 	const diagnosticLine = diagnostic.range.start.line;
 
-	// For regular hunks (with deletions/modifications), use standard range check
-	if (hunk.originalLength > 0) {
-		return isLineInHunkRange(hunk, diagnosticLine);
+	// Standard case: diagnostic falls within hunk's deletion range
+	if (hunk.originalLength > 0 && isLineInHunkRange(hunk, diagnosticLine)) {
+		return true;
 	}
 
 	// For pure insertions (originalLength === 0):
 	// The diagnostic might be on the line before or at the insertion point.
 	// E.g., "missing blank line" at line 9 -> insertion at line 10
-	// Or "missing opening tag" at line 0 -> insertion at line 0
-	const insertionPoint = hunk.originalStart;
-	return diagnosticLine === insertionPoint || diagnosticLine === insertionPoint - 1;
+	if (hunk.originalLength === 0) {
+		const insertionPoint = hunk.originalStart;
+		if (diagnosticLine === insertionPoint || diagnosticLine === insertionPoint - 1) {
+			return true;
+		}
+	}
+
+	// In strict mode, don't use proximity-based matching
+	// This prevents single-issue fixes from matching unrelated hunks
+	if (strict) {
+		return false;
+	}
+
+	// For pure deletions (removing blank lines) or spacing fixes:
+	// PHPCS often reports errors at block starts but the fix is applied
+	// to a nearby blank line. Only match if diagnostic is very close.
+	if (hunk.modifiedLength === 0 && hunk.originalLength > 0) {
+		// Pure deletion - check if diagnostic is immediately before the hunk
+		const hunkStart = hunk.originalStart;
+		const linesBefore = hunkStart - diagnosticLine;
+		if (linesBefore >= 0 && linesBefore <= MAX_DELETION_PROXIMITY) {
+			return true;
+		}
+	}
+
+	// Header-related fixes: diagnostic at line 0 correlates with
+	// fixes at the very start of the file only
+	if (diagnosticLine === 0 && hunk.originalStart <= MAX_HEADER_PROXIMITY) {
+		return true;
+	}
+
+	return false;
 }
 
 /**
@@ -90,44 +136,31 @@ export function correlateDiagnosticsToHunks(
 
 /**
  * Find hunks that are correlated with a specific diagnostic.
+ * Uses strict matching by default to only return hunks directly related to the diagnostic.
  *
  * @param correlations Array of hunk correlations
  * @param diagnostic The diagnostic to find hunks for
+ * @param useStrictMatching If true (default), use strict matching to avoid false positives
  * @returns Array of hunks that contain the diagnostic in their range
  */
 export function findHunksForDiagnostic(
 	correlations: HunkCorrelation[],
-	diagnostic: Diagnostic
+	diagnostic: Diagnostic,
+	useStrictMatching: boolean = true
 ): DiffHunk[] {
 	const result: DiffHunk[] = [];
 
 	for (const correlation of correlations) {
-		// Check if this correlation contains the target diagnostic
-		const containsDiagnostic = correlation.diagnostics.some(
-			d => diagnosticsMatch(d, diagnostic)
-		);
+		// Always use isDiagnosticInHunk directly for accurate matching
+		// Don't rely on pre-computed correlations which may be too broad
+		const containsDiagnostic = isDiagnosticInHunk(correlation.hunk, diagnostic, useStrictMatching);
+
 		if (containsDiagnostic) {
 			result.push(correlation.hunk);
 		}
 	}
 
 	return result;
-}
-
-/**
- * Check if two diagnostics match (same location and message).
- * @param a First diagnostic
- * @param b Second diagnostic
- * @returns True if diagnostics match
- */
-function diagnosticsMatch(a: Diagnostic, b: Diagnostic): boolean {
-	return (
-		a.range.start.line === b.range.start.line &&
-		a.range.start.character === b.range.start.character &&
-		a.range.end.line === b.range.end.line &&
-		a.range.end.character === b.range.end.character &&
-		a.message === b.message
-	);
 }
 
 /**

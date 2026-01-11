@@ -9,6 +9,7 @@ import * as strings from "./base/common/strings";
 
 import {
 	CodeAction,
+	CodeActionKind,
 	CodeActionParams,
 	createConnection,
 	Diagnostic,
@@ -40,6 +41,7 @@ import {
 	createFullDocumentEdit,
 	PHPCBF_FIX_FILE_COMMAND,
 	PHPCBF_FIX_SINGLE_COMMAND,
+	PHPCBF_PREVIEW_COMMAND,
 } from "./code-actions";
 import { computeDiffHunks } from "./diff-utils";
 import { correlateDiagnosticsToHunks, findHunksForDiagnostic } from "./hunk-correlation";
@@ -163,9 +165,11 @@ class PhpcsServer {
 					willSaveWaitUntil: true,
 					save: { includeText: false },
 				},
-				codeActionProvider: true,
+				codeActionProvider: {
+					codeActionKinds: [CodeActionKind.QuickFix],
+				},
 				executeCommandProvider: {
-					commands: [PHPCBF_FIX_FILE_COMMAND, PHPCBF_FIX_SINGLE_COMMAND],
+					commands: [PHPCBF_FIX_FILE_COMMAND, PHPCBF_FIX_SINGLE_COMMAND, PHPCBF_PREVIEW_COMMAND],
 				},
 			}
 		});
@@ -399,6 +403,18 @@ class PhpcsServer {
 			}
 
 			await this.fixSingleIssue(document, diagnostic);
+		} else if (params.command === PHPCBF_PREVIEW_COMMAND) {
+			const uri = params.arguments?.[0] as string | undefined;
+			if (!uri) {
+				return;
+			}
+
+			const document = this.documents.get(uri);
+			if (!document) {
+				return;
+			}
+
+			await this.previewFixes(document);
 		}
 	}
 
@@ -473,11 +489,16 @@ class PhpcsServer {
 
 		try {
 			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
+			this.connection.console.log(`[PHPCBF] Document version: ${document.version}`);
+			this.connection.console.log(`[PHPCBF] Target diagnostic at line ${targetDiagnostic.range.start.line}: "${targetDiagnostic.message}"`);
+
 			const fixer = await PhpcbfFixer.create(phpcbfPath);
 			fixer.setLogger((message) => this.connection.console.log(message));
 
 			// Get the fully fixed content from PHPCBF
 			const result = await fixer.fix(document, settings);
+
+			this.connection.console.log(`[PHPCBF] Fix result: fixed=${result.fixed}, hasUnfixableIssues=${result.hasUnfixableIssues}, error=${result.error || 'none'}`);
 
 			if (result.error) {
 				errorMessage = result.error;
@@ -487,6 +508,9 @@ class PhpcsServer {
 
 			if (!result.fixed) {
 				this.connection.console.log(`[PHPCBF] No fixes available for: ${uri}`);
+				this.connection.window.showInformationMessage(
+					'No fixes available. The issue may have already been fixed or is not auto-fixable.'
+				);
 				return;
 			}
 
@@ -516,9 +540,16 @@ class PhpcsServer {
 				this.connection.console.log(`[PHPCBF]   Correlation: hunk at line ${corr.hunk.originalStart} has ${corr.diagnostics.length} diagnostics (${corr.confidence})`);
 			}
 
-			// Find hunks for the specific diagnostic
-			const relevantHunks = findHunksForDiagnostic(correlations, targetDiagnostic);
-			this.connection.console.log(`[PHPCBF] Found ${relevantHunks.length} relevant hunks for target diagnostic`);
+			// Find hunks for the specific diagnostic using strict matching first
+			let relevantHunks = findHunksForDiagnostic(correlations, targetDiagnostic, true);
+			this.connection.console.log(`[PHPCBF] Found ${relevantHunks.length} relevant hunks with strict matching`);
+
+			// If strict matching found nothing, fall back to lenient matching
+			if (relevantHunks.length === 0) {
+				this.connection.console.log(`[PHPCBF] Trying lenient matching...`);
+				relevantHunks = findHunksForDiagnostic(correlations, targetDiagnostic, false);
+				this.connection.console.log(`[PHPCBF] Found ${relevantHunks.length} relevant hunks with lenient matching`);
+			}
 
 			if (relevantHunks.length === 0) {
 				// No hunk found for this diagnostic - might be a side effect of another fix
@@ -550,24 +581,6 @@ class PhpcsServer {
 			// Apply only the relevant hunks
 			const partiallyFixedContent = applyHunks(originalContent, relevantHunks);
 
-			// Check if diff preview is enabled
-			if (settings.phpcbfShowDiff) {
-				const shouldApply = await this.connection.sendRequest(
-					proto.ShowDiffPreviewRequest.type,
-					{
-						uri,
-						originalContent,
-						fixedContent: partiallyFixedContent,
-						targetLine: targetDiagnostic.range.start.line,
-					}
-				);
-
-				if (!shouldApply) {
-					this.connection.console.log(strings.format(SR.PhpcbfDiffCancelled, uri));
-					return;
-				}
-			}
-
 			// Apply the fix using workspace edit
 			const edit = createFullDocumentEdit(document, partiallyFixedContent);
 			const applied = await this.connection.workspace.applyEdit({
@@ -587,7 +600,9 @@ class PhpcsServer {
 				}
 
 				// Request the client to save the document if setting is enabled
+				this.connection.console.log(`[PHPCBF] phpcbfSaveOnFix setting: ${settings.phpcbfSaveOnFix}`);
 				if (settings.phpcbfSaveOnFix) {
+					this.connection.console.log(`[PHPCBF] Sending SaveDocumentNotification for: ${uri}`);
 					this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
 				}
 			} else {
@@ -596,6 +611,185 @@ class PhpcsServer {
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : String(error);
 			this.connection.console.error(`[PHPCBF] Error fixing single issue: ${errorMessage}`);
+		} finally {
+			// Send end notification
+			this.connection.sendNotification(
+				proto.DidEndFixTextDocumentNotification.type,
+				{
+					textDocument: TextDocumentIdentifier.create(uri),
+					fixed,
+					error: errorMessage,
+				}
+			);
+		}
+	}
+
+	/**
+	 * Preview PHPCBF fixes with inline diff.
+	 * Always shows the diff preview regardless of settings.
+	 *
+	 * @param document The text document to preview fixes for.
+	 * @return void
+	 */
+	private async previewFixes(document: TextDocument): Promise<void> {
+		const uri = document.uri;
+
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
+			return;
+		}
+
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(
+				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
+			);
+			return;
+		}
+
+		// Check if a fix is already in progress for this document.
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
+			return;
+		}
+
+		// Create the fix operation promise and track it
+		const fixOperation = this.executePreviewOperation(document, settings, phpcbfPath, uri);
+		this.fixingDocuments.set(uri, fixOperation);
+
+		try {
+			await fixOperation;
+		} finally {
+			// Always clean up the tracking entry when done
+			this.fixingDocuments.delete(uri);
+		}
+	}
+
+	/**
+	 * Execute the preview operation for a document.
+	 * Shows diff preview and applies fixes if user accepts.
+	 *
+	 * @param document The text document to preview.
+	 * @param settings The PHPCS settings.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param uri The document URI.
+	 * @return void
+	 */
+	private async executePreviewOperation(
+		_document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		uri: string
+	): Promise<void> {
+		// Send start notification
+		this.connection.sendNotification(
+			proto.DidStartFixTextDocumentNotification.type,
+			{ textDocument: TextDocumentIdentifier.create(uri) }
+		);
+
+		let fixed = false;
+		let errorMessage: string | undefined;
+
+		try {
+			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
+			const fixer = await PhpcbfFixer.create(phpcbfPath);
+			fixer.setLogger((message) => this.connection.console.log(message));
+
+			// Loop to handle incremental fixes - after each accepted fix,
+			// re-check for more fixes and show preview again
+			let continueFixing = true;
+			let hasUnfixableIssues = false;
+
+			while (continueFixing) {
+				// Get the latest document content
+				const currentDocument = this.documents.get(uri);
+				if (!currentDocument) {
+					break;
+				}
+
+				const result = await fixer.fix(currentDocument, settings);
+
+				if (result.error) {
+					errorMessage = result.error;
+					this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+					break;
+				}
+
+				if (result.hasUnfixableIssues) {
+					hasUnfixableIssues = true;
+				}
+
+				if (!result.fixed) {
+					// No more fixes available
+					if (!fixed) {
+						this.connection.console.log(strings.format(SR.PhpcbfNoFixesApplied, uri));
+					}
+					break;
+				}
+
+				// Compute hunks for per-change preview
+				const originalContent = currentDocument.getText();
+				const hunks = computeDiffHunks(originalContent, result.content);
+
+				if (hunks.length === 0) {
+					break;
+				}
+
+				// End the "fixing" status before showing interactive preview
+				this.connection.sendNotification(
+					proto.DidEndFixTextDocumentNotification.type,
+					{ textDocument: TextDocumentIdentifier.create(uri), fixed: false }
+				);
+
+				// Show diff preview
+				const shouldApply = await this.connection.sendRequest(
+					proto.ShowDiffPreviewRequest.type,
+					{
+						uri,
+						originalContent,
+						fixedContent: result.content,
+						hunks,
+					}
+				);
+
+				if (!shouldApply) {
+					// User cancelled - stop the loop
+					this.connection.console.log(strings.format(SR.PhpcbfDiffCancelled, uri));
+					continueFixing = false;
+					break;
+				}
+
+				// The client has already applied the selected hunks
+				fixed = true;
+				this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
+
+				// Save after each accepted fix if setting is enabled
+				if (settings.phpcbfSaveOnFix) {
+					this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
+					// Wait for save to complete before re-linting
+					await new Promise(resolve => setTimeout(resolve, 100));
+				}
+
+				// Re-lint the document to refresh diagnostics
+				const updatedDocument = this.documents.get(uri);
+				if (updatedDocument) {
+					await this.validateSingle(updatedDocument);
+				}
+
+				// Continue loop to check for more fixes
+				// Small delay to allow document sync
+				await new Promise(resolve => setTimeout(resolve, 100));
+			}
+
+			if (hasUnfixableIssues) {
+				this.connection.window.showInformationMessage(SR.PhpcbfUnfixableIssues);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			errorMessage = message;
+			this.connection.console.error(strings.format(SR.PhpcbfError, message));
+			this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
 		} finally {
 			// Send end notification
 			this.connection.sendNotification(
@@ -691,23 +885,6 @@ class PhpcsServer {
 			}
 
 			if (result.fixed) {
-				// Check if diff preview is enabled
-				if (settings.phpcbfShowDiff) {
-					const shouldApply = await this.connection.sendRequest(
-						proto.ShowDiffPreviewRequest.type,
-						{
-							uri,
-							originalContent: document.getText(),
-							fixedContent: result.content,
-						}
-					);
-
-					if (!shouldApply) {
-						this.connection.console.log(strings.format(SR.PhpcbfDiffCancelled, uri));
-						return;
-					}
-				}
-
 				// Apply the fix using workspace edit
 				const edit = createFullDocumentEdit(document, result.content);
 				const applied = await this.connection.workspace.applyEdit({
@@ -948,8 +1125,12 @@ class PhpcsServer {
 				: { section: 'phpcs', scopeUri: uri };
 			const settingsPromise = this.connection.workspace.getConfiguration(configurationItem)
 				.then((config: PhpcsSettings | null) => {
+					// Debug: log the raw config received
+					this.connection.console.log(`[PHPCS] Raw config for ${uri}: ${JSON.stringify(config)}`);
 					// Merge with defaults to ensure all properties exist
-					return { ...this.defaultSettings, ...config };
+					const merged = { ...this.defaultSettings, ...config };
+					this.connection.console.log(`[PHPCS] Merged phpcbfSaveOnFix: ${merged.phpcbfSaveOnFix}`);
+					return merged;
 				});
 			this.documentSettings.set(uri, settingsPromise);
 			return settingsPromise;

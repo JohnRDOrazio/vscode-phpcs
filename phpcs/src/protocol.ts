@@ -99,6 +99,36 @@ export namespace DidEndFixTextDocumentNotification {
 }
 
 /**
+ * Represents a diff hunk for preview display.
+ */
+export interface PreviewDiffHunk {
+	/**
+	 * 0-indexed starting line in the original file.
+	 */
+	originalStart: number;
+	/**
+	 * Number of lines removed from the original.
+	 */
+	originalLength: number;
+	/**
+	 * 0-indexed starting line in the modified file.
+	 */
+	modifiedStart: number;
+	/**
+	 * Number of lines added in the modified file.
+	 */
+	modifiedLength: number;
+	/**
+	 * The original lines being removed.
+	 */
+	originalLines: string[];
+	/**
+	 * The new lines being added.
+	 */
+	modifiedLines: string[];
+}
+
+/**
  * The parameters for the show diff preview request.
  */
 export interface ShowDiffPreviewParams {
@@ -120,6 +150,11 @@ export interface ShowDiffPreviewParams {
 	 * If not provided, it will be at the top of the file.
 	 */
 	targetLine?: number;
+	/**
+	 * The diff hunks representing individual changes.
+	 * Each hunk can be accepted or rejected individually.
+	 */
+	hunks?: PreviewDiffHunk[];
 }
 
 /**

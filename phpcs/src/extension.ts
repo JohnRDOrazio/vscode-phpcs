@@ -19,7 +19,7 @@ import {
 } from "vscode";
 
 import { PhpcbfDiffContentProvider, PHPCBF_DIFF_SCHEME } from "./diff-provider";
-import { InlineDiffPreview } from "./inline-diff";
+import { InlineDiffPreview, applySelectedHunks } from "./inline-diff";
 
 import {
 	ExecuteCommandRequest,
@@ -124,16 +124,42 @@ export function activate(context: ExtensionContext) {
 
 		// Handle save document notification from server
 		client.onNotification(proto.SaveDocumentNotification.type, async (params) => {
+			console.log('[PHPCS] SaveDocumentNotification received for:', params.uri);
+
 			const phpcsConfig = workspace.getConfiguration('phpcs');
 			const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
+			console.log('[PHPCS] phpcbfSaveOnFix setting:', saveOnFix);
 
 			if (saveOnFix) {
 				const documentUri = Uri.parse(params.uri);
-				const document = workspace.textDocuments.find(
-					doc => doc.uri.toString() === documentUri.toString()
-				);
-				if (document && document.isDirty) {
-					await document.save();
+
+				// Small delay to ensure workspace edit has been fully applied
+				await new Promise(resolve => setTimeout(resolve, 100));
+
+				// Try to find the document - first check active editor, then open documents
+				let document = window.activeTextEditor?.document;
+				console.log('[PHPCS] Active editor document:', window.activeTextEditor?.document.uri.toString());
+
+				if (!document || document.uri.toString() !== documentUri.toString()) {
+					document = workspace.textDocuments.find(
+						doc => doc.uri.toString() === documentUri.toString()
+					);
+					console.log('[PHPCS] Found document in workspace:', document?.uri.toString());
+				}
+
+				if (document) {
+					console.log('[PHPCS] Document isDirty:', document.isDirty);
+					if (document.isDirty) {
+						const saved = await document.save();
+						console.log('[PHPCS] Save result:', saved);
+						if (!saved) {
+							console.warn('PHPCS: Failed to save document after fix');
+						}
+					} else {
+						console.log('[PHPCS] Document not dirty, skipping save');
+					}
+				} else {
+					console.warn('[PHPCS] Could not find document to save');
 				}
 			}
 		});
@@ -141,87 +167,72 @@ export function activate(context: ExtensionContext) {
 		// Handle diff preview request from server
 		client.onRequest(proto.ShowDiffPreviewRequest.type, async (params) => {
 			const originalUri = Uri.parse(params.uri);
-
-			// Check if inline diff is preferred
 			const phpcsConfig = workspace.getConfiguration('phpcs');
-			const useInlineDiff = phpcsConfig.get<boolean>('phpcbfDiffInline', false);
 
-			if (useInlineDiff) {
-				// Use inline decorations in the current editor
-				const editor = window.visibleTextEditors.find(
-					e => e.document.uri.toString() === originalUri.toString()
-				);
+			// Find the editor for this document
+			const editor = window.visibleTextEditors.find(
+				e => e.document.uri.toString() === originalUri.toString()
+			);
 
-				if (!editor) {
-					// Fallback to diff editor if can't find the editor
-					return showDiffEditor(originalUri, params, diffProvider);
-				}
-
-				// Store original content before applying fixes
+			// If hunks are provided, use the per-hunk inline preview
+			if (params.hunks && params.hunks.length > 0 && editor) {
 				const originalContent = editor.document.getText();
 
 				try {
-					// Apply the fixed content temporarily
+					// Show per-hunk preview with Accept/Reject for each change
+					const acceptedHunks = await inlineDiffPreview.showHunkPreview(
+						editor,
+						originalContent,
+						params.hunks
+					);
+
+					if (acceptedHunks.length === 0) {
+						// User cancelled or rejected all
+						return false;
+					}
+
+					// Apply only the accepted hunks
+					const partiallyFixedContent = applySelectedHunks(originalContent, acceptedHunks);
+
+					// Apply the changes to the document
 					const fullRange = editor.document.validateRange(
 						new Range(0, 0, editor.document.lineCount, 0)
 					);
 					const applied = await editor.edit(editBuilder => {
-						editBuilder.replace(fullRange, params.fixedContent);
+						editBuilder.replace(fullRange, partiallyFixedContent);
 					});
 
 					if (!applied) {
-						// Fallback to diff editor if edit failed
-						return showDiffEditor(originalUri, params, diffProvider);
-					}
-
-					// Track document version after applying fix to detect concurrent edits
-					const versionAfterFix = editor.document.version;
-
-					// Show decorations and CodeLens, wait for user decision
-					const accepted = await inlineDiffPreview.showPreviewAndWait(
-						editor,
-						originalContent,
-						params.fixedContent,
-						params.targetLine
-					);
-
-					if (!accepted) {
-						// Check if document was modified during preview
-						if (editor.document.version !== versionAfterFix) {
-							window.showWarningMessage(
-								'Document was modified during preview. Original content was not restored.'
-							);
-							return false;
-						}
-
-						// Restore original content
-						const currentRange = editor.document.validateRange(
-							new Range(0, 0, editor.document.lineCount, 0)
-						);
-						const restored = await editor.edit(editBuilder => {
-							editBuilder.replace(currentRange, originalContent);
-						});
-						if (!restored) {
-							window.showErrorMessage('Failed to restore original content');
-						}
+						window.showErrorMessage('Failed to apply selected changes');
 						return false;
 					}
 
 					// Save document if setting is enabled
+					// Note: We handle save here on the client side since we have direct access
+					// to the editor. The server also sends SaveDocumentNotification but that
+					// serves as a fallback.
 					const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
-					if (saveOnFix) {
-						await editor.document.save();
+					if (saveOnFix && editor.document.isDirty) {
+						// Small delay to ensure the edit has been fully applied
+						await new Promise(resolve => setTimeout(resolve, 50));
+						const saved = await editor.document.save();
+						if (!saved) {
+							console.warn('PHPCS: Failed to save document after applying fix');
+						}
 					}
 
+					window.showInformationMessage(
+						`Applied ${acceptedHunks.length} of ${params.hunks.length} change(s)`
+					);
 					return true;
 				} finally {
 					// Clear decorations and CodeLens
 					inlineDiffPreview.clearPreview();
 				}
-			} else {
-				// Use separate diff editor
-				return showDiffEditor(originalUri, params, diffProvider);
 			}
+
+			// Fallback: no hunks provided or no editor - use diff editor
+			return showDiffEditor(originalUri, params, diffProvider);
 		});
 
 		// Helper function for diff editor approach

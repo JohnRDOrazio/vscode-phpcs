@@ -87,6 +87,71 @@ suite('Hunk Correlation', () => {
 			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(6)), false);
 		});
 
+		test('should handle pure deletion hunk with nearby diagnostic (lenient mode)', () => {
+			// Pure deletion: removes 1 line at line 2, adds 0 lines
+			// (e.g., removing extra blank line between header blocks)
+			const hunk = createHunk(2, 1, 2, 0);
+			// In lenient mode (default), diagnostic at line 0 should match (within proximity of 2 lines)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), true);
+			// Diagnostic at line 1 should also match (1 line before hunk)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(1)), true);
+			// Diagnostic at line 2 (within the hunk) should match
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(2)), true);
+			// Diagnostic at line 3 (after hunk) should not match
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(3)), false);
+		});
+
+		test('should NOT match pure deletion with distant diagnostic (lenient mode)', () => {
+			// Pure deletion: removes 1 line at line 5, adds 0 lines
+			const hunk = createHunk(5, 1, 5, 0);
+			// Diagnostic at line 0 should NOT match (5 lines before, beyond MAX_DELETION_PROXIMITY of 2)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), false);
+			// Diagnostic at line 2 should NOT match (3 lines before, beyond proximity)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(2)), false);
+			// Diagnostic at line 3 should match (2 lines before, within proximity)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(3)), true);
+		});
+
+		test('should NOT match pure deletion with nearby diagnostic in strict mode', () => {
+			// Pure deletion: removes 1 line at line 2, adds 0 lines
+			const hunk = createHunk(2, 1, 2, 0);
+			// In strict mode, proximity-based matching is disabled
+			// Diagnostic at line 0 should NOT match (not within hunk range)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0), true), false);
+			// Diagnostic at line 1 should NOT match (not within hunk range)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(1), true), false);
+			// Diagnostic at line 2 (within the hunk) should match
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(2), true), true);
+		});
+
+		test('should handle header fix with diagnostic at line 0 (lenient mode)', () => {
+			// Header-related sniffs report at line 0, fix is at nearby line
+			const hunk = createHunk(2, 1, 2, 0); // Delete line 2
+			// Diagnostic at line 0 should match if hunk is within first 3 lines (lenient mode)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), true);
+		});
+
+		test('should NOT match header diagnostic with hunk beyond header proximity', () => {
+			// Header-related sniffs report at line 0, fix is beyond header proximity
+			const hunk = createHunk(4, 1, 4, 0); // Delete line 4
+			// Diagnostic at line 0 should NOT match hunk at line 4 (beyond MAX_HEADER_PROXIMITY of 3)
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), false);
+		});
+
+		test('should NOT match header diagnostic with nearby hunk in strict mode', () => {
+			// Header-related sniffs report at line 0, fix is at nearby line
+			const hunk = createHunk(2, 1, 2, 0); // Delete line 2
+			// In strict mode, diagnostic at line 0 should NOT match hunk at line 2
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0), true), false);
+		});
+
+		test('should not match header diagnostic with distant hunk', () => {
+			// Header diagnostic should not match hunk that's too far away
+			const hunk = createHunk(10, 1, 10, 0); // Delete at line 10
+			// Diagnostic at line 0 should NOT match hunk beyond proximity
+			assert.strictEqual(isDiagnosticInHunk(hunk, createDiagnostic(0)), false);
+		});
+
 	});
 
 	suite('correlateDiagnosticsToHunks', () => {

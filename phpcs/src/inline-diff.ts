@@ -17,129 +17,45 @@ import {
 	CodeLens,
 	TextDocument,
 	CancellationToken,
-	Command,
 	languages,
-	commands
+	commands,
+	EventEmitter,
+	Event
 } from "vscode";
 
+import { PreviewDiffHunk } from "./protocol";
+
 /**
- * Represents a line change in a diff.
+ * Tracked hunk for preview.
  */
-interface LineChange {
-	type: 'add' | 'delete' | 'modify';
-	lineNumber: number;
-	oldText?: string;
-	newText?: string;
+interface TrackedHunk {
+	hunk: PreviewDiffHunk;
+	index: number;
 }
 
 /**
- * Computes line-by-line diff between two texts.
- * Returns changes needed to transform original into fixed.
+ * CodeLens provider for per-hunk accept/reject actions.
  */
-function computeLineDiff(original: string, fixed: string): LineChange[] {
-	const originalLines = original.split('\n');
-	const fixedLines = fixed.split('\n');
-	const changes: LineChange[] = [];
-
-	// Simple LCS-based diff algorithm
-	const lcs = computeLCS(originalLines, fixedLines);
-
-	let origIdx = 0;
-	let fixedIdx = 0;
-	let lcsIdx = 0;
-
-	while (origIdx < originalLines.length || fixedIdx < fixedLines.length) {
-		if (lcsIdx < lcs.length &&
-			origIdx < originalLines.length &&
-			fixedIdx < fixedLines.length &&
-			originalLines[origIdx] === lcs[lcsIdx] &&
-			fixedLines[fixedIdx] === lcs[lcsIdx]) {
-			// Lines match - no change
-			origIdx++;
-			fixedIdx++;
-			lcsIdx++;
-		} else if (fixedIdx < fixedLines.length &&
-				   (lcsIdx >= lcs.length || fixedLines[fixedIdx] !== lcs[lcsIdx])) {
-			// Line added in fixed
-			changes.push({
-				type: 'add',
-				lineNumber: fixedIdx,
-				newText: fixedLines[fixedIdx]
-			});
-			fixedIdx++;
-		} else if (origIdx < originalLines.length &&
-				   (lcsIdx >= lcs.length || originalLines[origIdx] !== lcs[lcsIdx])) {
-			// Line deleted from original
-			changes.push({
-				type: 'delete',
-				lineNumber: origIdx,
-				oldText: originalLines[origIdx]
-			});
-			origIdx++;
-		}
-	}
-
-	return changes;
-}
-
-/**
- * Compute Longest Common Subsequence of two line arrays.
- */
-function computeLCS(a: string[], b: string[]): string[] {
-	const m = a.length;
-	const n = b.length;
-
-	// Build LCS length table
-	const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
-
-	for (let i = 1; i <= m; i++) {
-		for (let j = 1; j <= n; j++) {
-			if (a[i - 1] === b[j - 1]) {
-				dp[i][j] = dp[i - 1][j - 1] + 1;
-			} else {
-				dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-			}
-		}
-	}
-
-	// Backtrack to find LCS
-	const lcs: string[] = [];
-	let i = m, j = n;
-	while (i > 0 && j > 0) {
-		if (a[i - 1] === b[j - 1]) {
-			lcs.unshift(a[i - 1]);
-			i--;
-			j--;
-		} else if (dp[i - 1][j] > dp[i][j - 1]) {
-			i--;
-		} else {
-			j--;
-		}
-	}
-
-	return lcs;
-}
-
-/**
- * CodeLens provider for inline diff accept/reject actions.
- */
-class DiffActionCodeLensProvider implements CodeLensProvider {
+class HunkActionCodeLensProvider implements CodeLensProvider {
 	private documentUri: string | null = null;
-	private stats: { additions: number; deletions: number } = { additions: 0, deletions: 0 };
-	private targetLine: number = 0;
+	private trackedHunks: TrackedHunk[] = [];
+	private _onDidChangeCodeLenses = new EventEmitter<void>();
+	public readonly onDidChangeCodeLenses: Event<void> = this._onDidChangeCodeLenses.event;
 
-	public setActiveDocument(
-		uri: string,
-		stats: { additions: number; deletions: number },
-		targetLine?: number
-	): void {
+	public setHunks(uri: string, hunks: TrackedHunk[]): void {
 		this.documentUri = uri;
-		this.stats = stats;
-		this.targetLine = targetLine ?? 0;
+		this.trackedHunks = hunks;
+		this._onDidChangeCodeLenses.fire();
 	}
 
-	public clearActiveDocument(): void {
+	public clear(): void {
 		this.documentUri = null;
+		this.trackedHunks = [];
+		this._onDidChangeCodeLenses.fire();
+	}
+
+	public refresh(): void {
+		this._onDidChangeCodeLenses.fire();
 	}
 
 	public provideCodeLenses(document: TextDocument, _token: CancellationToken): CodeLens[] {
@@ -147,244 +63,361 @@ class DiffActionCodeLensProvider implements CodeLensProvider {
 			return [];
 		}
 
-		// Position CodeLens at the target line (or line before it for visibility)
-		const line = Math.max(0, this.targetLine);
-		const range = new Range(line, 0, line, 0);
+		const lenses: CodeLens[] = [];
+		const topRange = new Range(0, 0, 0, 0);
+		const totalCount = this.trackedHunks.length;
 
-		const applyCommand: Command = {
-			title: '✓ Apply Changes',
-			command: 'phpcs.inlineDiffApply',
-			tooltip: 'Apply PHPCBF fixes to this file'
-		};
-
-		const cancelCommand: Command = {
-			title: '✗ Cancel',
-			command: 'phpcs.inlineDiffCancel',
-			tooltip: 'Cancel and restore original content'
-		};
-
-		const statsText = `PHPCBF Preview: ${this.stats.additions} addition(s), ${this.stats.deletions} deletion(s)`;
-		const statsCommand: Command = {
-			title: statsText,
+		// Status indicator at the top
+		const statusText = `PHPCBF Preview: ${totalCount} change(s) to review`;
+		lenses.push(new CodeLens(topRange, {
+			title: statusText,
 			command: '',
-			tooltip: 'Changes that will be applied'
-		};
+			tooltip: 'Review each change and click Accept or Reject'
+		}));
 
-		return [
-			new CodeLens(range, statsCommand),
-			new CodeLens(range, applyCommand),
-			new CodeLens(range, cancelCommand)
-		];
+		// Accept All button
+		if (totalCount > 0) {
+			lenses.push(new CodeLens(topRange, {
+				title: '$(check-all) Accept All',
+				command: 'phpcs.hunkAcceptAll',
+				tooltip: 'Apply all changes'
+			}));
+		}
+
+		// Cancel button
+		lenses.push(new CodeLens(topRange, {
+			title: '$(x) Cancel',
+			command: 'phpcs.hunkCancel',
+			tooltip: 'Cancel without applying any changes'
+		}));
+
+		// Per-hunk actions
+		for (const tracked of this.trackedHunks) {
+			const hunk = tracked.hunk;
+			const line = hunk.originalStart;
+			const range = new Range(line, 0, line, 0);
+
+			// Accept button - applies this change immediately
+			lenses.push(new CodeLens(range, {
+				title: '$(check) Accept',
+				command: 'phpcs.hunkAccept',
+				arguments: [tracked.index],
+				tooltip: 'Apply this change'
+			}));
+
+			// Accept all button - applies all changes
+			lenses.push(new CodeLens(range, {
+				title: '$(check-all) Accept all',
+				command: 'phpcs.hunkAcceptAll',
+				tooltip: 'Apply all changes'
+			}));
+
+			// Reject button - removes this change from preview
+			lenses.push(new CodeLens(range, {
+				title: '$(x) Reject',
+				command: 'phpcs.hunkReject',
+				arguments: [tracked.index],
+				tooltip: 'Skip this change'
+			}));
+		}
+
+		return lenses;
+	}
+
+	public dispose(): void {
+		this._onDidChangeCodeLenses.dispose();
 	}
 }
 
 /**
- * Manages inline diff preview decorations in the editor.
+ * Manages inline diff preview decorations with per-hunk accept/reject actions.
  */
 export class InlineDiffPreview implements Disposable {
-	private additionDecorationType: TextEditorDecorationType;
 	private deletionDecorationType: TextEditorDecorationType;
-	private deletionLineDecorationType: TextEditorDecorationType;
+	private additionDecorationType: TextEditorDecorationType;
+	private insertionDecorationType: TextEditorDecorationType;
+
 	private activeEditor: TextEditor | null = null;
-	private deletedLinesContent: Map<number, string> = new Map();
+	private trackedHunks: TrackedHunk[] = [];
 
 	// CodeLens support
-	private codeLensProvider: DiffActionCodeLensProvider;
+	private codeLensProvider: HunkActionCodeLensProvider;
 	private codeLensRegistration: Disposable | null = null;
-	private applyCommandRegistration: Disposable | null = null;
-	private cancelCommandRegistration: Disposable | null = null;
-	private pendingResolve: ((value: boolean) => void) | null = null;
-	private timeoutId: ReturnType<typeof setTimeout> | null = null;
+	private commandRegistrations: Disposable[] = [];
+	private pendingResolve: ((acceptedHunks: PreviewDiffHunk[]) => void) | null = null;
 
 	constructor() {
-		// Green background for additions
-		this.additionDecorationType = window.createTextEditorDecorationType({
-			backgroundColor: new ThemeColor('diffEditor.insertedTextBackground'),
-			isWholeLine: true,
-			overviewRulerColor: new ThemeColor('editorOverviewRuler.addedForeground'),
-			overviewRulerLane: 1
-		});
-
-		// Red background for deletions (shown as gutter indicator since line won't exist)
+		// Red background for deletions (lines being removed)
 		this.deletionDecorationType = window.createTextEditorDecorationType({
-			backgroundColor: new ThemeColor('diffEditor.removedTextBackground'),
+			backgroundColor: 'rgba(255, 0, 0, 0.2)',
 			isWholeLine: true,
 			overviewRulerColor: new ThemeColor('editorOverviewRuler.deletedForeground'),
-			overviewRulerLane: 1
+			overviewRulerLane: 1,
+			before: {
+				contentText: '−',
+				color: 'rgba(255, 100, 100, 0.8)',
+				margin: '0 8px 0 0'
+			}
 		});
 
-		// For showing deleted content in gutter/after
-		this.deletionLineDecorationType = window.createTextEditorDecorationType({
-			after: {
-				color: new ThemeColor('editorGutter.deletedBackground'),
-				fontStyle: 'italic'
-			},
-			isWholeLine: true
+		// Green background for showing replacement content inline
+		this.additionDecorationType = window.createTextEditorDecorationType({
+			isWholeLine: true,
 		});
 
-		this.codeLensProvider = new DiffActionCodeLensProvider();
+		// Green background for pure insertions (shown as a decoration on adjacent line)
+		this.insertionDecorationType = window.createTextEditorDecorationType({
+			backgroundColor: 'rgba(0, 200, 0, 0.2)',
+			isWholeLine: true,
+			overviewRulerColor: new ThemeColor('editorOverviewRuler.addedForeground'),
+			overviewRulerLane: 1,
+			before: {
+				contentText: '+',
+				color: 'rgba(0, 200, 0, 0.8)',
+				margin: '0 8px 0 0'
+			}
+		});
+
+		this.codeLensProvider = new HunkActionCodeLensProvider();
 	}
 
 	/**
-	 * Compute diff and apply decorations to the editor.
-	 * @param editor The text editor
-	 * @param originalContent The original file content
-	 * @param fixedContent The fixed content from PHPCBF
-	 * @returns Object with line counts and decorations applied
+	 * Update decorations based on current hunks.
 	 */
-	private computeAndApplyDecorations(
-		editor: TextEditor,
-		originalContent: string,
-		fixedContent: string
-	): { additions: number; deletions: number } {
-		this.deletedLinesContent.clear();
-		const changes = computeLineDiff(originalContent, fixedContent);
+	private updateDecorations(): void {
+		if (!this.activeEditor) {
+			return;
+		}
+
+		const deletionDecorations: DecorationOptions[] = [];
 		const additionDecorations: DecorationOptions[] = [];
+		const insertionDecorations: DecorationOptions[] = [];
 
-		let additions = 0;
-		let deletions = 0;
+		for (const tracked of this.trackedHunks) {
+			const hunk = tracked.hunk;
+			const startLine = hunk.originalStart;
+			const endLine = hunk.originalStart + Math.max(hunk.originalLength, 1) - 1;
+			const safeEndLine = Math.min(endLine, this.activeEditor.document.lineCount - 1);
 
-		const fixedLines = fixedContent.split('\n');
+			if (hunk.originalLength > 0 && hunk.modifiedLength > 0) {
+				// Replacement: show deletion with inline preview of replacement
+				const range = new Range(
+					new Position(startLine, 0),
+					new Position(safeEndLine, this.activeEditor.document.lineAt(safeEndLine).text.length)
+				);
+				const replacementPreview = hunk.modifiedLines[0]?.substring(0, 80) || '';
+				const moreLines = hunk.modifiedLength > 1 ? ` (+${hunk.modifiedLength - 1} more)` : '';
 
-		for (const change of changes) {
-			if (change.type === 'add') {
-				additions++;
-				const line = change.lineNumber;
-				if (line < fixedLines.length) {
-					additionDecorations.push({
-						range: new Range(
-							new Position(line, 0),
-							new Position(line, fixedLines[line].length)
-						),
-						hoverMessage: '**Added line**'
-					});
-				}
-			} else if (change.type === 'delete') {
-				deletions++;
-				this.deletedLinesContent.set(change.lineNumber, change.oldText || '');
+				deletionDecorations.push({
+					range,
+					hoverMessage: `**Replace with:**\n\`\`\`\n${hunk.modifiedLines.join('\n')}\n\`\`\``,
+					renderOptions: {
+						after: {
+							contentText: ` → ${replacementPreview}${moreLines}`,
+							color: 'rgba(0, 180, 0, 0.9)',
+							fontStyle: 'italic',
+							backgroundColor: 'rgba(0, 180, 0, 0.15)',
+							margin: '0 0 0 1em'
+						}
+					}
+				});
+			} else if (hunk.originalLength > 0) {
+				// Pure deletion
+				const range = new Range(
+					new Position(startLine, 0),
+					new Position(safeEndLine, this.activeEditor.document.lineAt(safeEndLine).text.length)
+				);
+				deletionDecorations.push({
+					range,
+					hoverMessage: `**Delete ${hunk.originalLength} line(s)**`
+				});
+			} else if (hunk.modifiedLength > 0) {
+				// Pure insertion - show on the line before insertion point
+				const insertLine = Math.max(0, startLine - 1);
+				const lineText = this.activeEditor.document.lineAt(insertLine).text;
+				const range = new Range(
+					new Position(insertLine, 0),
+					new Position(insertLine, lineText.length)
+				);
+
+				const insertPreview = hunk.modifiedLines.map(l => l.trim()).join(' ').substring(0, 60);
+				const moreInfo = hunk.modifiedLength > 1 ? ` (${hunk.modifiedLength} lines)` : '';
+
+				insertionDecorations.push({
+					range,
+					hoverMessage: `**Insert after this line:**\n\`\`\`\n${hunk.modifiedLines.join('\n')}\n\`\`\``,
+					renderOptions: {
+						after: {
+							contentText: ` ↓ Insert: ${insertPreview}${moreInfo}`,
+							color: 'rgba(0, 180, 0, 0.9)',
+							fontStyle: 'italic',
+							backgroundColor: 'rgba(0, 180, 0, 0.15)',
+							margin: '0 0 0 1em'
+						}
+					}
+				});
 			}
 		}
 
-		editor.setDecorations(this.additionDecorationType, additionDecorations);
-
-		return { additions, deletions };
+		this.activeEditor.setDecorations(this.deletionDecorationType, deletionDecorations);
+		this.activeEditor.setDecorations(this.additionDecorationType, additionDecorations);
+		this.activeEditor.setDecorations(this.insertionDecorationType, insertionDecorations);
 	}
 
 	/**
-	 * Clean up CodeLens registrations and pending state.
+	 * Register commands for hunk actions.
 	 */
-	private cleanupCodeLens(): void {
-		// Clear timeout if active
-		if (this.timeoutId) {
-			clearTimeout(this.timeoutId);
-			this.timeoutId = null;
-		}
+	private registerCommands(): void {
+		// Accept single hunk - immediately apply just this one
+		this.commandRegistrations.push(
+			commands.registerCommand('phpcs.hunkAccept', (index: number) => {
+				if (this.pendingResolve && index >= 0 && index < this.trackedHunks.length) {
+					const hunk = this.trackedHunks[index].hunk;
+					this.pendingResolve([hunk]);
+					this.pendingResolve = null;
+				}
+			})
+		);
 
-		// Cleanup CodeLens provider
-		this.codeLensProvider.clearActiveDocument();
-		if (this.codeLensRegistration) {
-			this.codeLensRegistration.dispose();
-			this.codeLensRegistration = null;
-		}
-		if (this.applyCommandRegistration) {
-			this.applyCommandRegistration.dispose();
-			this.applyCommandRegistration = null;
-		}
-		if (this.cancelCommandRegistration) {
-			this.cancelCommandRegistration.dispose();
-			this.cancelCommandRegistration = null;
-		}
+		// Reject single hunk - remove from preview and continue
+		this.commandRegistrations.push(
+			commands.registerCommand('phpcs.hunkReject', (index: number) => {
+				if (index >= 0 && index < this.trackedHunks.length) {
+					// Remove this hunk from tracking
+					this.trackedHunks.splice(index, 1);
+					// Re-index remaining hunks
+					this.trackedHunks.forEach((t, i) => t.index = i);
+
+					if (this.trackedHunks.length === 0) {
+						// No more hunks to review
+						if (this.pendingResolve) {
+							this.pendingResolve([]);
+							this.pendingResolve = null;
+						}
+					} else {
+						// Update display
+						this.codeLensProvider.setHunks(
+							this.activeEditor!.document.uri.toString(),
+							this.trackedHunks
+						);
+						this.updateDecorations();
+					}
+				}
+			})
+		);
+
+		// Accept all hunks - apply all remaining
+		this.commandRegistrations.push(
+			commands.registerCommand('phpcs.hunkAcceptAll', () => {
+				if (this.pendingResolve) {
+					const allHunks = this.trackedHunks.map(t => t.hunk);
+					this.pendingResolve(allHunks);
+					this.pendingResolve = null;
+				}
+			})
+		);
+
+		// Cancel - close without applying
+		this.commandRegistrations.push(
+			commands.registerCommand('phpcs.hunkCancel', () => {
+				if (this.pendingResolve) {
+					this.pendingResolve([]);
+					this.pendingResolve = null;
+				}
+			})
+		);
 	}
 
 	/**
-	 * Show inline diff preview in the editor and wait for user decision.
+	 * Cleanup command registrations.
+	 */
+	private cleanupCommands(): void {
+		for (const reg of this.commandRegistrations) {
+			reg.dispose();
+		}
+		this.commandRegistrations = [];
+	}
+
+	/**
+	 * Show inline diff preview with per-hunk actions.
 	 * @param editor The text editor
 	 * @param originalContent The original file content
-	 * @param fixedContent The fixed content from PHPCBF
-	 * @param targetLine Optional line number for positioning the CodeLens (0-indexed)
-	 * @returns Promise that resolves to true if user accepts, false if cancels
+	 * @param hunks The diff hunks to preview
+	 * @returns Promise that resolves to the list of accepted hunks
 	 */
-	public async showPreviewAndWait(
+	public async showHunkPreview(
 		editor: TextEditor,
-		originalContent: string,
-		fixedContent: string,
-		targetLine?: number
-	): Promise<boolean> {
-		// Clear any existing preview state to prevent race conditions
-		if (this.pendingResolve) {
-			this.pendingResolve(false);
-			this.pendingResolve = null;
-		}
-		this.cleanupCodeLens();
+		_originalContent: string,
+		hunks: PreviewDiffHunk[]
+	): Promise<PreviewDiffHunk[]> {
+		// Clear any existing preview
+		this.clearPreview();
 
 		this.activeEditor = editor;
 
-		// Compute and apply decorations
-		const { additions, deletions } = this.computeAndApplyDecorations(
-			editor,
-			originalContent,
-			fixedContent
-		);
+		// Initialize tracked hunks
+		this.trackedHunks = hunks.map((hunk, index) => ({
+			hunk,
+			index
+		}));
 
-		// Register CodeLens provider and commands
-		this.codeLensProvider.setActiveDocument(editor.document.uri.toString(), { additions, deletions }, targetLine);
+		// Register commands
+		this.registerCommands();
 
-		// Register commands for accept/cancel
-		this.applyCommandRegistration = commands.registerCommand('phpcs.inlineDiffApply', () => {
-			if (this.pendingResolve) {
-				this.pendingResolve(true);
-				this.pendingResolve = null;
-			}
-		});
-
-		this.cancelCommandRegistration = commands.registerCommand('phpcs.inlineDiffCancel', () => {
-			if (this.pendingResolve) {
-				this.pendingResolve(false);
-				this.pendingResolve = null;
-			}
-		});
-
-		// Register CodeLens provider for PHP files
+		// Register CodeLens provider
+		this.codeLensProvider.setHunks(editor.document.uri.toString(), this.trackedHunks);
 		this.codeLensRegistration = languages.registerCodeLensProvider(
 			{ scheme: 'file', language: 'php' },
 			this.codeLensProvider
 		);
 
-		// Wait for user decision with timeout (5 minutes)
-		const timeoutMs = 300000;
+		// Apply initial decorations
+		this.updateDecorations();
 
-		return new Promise<boolean>((resolve) => {
-			this.pendingResolve = (value: boolean) => {
-				if (this.timeoutId) {
-					clearTimeout(this.timeoutId);
-					this.timeoutId = null;
-				}
-				resolve(value);
-			};
-
-			this.timeoutId = setTimeout(() => {
-				if (this.pendingResolve) {
-					this.pendingResolve(false);
-					this.pendingResolve = null;
-				}
-			}, timeoutMs);
+		// Wait for user action
+		return new Promise<PreviewDiffHunk[]>((resolve) => {
+			this.pendingResolve = resolve;
 		});
 	}
 
 	/**
-	 * Show inline diff preview in the editor (without waiting for user decision).
-	 * @param editor The text editor
-	 * @param originalContent The original file content
-	 * @param fixedContent The fixed content from PHPCBF
-	 * @returns Object with line counts for display
+	 * Legacy method for backward compatibility.
+	 */
+	public async showPreviewAndWait(
+		editor: TextEditor,
+		_originalContent: string,
+		_fixedContent: string,
+		_targetLine?: number
+	): Promise<boolean> {
+		this.clearPreview();
+		this.activeEditor = editor;
+
+		return new Promise<boolean>((resolve) => {
+			this.commandRegistrations.push(
+				commands.registerCommand('phpcs.inlineDiffApply', () => resolve(true))
+			);
+			this.commandRegistrations.push(
+				commands.registerCommand('phpcs.inlineDiffCancel', () => resolve(false))
+			);
+
+			window.showInformationMessage(
+				'PHPCBF Preview: Apply changes?',
+				'Apply',
+				'Cancel'
+			).then(choice => resolve(choice === 'Apply'));
+		});
+	}
+
+	/**
+	 * Legacy method for backward compatibility.
 	 */
 	public showPreview(
 		editor: TextEditor,
-		originalContent: string,
-		fixedContent: string
+		_originalContent: string,
+		_fixedContent: string
 	): { additions: number; deletions: number } {
 		this.activeEditor = editor;
-		return this.computeAndApplyDecorations(editor, originalContent, fixedContent);
+		return { additions: 0, deletions: 0 };
 	}
 
 	/**
@@ -392,27 +425,50 @@ export class InlineDiffPreview implements Disposable {
 	 */
 	public clearPreview(): void {
 		if (this.activeEditor) {
-			this.activeEditor.setDecorations(this.additionDecorationType, []);
 			this.activeEditor.setDecorations(this.deletionDecorationType, []);
-			this.activeEditor.setDecorations(this.deletionLineDecorationType, []);
+			this.activeEditor.setDecorations(this.additionDecorationType, []);
+			this.activeEditor.setDecorations(this.insertionDecorationType, []);
 		}
+
 		this.activeEditor = null;
-		this.deletedLinesContent.clear();
+		this.trackedHunks = [];
 
-		// Cleanup CodeLens
-		this.cleanupCodeLens();
+		this.codeLensProvider.clear();
+		if (this.codeLensRegistration) {
+			this.codeLensRegistration.dispose();
+			this.codeLensRegistration = null;
+		}
 
-		// Resolve any pending promise as cancelled
+		this.cleanupCommands();
+
 		if (this.pendingResolve) {
-			this.pendingResolve(false);
+			this.pendingResolve([]);
 			this.pendingResolve = null;
 		}
 	}
 
 	public dispose(): void {
 		this.clearPreview();
-		this.additionDecorationType.dispose();
 		this.deletionDecorationType.dispose();
-		this.deletionLineDecorationType.dispose();
+		this.additionDecorationType.dispose();
+		this.insertionDecorationType.dispose();
+		this.codeLensProvider.dispose();
 	}
+}
+
+/**
+ * Apply selected hunks to the original content.
+ * Hunks are applied from bottom to top to preserve line numbers.
+ */
+export function applySelectedHunks(originalContent: string, hunks: PreviewDiffHunk[]): string {
+	const lines = originalContent.split('\n');
+
+	// Sort hunks by originalStart descending (apply from bottom to top)
+	const sortedHunks = [...hunks].sort((a, b) => b.originalStart - a.originalStart);
+
+	for (const hunk of sortedHunks) {
+		lines.splice(hunk.originalStart, hunk.originalLength, ...hunk.modifiedLines);
+	}
+
+	return lines.join('\n');
 }

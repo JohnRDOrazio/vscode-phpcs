@@ -16,8 +16,10 @@ import {
 	generateCodeActions,
 	isDiagnosticFixable,
 	createFixOnlyThisIssueAction,
+	createPreviewFixesAction,
 	PHPCBF_FIX_FILE_COMMAND,
 	PHPCBF_FIX_SINGLE_COMMAND,
+	PHPCBF_PREVIEW_COMMAND,
 	PhpcsDiagnosticData,
 } from '../src/code-actions';
 
@@ -195,8 +197,9 @@ suite('Code Actions', () => {
 			};
 			const actions = generateCodeActions(params, document, [diagnostic]);
 
-			assert.strictEqual(actions.length, 1);
-			assert.ok(actions[0].title.includes('PHPCBF'));
+			// "Fix all" + "Preview fixes"
+			assert.strictEqual(actions.length, 2);
+			assert.ok(actions.some(a => a.title.includes('PHPCBF')));
 		});
 
 		test('should not return action when only other diagnostics in range', () => {
@@ -297,6 +300,48 @@ suite('Code Actions', () => {
 
 	});
 
+	suite('createPreviewFixesAction', () => {
+
+		test('should create action when there are PHPCS diagnostics', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostics = [createPhpcsDiagnostic('Error 1')];
+			const action = createPreviewFixesAction(document, diagnostics);
+
+			assert.ok(action);
+			assert.ok(action!.title.includes('Preview fixes'));
+			assert.strictEqual(action!.kind, CodeActionKind.QuickFix);
+			assert.ok(action!.command);
+			assert.strictEqual(action!.command!.command, PHPCBF_PREVIEW_COMMAND);
+		});
+
+		test('should return null when no PHPCS diagnostics', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const diagnostics = [createOtherDiagnostic('Error 1')];
+			const action = createPreviewFixesAction(document, diagnostics);
+
+			assert.strictEqual(action, null);
+		});
+
+		test('should return null for empty diagnostics', () => {
+			const document = createTestDocument('<?php echo 1;');
+			const action = createPreviewFixesAction(document, []);
+
+			assert.strictEqual(action, null);
+		});
+
+		test('should include document URI in command arguments', () => {
+			const uri = 'file:///path/to/test.php';
+			const document = createTestDocument('<?php echo 1;', uri);
+			const diagnostics = [createPhpcsDiagnostic('Error 1')];
+			const action = createPreviewFixesAction(document, diagnostics);
+
+			assert.ok(action);
+			assert.ok(action!.command);
+			assert.deepStrictEqual(action!.command!.arguments, [uri]);
+		});
+
+	});
+
 	suite('generateCodeActions with single issue actions', () => {
 
 		test('should return both action types for fixable diagnostic', () => {
@@ -309,10 +354,11 @@ suite('Code Actions', () => {
 			};
 			const actions = generateCodeActions(params, document, [diagnostic]);
 
-			// "Fix only this issue" + "Fix all"
-			assert.strictEqual(actions.length, 2);
+			// "Fix only this issue" + "Fix all" + "Preview fixes"
+			assert.strictEqual(actions.length, 3);
 			assert.ok(actions.some(a => a.title.includes('Fix only this issue')));
 			assert.ok(actions.some(a => a.title.includes('Fix all')));
+			assert.ok(actions.some(a => a.title.includes('Preview fixes')));
 		});
 
 		test('should have Fix only this issue listed first', () => {
@@ -329,7 +375,7 @@ suite('Code Actions', () => {
 			assert.ok(actions[0].title.includes('Fix only this issue'));
 		});
 
-		test('should return only fix all action for non-fixable diagnostic', () => {
+		test('should return only fix all and preview actions for non-fixable diagnostic', () => {
 			const document = createTestDocument('<?php echo 1;');
 			const diagnostic = createPhpcsDiagnostic('Error 1', 1, false);
 			const params: CodeActionParams = {
@@ -339,8 +385,10 @@ suite('Code Actions', () => {
 			};
 			const actions = generateCodeActions(params, document, [diagnostic]);
 
-			assert.strictEqual(actions.length, 1);
-			assert.ok(actions[0].title.includes('Fix all'));
+			// "Fix all" + "Preview fixes"
+			assert.strictEqual(actions.length, 2);
+			assert.ok(actions.some(a => a.title.includes('Fix all')));
+			assert.ok(actions.some(a => a.title.includes('Preview fixes')));
 		});
 
 		test('should return multiple actions for multiple fixable diagnostics', () => {
@@ -354,8 +402,8 @@ suite('Code Actions', () => {
 			};
 			const actions = generateCodeActions(params, document, [diag1, diag2]);
 
-			// 2 "Fix only this issue" + 1 "Fix all"
-			assert.strictEqual(actions.length, 3);
+			// 2 "Fix only this issue" + 1 "Fix all" + 1 "Preview fixes"
+			assert.strictEqual(actions.length, 4);
 			const fixOnlyActions = actions.filter(a => a.title.includes('Fix only this issue'));
 			assert.strictEqual(fixOnlyActions.length, 2);
 		});

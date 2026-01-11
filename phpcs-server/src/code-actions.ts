@@ -19,6 +19,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
  */
 export const PHPCBF_FIX_FILE_COMMAND = 'phpcs.fixFile';
 export const PHPCBF_FIX_SINGLE_COMMAND = 'phpcs.fixSingleIssue';
+export const PHPCBF_PREVIEW_COMMAND = 'phpcs.previewFixes';
 
 /**
  * Data stored in a PHPCS diagnostic.
@@ -135,6 +136,36 @@ export function createFixOnlyThisIssueAction(
 }
 
 /**
+ * Create a "Preview fixes" code action that shows a diff preview.
+ * @param document The text document
+ * @param diagnostics The diagnostics in the document
+ * @returns A code action for previewing fixes, or null if no PHPCS diagnostics
+ */
+export function createPreviewFixesAction(
+	document: TextDocument,
+	diagnostics: Diagnostic[]
+): CodeAction | null {
+	const phpcsDiagnostics = getPhpcsDiagnostics(diagnostics);
+
+	if (phpcsDiagnostics.length === 0) {
+		return null;
+	}
+
+	const action: CodeAction = {
+		title: 'Preview fixes (PHPCBF)',
+		kind: CodeActionKind.QuickFix,
+		diagnostics: phpcsDiagnostics,
+		command: {
+			title: 'Preview PHPCBF fixes',
+			command: PHPCBF_PREVIEW_COMMAND,
+			arguments: [document.uri],
+		},
+	};
+
+	return action;
+}
+
+/**
  * Generate code actions for a code action request.
  * @param params The code action parameters
  * @param document The text document
@@ -173,6 +204,12 @@ export function generateCodeActions(
 	const fixAllAction = createFixAllInFileAction(document, documentDiagnostics);
 	if (fixAllAction) {
 		actions.push(fixAllAction);
+	}
+
+	// Add "Preview fixes" action
+	const previewAction = createPreviewFixesAction(document, documentDiagnostics);
+	if (previewAction) {
+		actions.push(previewAction);
 	}
 
 	return actions;
