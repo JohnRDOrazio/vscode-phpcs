@@ -2,7 +2,7 @@
  * Copyright (c) John R. D'Orazio. All rights reserved.
  * Licensed under the MIT License. See License.md in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-"use strict";
+'use strict';
 
 import {
 	window,
@@ -21,9 +21,9 @@ import {
 	commands,
 	EventEmitter,
 	Event
-} from "vscode";
+} from 'vscode';
 
-import { PreviewDiffHunk } from "./protocol";
+import { PreviewDiffHunk } from './protocol';
 
 /**
  * Tracked hunk for preview.
