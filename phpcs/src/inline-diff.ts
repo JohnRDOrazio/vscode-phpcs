@@ -296,10 +296,10 @@ export class InlineDiffPreview implements Disposable {
 							this.pendingResolve([]);
 							this.pendingResolve = null;
 						}
-					} else {
-						// Update display
+					} else if (this.activeEditor) {
+						// Update display only if editor is still active
 						this.codeLensProvider.setHunks(
-							this.activeEditor!.document.uri.toString(),
+							this.activeEditor.document.uri.toString(),
 							this.trackedHunks
 						);
 						this.updateDecorations();
