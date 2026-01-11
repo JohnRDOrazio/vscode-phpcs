@@ -37,6 +37,24 @@ import { PhpcsConfiguration } from "./configuration";
 import { StringResources as SR, format } from "./strings";
 
 /**
+ * Save document if phpcbfSaveOnFix setting is enabled and document is dirty.
+ *
+ * @param document - The document to save
+ * @returns True if saved successfully or save not needed, false if save failed
+ */
+async function saveDocumentIfEnabled(document: { isDirty: boolean; save: () => Thenable<boolean> }): Promise<boolean> {
+	const phpcsConfig = workspace.getConfiguration('phpcs');
+	const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
+
+	if (saveOnFix && document.isDirty) {
+		// Small delay to ensure any pending edits have been fully applied
+		await new Promise(resolve => setTimeout(resolve, 50));
+		return document.save();
+	}
+	return true;
+}
+
+/**
  * Activates the extension: starts and configures the PHPCS language client, registers notifications and disposables.
  *
  * @param context - VS Code extension context used to register subscriptions and resolve extension paths
@@ -124,42 +142,20 @@ export function activate(context: ExtensionContext) {
 
 		// Handle save document notification from server
 		client.onNotification(proto.SaveDocumentNotification.type, async (params) => {
-			console.log('[PHPCS] SaveDocumentNotification received for:', params.uri);
+			const documentUri = Uri.parse(params.uri);
 
-			const phpcsConfig = workspace.getConfiguration('phpcs');
-			const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
-			console.log('[PHPCS] phpcbfSaveOnFix setting:', saveOnFix);
+			// Try to find the document - first check active editor, then open documents
+			let document = window.activeTextEditor?.document;
+			if (!document || document.uri.toString() !== documentUri.toString()) {
+				document = workspace.textDocuments.find(
+					doc => doc.uri.toString() === documentUri.toString()
+				);
+			}
 
-			if (saveOnFix) {
-				const documentUri = Uri.parse(params.uri);
-
-				// Small delay to ensure workspace edit has been fully applied
-				await new Promise(resolve => setTimeout(resolve, 100));
-
-				// Try to find the document - first check active editor, then open documents
-				let document = window.activeTextEditor?.document;
-				console.log('[PHPCS] Active editor document:', window.activeTextEditor?.document.uri.toString());
-
-				if (!document || document.uri.toString() !== documentUri.toString()) {
-					document = workspace.textDocuments.find(
-						doc => doc.uri.toString() === documentUri.toString()
-					);
-					console.log('[PHPCS] Found document in workspace:', document?.uri.toString());
-				}
-
-				if (document) {
-					console.log('[PHPCS] Document isDirty:', document.isDirty);
-					if (document.isDirty) {
-						const saved = await document.save();
-						console.log('[PHPCS] Save result:', saved);
-						if (!saved) {
-							console.warn('PHPCS: Failed to save document after fix');
-						}
-					} else {
-						console.log('[PHPCS] Document not dirty, skipping save');
-					}
-				} else {
-					console.warn('[PHPCS] Could not find document to save');
+			if (document) {
+				const saved = await saveDocumentIfEnabled(document);
+				if (!saved) {
+					console.warn('PHPCS: Failed to save document after fix');
 				}
 			}
 		});
@@ -167,7 +163,6 @@ export function activate(context: ExtensionContext) {
 		// Handle diff preview request from server
 		client.onRequest(proto.ShowDiffPreviewRequest.type, async (params) => {
 			const originalUri = Uri.parse(params.uri);
-			const phpcsConfig = workspace.getConfiguration('phpcs');
 
 			// Find the editor for this document
 			const editor = window.visibleTextEditors.find(
@@ -208,17 +203,9 @@ export function activate(context: ExtensionContext) {
 					}
 
 					// Save document if setting is enabled
-					// Note: We handle save here on the client side since we have direct access
-					// to the editor. The server also sends SaveDocumentNotification but that
-					// serves as a fallback.
-					const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
-					if (saveOnFix && editor.document.isDirty) {
-						// Small delay to ensure the edit has been fully applied
-						await new Promise(resolve => setTimeout(resolve, 50));
-						const saved = await editor.document.save();
-						if (!saved) {
-							console.warn('PHPCS: Failed to save document after applying fix');
-						}
+					const saved = await saveDocumentIfEnabled(editor.document);
+					if (!saved) {
+						console.warn('PHPCS: Failed to save document after applying fix');
 					}
 
 					window.showInformationMessage(
