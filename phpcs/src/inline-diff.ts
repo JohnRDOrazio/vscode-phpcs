@@ -149,40 +149,43 @@ export class InlineDiffPreview implements Disposable {
 
 	constructor() {
 		// Red background for deletions (lines being removed)
+		// Uses theme-aware colors for better compatibility with all themes
 		this.deletionDecorationType = window.createTextEditorDecorationType({
-			backgroundColor: 'rgba(255, 0, 0, 0.2)',
+			backgroundColor: new ThemeColor('diffEditor.removedTextBackground'),
 			isWholeLine: true,
 			overviewRulerColor: new ThemeColor('editorOverviewRuler.deletedForeground'),
 			overviewRulerLane: 1,
 			before: {
 				contentText: '−',
-				color: 'rgba(255, 100, 100, 0.8)',
+				color: new ThemeColor('editorGutter.deletedBackground'),
 				margin: '0 8px 0 0'
 			}
 		});
 
 		// Green background for showing where additional lines will be added
+		// Uses theme-aware colors for better compatibility with all themes
 		this.additionDecorationType = window.createTextEditorDecorationType({
-			backgroundColor: 'rgba(0, 200, 0, 0.1)',
+			backgroundColor: new ThemeColor('diffEditor.insertedTextBackground'),
 			isWholeLine: true,
 			overviewRulerColor: new ThemeColor('editorOverviewRuler.addedForeground'),
 			overviewRulerLane: 1,
 			before: {
 				contentText: '+',
-				color: 'rgba(0, 200, 0, 0.6)',
+				color: new ThemeColor('editorGutter.addedBackground'),
 				margin: '0 8px 0 0'
 			}
 		});
 
 		// Green background for pure insertions (shown as a decoration on adjacent line)
+		// Uses theme-aware colors for better compatibility with all themes
 		this.insertionDecorationType = window.createTextEditorDecorationType({
-			backgroundColor: 'rgba(0, 200, 0, 0.2)',
+			backgroundColor: new ThemeColor('diffEditor.insertedTextBackground'),
 			isWholeLine: true,
 			overviewRulerColor: new ThemeColor('editorOverviewRuler.addedForeground'),
 			overviewRulerLane: 1,
 			before: {
 				contentText: '+',
-				color: 'rgba(0, 200, 0, 0.8)',
+				color: new ThemeColor('editorGutter.addedBackground'),
 				margin: '0 8px 0 0'
 			}
 		});
@@ -227,9 +230,9 @@ export class InlineDiffPreview implements Disposable {
 					renderOptions: {
 						after: {
 							contentText: ` → ${replacementPreview}${moreLines}`,
-							color: 'rgba(0, 180, 0, 0.9)',
+							color: new ThemeColor('editorGutter.addedBackground'),
 							fontStyle: 'italic',
-							backgroundColor: 'rgba(0, 180, 0, 0.15)',
+							backgroundColor: new ThemeColor('diffEditor.insertedTextBackground'),
 							margin: '0 0 0 1em'
 						}
 					}
@@ -251,7 +254,7 @@ export class InlineDiffPreview implements Disposable {
 							renderOptions: {
 								after: {
 									contentText: ` ↑ ${extraLines} line(s) added`,
-									color: 'rgba(0, 180, 0, 0.9)',
+									color: new ThemeColor('editorGutter.addedBackground'),
 									fontStyle: 'italic',
 									margin: '0 0 0 1em'
 								}
@@ -287,9 +290,9 @@ export class InlineDiffPreview implements Disposable {
 					renderOptions: {
 						after: {
 							contentText: ` ↓ Insert: ${insertPreview}${moreInfo}`,
-							color: 'rgba(0, 180, 0, 0.9)',
+							color: new ThemeColor('editorGutter.addedBackground'),
 							fontStyle: 'italic',
-							backgroundColor: 'rgba(0, 180, 0, 0.15)',
+							backgroundColor: new ThemeColor('diffEditor.insertedTextBackground'),
 							margin: '0 0 0 1em'
 						}
 					}
