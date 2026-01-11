@@ -71,7 +71,7 @@ class HunkActionCodeLensProvider implements CodeLensProvider {
 		const statusText = `PHPCBF Preview: ${totalCount} change(s) to review`;
 		lenses.push(new CodeLens(topRange, {
 			title: statusText,
-			command: '',
+			command: 'phpcs.noop',
 			tooltip: 'Review each change and click Accept or Reject'
 		}));
 
@@ -307,6 +307,13 @@ export class InlineDiffPreview implements Disposable {
 	 * Called once at construction time. Commands check instance state to determine behavior.
 	 */
 	private registerHunkCommands(): void {
+		// No-op command for informational CodeLens (e.g., status indicator)
+		this.commandRegistrations.push(
+			commands.registerCommand('phpcs.noop', () => {
+				// Intentionally empty - used for informational CodeLens
+			})
+		);
+
 		// Accept single hunk - immediately apply just this one
 		this.commandRegistrations.push(
 			commands.registerCommand('phpcs.hunkAccept', (index: number) => {
