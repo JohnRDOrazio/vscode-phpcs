@@ -362,6 +362,20 @@ class PhpcsServer {
 			this.validating.delete(uri);
 		}
 
+		// Clear any pending save acknowledgments (resolve to unblock waiters)
+		const pendingSave = this.pendingSaveAcknowledgments.get(uri);
+		if (pendingSave) {
+			this.pendingSaveAcknowledgments.delete(uri);
+			pendingSave();
+		}
+
+		// Clear any pending document change watchers (resolve to unblock waiters)
+		const pendingChange = this.pendingDocumentChanges.get(uri);
+		if (pendingChange) {
+			this.pendingDocumentChanges.delete(uri);
+			pendingChange.resolve();
+		}
+
 		this.clearDiagnostics(uri);
 	}
 
@@ -1207,6 +1221,12 @@ class PhpcsServer {
 	 */
 	private waitForSaveAcknowledgment(uri: string): Promise<void> {
 		return new Promise((resolve) => {
+			// Resolve any existing pending wait to avoid orphaned promises
+			const existingResolve = this.pendingSaveAcknowledgments.get(uri);
+			if (existingResolve) {
+				existingResolve();
+			}
+
 			// Set up the acknowledgment resolver
 			this.pendingSaveAcknowledgments.set(uri, resolve);
 
@@ -1241,6 +1261,12 @@ class PhpcsServer {
 			if (currentDoc && currentDoc.version >= minVersion) {
 				resolve();
 				return;
+			}
+
+			// Resolve any existing pending wait to avoid orphaned promises
+			const existingPending = this.pendingDocumentChanges.get(uri);
+			if (existingPending) {
+				existingPending.resolve();
 			}
 
 			// Set up the change watcher
