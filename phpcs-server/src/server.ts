@@ -47,6 +47,26 @@ import { computeDiffHunks } from "./diff-utils";
 import { correlateDiagnosticsToHunks, findHunksForDiagnostic } from "./hunk-correlation";
 import { applyHunks, validateHunks } from "./selective-fix";
 
+/**
+ * Maximum time in milliseconds to wait for a save acknowledgment before
+ * falling back to a timeout.
+ *
+ * The server uses the LSP didSave notification to detect when saves complete,
+ * but we need a fallback in case the notification is missed or delayed.
+ */
+const SAVE_ACKNOWLEDGMENT_TIMEOUT_MS = 5000;
+
+/**
+ * Maximum time in milliseconds to wait for a document version change before
+ * falling back to a timeout.
+ *
+ * When the client applies edits, it sends a didChange notification with an
+ * incremented version. We wait for this notification to ensure we have the
+ * latest content before proceeding. The timeout is a fallback in case the
+ * notification is missed.
+ */
+const DOCUMENT_CHANGE_TIMEOUT_MS = 5000;
+
 class PhpcsServer {
 	private openedFiles: Map<string, boolean>;
 	private connection: ReturnType<typeof createConnection>;
@@ -56,6 +76,10 @@ class PhpcsServer {
 	private documentDiagnostics: Map<string, Diagnostic[]>;
 	// Track ongoing PHPCBF fix operations to prevent concurrent fixes on the same file
 	private fixingDocuments: Map<string, Promise<void>>;
+	// Track pending save acknowledgments for promise-based save completion
+	private pendingSaveAcknowledgments: Map<string, () => void>;
+	// Track pending document version changes for promise-based sync
+	private pendingDocumentChanges: Map<string, { minVersion: number; resolve: () => void }>;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -100,6 +124,8 @@ class PhpcsServer {
 		this.queue = new Map();
 		this.documentDiagnostics = new Map();
 		this.fixingDocuments = new Map();
+		this.pendingSaveAcknowledgments = new Map();
+		this.pendingDocumentChanges = new Map();
 		this.connection = createConnection(ProposedFeatures.all);
 		this.documents = new TextDocuments(TextDocument);
 		this.documents.listen(this.connection);
@@ -299,6 +325,15 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onDidSaveDocument({ document }: { document: TextDocument }): Promise<void> {
+		const uri = document.uri;
+
+		// Resolve any pending save acknowledgment for this document
+		const pendingResolve = this.pendingSaveAcknowledgments.get(uri);
+		if (pendingResolve) {
+			this.pendingSaveAcknowledgments.delete(uri);
+			pendingResolve();
+		}
+
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnSave) {
 			await this.validateSingle(document);
@@ -337,6 +372,15 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onDidChangeDocument({ document }: { document: TextDocument }): Promise<void> {
+		const uri = document.uri;
+
+		// Resolve any pending document change watcher if version requirement is met
+		const pending = this.pendingDocumentChanges.get(uri);
+		if (pending && document.version >= pending.minVersion) {
+			this.pendingDocumentChanges.delete(uri);
+			pending.resolve();
+		}
+
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnType) {
 			await this.validateSingle(document);
@@ -729,6 +773,7 @@ class PhpcsServer {
 
 				// Compute hunks for per-change preview
 				const originalContent = currentDocument.getText();
+				const versionBeforeEdit = currentDocument.version;
 				const hunks = computeDiffHunks(originalContent, result.content);
 
 				if (hunks.length === 0) {
@@ -766,19 +811,19 @@ class PhpcsServer {
 				// Save after each accepted fix if setting is enabled
 				if (settings.phpcbfSaveOnFix) {
 					this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
-					// Wait for save to complete before re-linting
-					await new Promise(resolve => setTimeout(resolve, 100));
+					// Wait for save acknowledgment via didSave notification before re-linting
+					await this.waitForSaveAcknowledgment(uri);
 				}
+
+				// Wait for document sync before re-linting
+				// The client applied edits, so we expect version > versionBeforeEdit
+				await this.waitForDocumentChange(uri, versionBeforeEdit + 1);
 
 				// Re-lint the document to refresh diagnostics
 				const updatedDocument = this.documents.get(uri);
 				if (updatedDocument) {
 					await this.validateSingle(updatedDocument);
 				}
-
-				// Continue loop to check for more fixes
-				// Small delay to allow document sync
-				await new Promise(resolve => setTimeout(resolve, 100));
 			}
 
 			if (hasUnfixableIssues) {
@@ -1157,6 +1202,70 @@ class PhpcsServer {
 			}
 		}
 		return strings.format(SR.UnknownErrorWhileValidatingTextDocument, URI.parse(document.uri).fsPath);
+	}
+
+	/**
+	 * Waits for save acknowledgment from the client via the didSave notification.
+	 *
+	 * This method creates a promise that resolves when the onDidSaveDocument handler
+	 * receives the didSave notification for the specified URI. A timeout ensures we
+	 * don't wait indefinitely if the notification is missed.
+	 *
+	 * @param uri The document URI to wait for save acknowledgment.
+	 * @returns A promise that resolves when save is acknowledged or timeout occurs.
+	 */
+	private waitForSaveAcknowledgment(uri: string): Promise<void> {
+		return new Promise((resolve) => {
+			// Set up the acknowledgment resolver
+			this.pendingSaveAcknowledgments.set(uri, resolve);
+
+			// Set up timeout fallback
+			setTimeout(() => {
+				if (this.pendingSaveAcknowledgments.has(uri)) {
+					this.pendingSaveAcknowledgments.delete(uri);
+					this.connection.console.log(
+						`Save acknowledgment timeout for ${uri}, proceeding anyway`
+					);
+					resolve();
+				}
+			}, SAVE_ACKNOWLEDGMENT_TIMEOUT_MS);
+		});
+	}
+
+	/**
+	 * Waits for a document version change via the didChange notification.
+	 *
+	 * This method creates a promise that resolves when the onDidChangeDocument handler
+	 * receives a didChange notification with a version >= minVersion. A timeout ensures
+	 * we don't wait indefinitely if the notification is missed.
+	 *
+	 * @param uri The document URI to wait for version change.
+	 * @param minVersion The minimum version number to wait for.
+	 * @returns A promise that resolves when version change is detected or timeout occurs.
+	 */
+	private waitForDocumentChange(uri: string, minVersion: number): Promise<void> {
+		return new Promise((resolve) => {
+			// Check if the document already has the required version
+			const currentDoc = this.documents.get(uri);
+			if (currentDoc && currentDoc.version >= minVersion) {
+				resolve();
+				return;
+			}
+
+			// Set up the change watcher
+			this.pendingDocumentChanges.set(uri, { minVersion, resolve });
+
+			// Set up timeout fallback
+			setTimeout(() => {
+				if (this.pendingDocumentChanges.has(uri)) {
+					this.pendingDocumentChanges.delete(uri);
+					this.connection.console.log(
+						`Document change timeout for ${uri} (waiting for version ${minVersion}), proceeding anyway`
+					);
+					resolve();
+				}
+			}, DOCUMENT_CHANGE_TIMEOUT_MS);
+		});
 	}
 
 	private getSource(uri: string): string
