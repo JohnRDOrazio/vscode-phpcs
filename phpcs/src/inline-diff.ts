@@ -273,6 +273,8 @@ export class InlineDiffPreview implements Disposable {
 			commands.registerCommand('phpcs.hunkAccept', (index: number) => {
 				if (this.pendingResolve && index >= 0 && index < this.trackedHunks.length) {
 					const hunk = this.trackedHunks[index].hunk;
+					// Clear decorations immediately before resolving
+					this.clearDecorations();
 					this.pendingResolve([hunk]);
 					this.pendingResolve = null;
 				}
@@ -311,6 +313,8 @@ export class InlineDiffPreview implements Disposable {
 			commands.registerCommand('phpcs.hunkAcceptAll', () => {
 				if (this.pendingResolve) {
 					const allHunks = this.trackedHunks.map(t => t.hunk);
+					// Clear decorations immediately before resolving
+					this.clearDecorations();
 					this.pendingResolve(allHunks);
 					this.pendingResolve = null;
 				}
@@ -421,19 +425,36 @@ export class InlineDiffPreview implements Disposable {
 	}
 
 	/**
-	 * Clear all decorations and cleanup.
+	 * Clear decorations and CodeLens without full cleanup.
+	 * Used when accepting hunks to remove visual indicators before applying changes.
 	 */
-	public clearPreview(): void {
-		if (this.activeEditor) {
+	private clearDecorations(): void {
+		// Use window.activeTextEditor to ensure we get the current editor
+		// This helps with VS Code's rendering refresh
+		const editor = window.activeTextEditor || this.activeEditor;
+		if (editor) {
+			editor.setDecorations(this.deletionDecorationType, []);
+			editor.setDecorations(this.additionDecorationType, []);
+			editor.setDecorations(this.insertionDecorationType, []);
+		}
+		// Also clear on cached editor if different
+		if (this.activeEditor && this.activeEditor !== editor) {
 			this.activeEditor.setDecorations(this.deletionDecorationType, []);
 			this.activeEditor.setDecorations(this.additionDecorationType, []);
 			this.activeEditor.setDecorations(this.insertionDecorationType, []);
 		}
+		this.codeLensProvider.clear();
+	}
+
+	/**
+	 * Clear all decorations and cleanup.
+	 */
+	public clearPreview(): void {
+		this.clearDecorations();
 
 		this.activeEditor = null;
 		this.trackedHunks = [];
 
-		this.codeLensProvider.clear();
 		if (this.codeLensRegistration) {
 			this.codeLensRegistration.dispose();
 			this.codeLensRegistration = null;
