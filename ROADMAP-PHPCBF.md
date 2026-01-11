@@ -56,8 +56,7 @@ These features are deferred until v1 is stable:
 | `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                       | ✅     |
 | `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)       | ✅     |
 | `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                        | ✅     |
-| `phpcs.phpcbfShowDiff`       | boolean | `false` | Show diff preview before applying fixes                 | ✅     |
-| `phpcs.phpcbfDiffInline`     | boolean | `false` | Show inline diff decorations instead of separate editor | ✅     |
+| `phpcs.phpcbfSaveOnFix`      | boolean | `false` | Auto-save after applying PHPCBF fixes                   | ✅     |
 | `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                | ✅     |
 
 ---
@@ -173,12 +172,11 @@ phpcs-server/test/
 
 ### Diff Preview ✅
 
-- Added `phpcs.phpcbfShowDiff` setting
-- Shows side-by-side diff view before applying changes
-- User can accept or cancel the fix
-- Uses virtual document provider with `phpcbf-preview:` scheme
-- **Inline diff option** (`phpcs.phpcbfDiffInline`): Shows diff decorations in the current editor
-  instead of opening a separate diff tab. Highlights additions in green with line counts.
+- "Preview fixes" action in Quick Fix menu shows inline diff preview
+- Per-hunk CodeLens actions: Accept, Accept all, Reject, Cancel
+- Automatically shows remaining fixes after accepting a single change
+- Inline decorations highlight deletions (red) and additions (green)
+- Hover tooltips show replacement content details
 
 ### Document Formatter Registration
 

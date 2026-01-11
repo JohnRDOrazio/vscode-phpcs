@@ -85,7 +85,6 @@ class PhpcsServer {
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
 		phpcbfSaveOnFix: false,
-		phpcbfShowDiff: false,
 		phpcbfTimeout: 60,
 	};
 	private documentSettings: Map<string, Promise<PhpcsSettings>> = new Map();
