@@ -1169,12 +1169,8 @@ class PhpcsServer {
 				: { section: 'phpcs', scopeUri: uri };
 			const settingsPromise = this.connection.workspace.getConfiguration(configurationItem)
 				.then((config: PhpcsSettings | null) => {
-					// Debug: log the raw config received
-					this.connection.console.log(`[PHPCS] Raw config for ${uri}: ${JSON.stringify(config)}`);
 					// Merge with defaults to ensure all properties exist
-					const merged = { ...this.defaultSettings, ...config };
-					this.connection.console.log(`[PHPCS] Merged phpcbfSaveOnFix: ${merged.phpcbfSaveOnFix}`);
-					return merged;
+					return { ...this.defaultSettings, ...config };
 				});
 			this.documentSettings.set(uri, settingsPromise);
 			return settingsPromise;
