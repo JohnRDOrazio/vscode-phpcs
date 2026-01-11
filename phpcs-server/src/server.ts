@@ -625,6 +625,7 @@ class PhpcsServer {
 			const partiallyFixedContent = applyHunks(originalContent, relevantHunks);
 
 			// Apply the fix using workspace edit
+			const versionBeforeEdit = document.version;
 			const edit = createFullDocumentEdit(document, partiallyFixedContent);
 			const applied = await this.connection.workspace.applyEdit({
 				changes: {
@@ -635,6 +636,10 @@ class PhpcsServer {
 			if (applied.applied) {
 				fixed = true;
 				this.connection.console.log(`[PHPCBF] Single issue fix applied to: ${uri}`);
+
+				// Wait for document sync before re-linting
+				// The client applied edits, so we expect version > versionBeforeEdit
+				await this.waitForDocumentChange(uri, versionBeforeEdit + 1);
 
 				// Re-lint the document to refresh diagnostics
 				const updatedDocument = this.documents.get(uri);
