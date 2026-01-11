@@ -47,7 +47,11 @@ async function saveDocumentIfEnabled(document: { isDirty: boolean; save: () => T
 	const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
 
 	if (saveOnFix && document.isDirty) {
-		// Small delay to ensure any pending edits have been fully applied
+		// Small delay to ensure any pending edits have been fully applied.
+		// This is a timing-based buffer that works reliably in practice, though
+		// theoretically could be insufficient under extreme system load. A more
+		// robust approach would use document change events, but adds complexity
+		// for an edge case that hasn't been observed in real usage.
 		await new Promise(resolve => setTimeout(resolve, 50));
 		return document.save();
 	}
