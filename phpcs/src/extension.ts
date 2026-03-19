@@ -12,9 +12,14 @@ import {
 	commands,
 	ExtensionContext,
 	ProgressLocation,
+	Range,
+	Uri,
 	window,
 	workspace
 } from "vscode";
+
+import { PhpcbfDiffContentProvider, PHPCBF_DIFF_SCHEME } from "./diff-provider";
+import { InlineDiffPreview, applySelectedHunks } from "./inline-diff";
 
 import {
 	ExecuteCommandRequest,
@@ -30,6 +35,22 @@ import { ConfigurationParams } from "vscode-languageserver-protocol";
 import { PhpcsStatus } from "./status";
 import { PhpcsConfiguration } from "./configuration";
 import { StringResources as SR, format } from "./strings";
+
+/**
+ * Save document if phpcbfSaveOnFix setting is enabled and document is dirty.
+ *
+ * @param document - The document to save
+ * @returns True if saved successfully or save not needed, false if save failed
+ */
+async function saveDocumentIfEnabled(document: { isDirty: boolean; save: () => Thenable<boolean> }): Promise<boolean> {
+	const phpcsConfig = workspace.getConfiguration('phpcs');
+	const saveOnFix = phpcsConfig.get<boolean>('phpcbfSaveOnFix', false);
+
+	if (saveOnFix && document.isDirty) {
+		return document.save();
+	}
+	return true;
+}
 
 /**
  * Activates the extension: starts and configures the PHPCS language client, registers notifications and disposables.
@@ -86,6 +107,17 @@ export function activate(context: ExtensionContext) {
 	// Create the status monitor.
 	let status = new PhpcsStatus();
 
+	// Create and register the diff content provider for PHPCBF preview.
+	const diffProvider = new PhpcbfDiffContentProvider();
+	context.subscriptions.push(
+		workspace.registerTextDocumentContentProvider(PHPCBF_DIFF_SCHEME, diffProvider)
+	);
+	context.subscriptions.push(diffProvider);
+
+	// Create the inline diff preview manager.
+	const inlineDiffPreview = new InlineDiffPreview();
+	context.subscriptions.push(inlineDiffPreview);
+
 	// Track whether the client has started successfully
 	let clientStarted = false;
 
@@ -99,6 +131,127 @@ export function activate(context: ExtensionContext) {
 		client.onNotification(proto.DidEndValidateTextDocumentNotification.type, event => {
 			status.endProcessing(event.textDocument.uri, event.buffered);
 		});
+		client.onNotification(proto.DidStartFixTextDocumentNotification.type, event => {
+			status.startFixing(event.textDocument.uri);
+		});
+		client.onNotification(proto.DidEndFixTextDocumentNotification.type, event => {
+			status.endFixing(event.textDocument.uri, event.fixed);
+		});
+
+		// Handle save document notification from server
+		client.onNotification(proto.SaveDocumentNotification.type, async (params) => {
+			const documentUri = Uri.parse(params.uri);
+
+			// Try to find the document - first check active editor, then open documents
+			let document = window.activeTextEditor?.document;
+			if (!document || document.uri.toString() !== documentUri.toString()) {
+				document = workspace.textDocuments.find(
+					doc => doc.uri.toString() === documentUri.toString()
+				);
+			}
+
+			if (document) {
+				const saved = await saveDocumentIfEnabled(document);
+				if (!saved) {
+					console.warn('PHPCS: Failed to save document after fix');
+				}
+			}
+		});
+
+		// Handle diff preview request from server
+		client.onRequest(proto.ShowDiffPreviewRequest.type, async (params) => {
+			const originalUri = Uri.parse(params.uri);
+
+			// Find the editor for this document
+			const editor = window.visibleTextEditors.find(
+				e => e.document.uri.toString() === originalUri.toString()
+			);
+
+			// If hunks are provided, use the per-hunk inline preview
+			if (params.hunks && params.hunks.length > 0 && editor) {
+				// Use params.originalContent for hunk application since that's what
+				// the server used to compute the hunks. Using editor.document.getText()
+				// could differ due to timing/sync issues, causing hunks to apply incorrectly.
+				const originalContent = params.originalContent;
+
+				try {
+					// Show per-hunk preview with Accept/Reject for each change
+					const acceptedHunks = await inlineDiffPreview.showHunkPreview(
+						editor,
+						originalContent,
+						params.hunks
+					);
+
+					if (acceptedHunks.length === 0) {
+						// User cancelled or rejected all
+						return false;
+					}
+
+					// Apply only the accepted hunks
+					const partiallyFixedContent = applySelectedHunks(originalContent, acceptedHunks);
+
+					// Apply the changes to the document
+					const fullRange = editor.document.validateRange(
+						new Range(0, 0, editor.document.lineCount, 0)
+					);
+					const applied = await editor.edit(editBuilder => {
+						editBuilder.replace(fullRange, partiallyFixedContent);
+					});
+
+					if (!applied) {
+						window.showErrorMessage('Failed to apply selected changes');
+						return false;
+					}
+
+					// Save document if setting is enabled
+					const saved = await saveDocumentIfEnabled(editor.document);
+					if (!saved) {
+						console.warn('PHPCS: Failed to save document after applying fix');
+					}
+
+					window.showInformationMessage(
+						`Applied ${acceptedHunks.length} of ${params.hunks.length} change(s)`
+					);
+					return true;
+				} finally {
+					// Clear decorations and CodeLens
+					inlineDiffPreview.clearPreview();
+				}
+			}
+
+			// Fallback: no hunks provided or no editor - use diff editor
+			return showDiffEditor(originalUri, params, diffProvider);
+		});
+
+		// Helper function for diff editor approach
+		async function showDiffEditor(
+			originalUri: Uri,
+			params: proto.ShowDiffPreviewParams,
+			provider: PhpcbfDiffContentProvider
+		): Promise<boolean> {
+			const previewUri = provider.setContent(params.uri, params.fixedContent);
+
+			try {
+				// Show diff editor
+				await commands.executeCommand(
+					'vscode.diff',
+					originalUri,
+					previewUri,
+					`PHPCBF Preview: ${path.basename(originalUri.fsPath)}`
+				);
+
+				// Ask user to apply changes
+				const apply = await window.showInformationMessage(
+					SR.PhpcbfDiffApplyQuestion,
+					SR.PhpcbfDiffApply,
+					SR.PhpcbfDiffCancel
+				);
+
+				return apply === SR.PhpcbfDiffApply;
+			} finally {
+				provider.clearContent(params.uri);
+			}
+		}
 
 		/**
 		 * Command handler for fixing the current file with PHPCBF.

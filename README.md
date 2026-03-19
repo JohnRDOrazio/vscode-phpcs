@@ -151,3 +151,64 @@ This extension is larger (~650KB uncompressed) compared to simpler alternatives
 
 The trade-off is worth it: the LSP approach ensures VS Code remains responsive
 even when linting large files or projects with many PHP files.
+
+## PHPCBF Integration
+
+The extension includes support for [PHPCBF](https://github.com/PHPCSStandards/PHP_CodeSniffer)
+(PHP Code Beautifier and Fixer) to automatically fix code style issues.
+
+### Features
+
+- **Quick Fix Actions**: Click on a PHPCS diagnostic (squiggly line) to see three options:
+  - "Fix only this issue (PHPCBF)" - fixes just that specific issue immediately
+  - "Fix all auto-fixable issues in this file (PHPCBF)" - fixes all issues immediately
+  - "Preview fixes (PHPCBF)" - shows inline diff preview with per-hunk
+    accept/reject actions
+- **Command Palette**: Use "PHPCS: Fix this file with PHPCBF" or "PHPCS: Fix all
+  files in workspace with PHPCBF"
+- **Auto-fix on Save**: Enable `phpcs.phpcbfOnSave` to automatically fix issues
+  when saving a file
+- **Save on Fix**: Enable `phpcs.phpcbfSaveOnFix` to automatically save the
+  document after applying PHPCBF fixes
+- **Diff Preview**: Use the "Preview fixes (PHPCBF)" quick fix action to preview
+  changes before applying them. Each change is shown with inline decorations and
+  CodeLens actions (Accept, Accept all, Reject, Cancel) allowing you to
+  selectively apply fixes.
+
+### Settings
+
+| Setting                      | Type    | Default | Description                                                                             |
+| ---------------------------- | ------- | ------- | --------------------------------------------------------------------------------------- |
+| `phpcs.phpcbfEnable`         | boolean | `true`  | Enable/disable PHPCBF integration                                                       |
+| `phpcs.phpcbfExecutablePath` | string  | `null`  | Path to phpcbf executable (auto-detected if null)                                       |
+| `phpcs.phpcbfOnSave`         | boolean | `false` | Auto-fix on save                                                                        |
+| `phpcs.phpcbfSaveOnFix`      | boolean | `false` | Auto-save document after applying fixes                                                 |
+| `phpcs.phpcbfTimeout`        | number  | `60`    | Timeout in seconds for PHPCBF operations                                                |
+
+## Known Issues
+
+### GitHub Copilot Next Edit Suggestions Conflict
+
+If you have GitHub Copilot installed, its "Next Edit Suggestions" feature may
+suggest reverting PHPCBF fixes after you apply them. This happens because Copilot
+learns from code patterns and may suggest "edits" that undo the alignment or
+formatting changes made by PHPCBF.
+
+**Symptoms:**
+
+- After accepting a PHPCBF fix, you see a gutter icon with a checkmark (✓)
+- Hovering shows "Inline Suggestion" with options like "Go To / Accept", "Reject"
+- Accepting the Copilot suggestion reverts the PHPCBF fix
+
+**Solution:**
+
+Disable Copilot's Next Edit Suggestions by adding this to your VS Code settings:
+
+```json
+{
+  "github.copilot.nextEditSuggestions.enabled": false
+}
+```
+
+Alternatively, press `Escape` to dismiss individual Copilot suggestions, or click
+"Snooze" in the suggestion menu to temporarily hide them.

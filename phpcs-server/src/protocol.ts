@@ -6,6 +6,7 @@
 
 import {
 	NotificationType,
+	RequestType,
 	TextDocumentIdentifier
 } from "vscode-languageserver/node";
 
@@ -51,4 +52,133 @@ export interface DidEndValidateTextDocumentParams {
  */
 export namespace DidEndValidateTextDocumentNotification {
 	export const type = new NotificationType<DidEndValidateTextDocumentParams>("textDocument/didEndValidate");
+}
+
+/**
+ * The parameters sent in a did start fix text document notification
+ */
+export interface DidStartFixTextDocumentParams {
+	/**
+	 * The document on which fixing started.
+	 */
+	textDocument: TextDocumentIdentifier;
+}
+
+/**
+ * The document start fix notification is sent from the server to the client to signal
+ * the start of PHPCBF fixing on a text document.
+ */
+export namespace DidStartFixTextDocumentNotification {
+	export const type = new NotificationType<DidStartFixTextDocumentParams>("textDocument/didStartFix");
+}
+
+/**
+ * The parameters sent in a did end fix text document notification
+ */
+export interface DidEndFixTextDocumentParams {
+	/**
+	 * The document on which fixing ended.
+	 */
+	textDocument: TextDocumentIdentifier;
+	/**
+	 * Whether the document was successfully fixed.
+	 */
+	fixed: boolean;
+	/**
+	 * Error message if fixing failed.
+	 */
+	error?: string;
+}
+
+/**
+ * The document end fix notification is sent from the server to the client to signal
+ * the end of PHPCBF fixing on a text document.
+ */
+export namespace DidEndFixTextDocumentNotification {
+	export const type = new NotificationType<DidEndFixTextDocumentParams>("textDocument/didEndFix");
+}
+
+/**
+ * Represents a diff hunk for preview display.
+ */
+export interface PreviewDiffHunk {
+	/**
+	 * 0-indexed starting line in the original file.
+	 */
+	originalStart: number;
+	/**
+	 * Number of lines removed from the original.
+	 */
+	originalLength: number;
+	/**
+	 * 0-indexed starting line in the modified file.
+	 */
+	modifiedStart: number;
+	/**
+	 * Number of lines added in the modified file.
+	 */
+	modifiedLength: number;
+	/**
+	 * The original lines being removed.
+	 */
+	originalLines: string[];
+	/**
+	 * The new lines being added.
+	 */
+	modifiedLines: string[];
+}
+
+/**
+ * The parameters for the show diff preview request.
+ */
+export interface ShowDiffPreviewParams {
+	/**
+	 * The document URI.
+	 */
+	uri: string;
+	/**
+	 * The original content before fixes.
+	 */
+	originalContent: string;
+	/**
+	 * The fixed content after PHPCBF.
+	 */
+	fixedContent: string;
+	/**
+	 * Optional target line for positioning the CodeLens (0-indexed).
+	 * If provided, the accept/reject CodeLens will be positioned near this line.
+	 * If not provided, it will be at the top of the file.
+	 */
+	targetLine?: number;
+	/**
+	 * The diff hunks representing individual changes.
+	 * Each hunk can be accepted or rejected individually.
+	 */
+	hunks?: PreviewDiffHunk[];
+}
+
+/**
+ * Request sent from the server to the client to show a diff preview.
+ * The client should display the diff and return true if the user accepts the changes.
+ */
+export namespace ShowDiffPreviewRequest {
+	export const type = new RequestType<ShowDiffPreviewParams, boolean, void>("phpcs/showDiffPreview");
+}
+
+/**
+ * The parameters for the save document notification.
+ */
+export interface SaveDocumentParams {
+	/**
+	 * The document URI to save.
+	 */
+	uri: string;
+}
+
+/**
+ * Notification sent from the server to the client to request saving a document.
+ * The client should save the document if the phpcbfSaveOnFix setting is enabled.
+ */
+export namespace SaveDocumentNotification {
+	export const type = new NotificationType<SaveDocumentParams>("phpcs/saveDocument");
 }

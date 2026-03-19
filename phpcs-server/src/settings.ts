@@ -26,5 +26,6 @@ export interface PhpcsSettings {
 	phpcbfEnable: boolean;
 	phpcbfExecutablePath: string | null;
 	phpcbfOnSave: boolean;
+	phpcbfSaveOnFix: boolean;
 	phpcbfTimeout: number;
 }

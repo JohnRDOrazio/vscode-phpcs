@@ -103,6 +103,8 @@ export class PhpcsConfiguration extends Disposable {
 				phpcbfEnable: config.get('phpcbfEnable'),
 				phpcbfExecutablePath: config.get('phpcbfExecutablePath'),
 				phpcbfOnSave: config.get('phpcbfOnSave'),
+				phpcbfSaveOnFix: config.get('phpcbfSaveOnFix'),
+				phpcbfTimeout: config.get('phpcbfTimeout', 60),
 			};
 
 			settings = await this.resolveExecutablePath(settings);

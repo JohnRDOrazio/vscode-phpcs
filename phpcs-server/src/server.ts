@@ -9,6 +9,7 @@ import * as strings from "./base/common/strings";
 
 import {
 	CodeAction,
+	CodeActionKind,
 	CodeActionParams,
 	createConnection,
 	Diagnostic,
@@ -39,7 +40,32 @@ import {
 	generateCodeActions,
 	createFullDocumentEdit,
 	PHPCBF_FIX_FILE_COMMAND,
+	PHPCBF_FIX_SINGLE_COMMAND,
+	PHPCBF_PREVIEW_COMMAND,
 } from "./code-actions";
+import { computeDiffHunks } from "./diff-utils";
+import { correlateDiagnosticsToHunks, findHunksForDiagnostic } from "./hunk-correlation";
+import { applyHunks, validateHunks } from "./selective-fix";
+
+/**
+ * Maximum time in milliseconds to wait for a save acknowledgment before
+ * falling back to a timeout.
+ *
+ * The server uses the LSP didSave notification to detect when saves complete,
+ * but we need a fallback in case the notification is missed or delayed.
+ */
+const SAVE_ACKNOWLEDGMENT_TIMEOUT_MS = 5000;
+
+/**
+ * Maximum time in milliseconds to wait for a document version change before
+ * falling back to a timeout.
+ *
+ * When the client applies edits, it sends a didChange notification with an
+ * incremented version. We wait for this notification to ensure we have the
+ * latest content before proceeding. The timeout is a fallback in case the
+ * notification is missed.
+ */
+const DOCUMENT_CHANGE_TIMEOUT_MS = 5000;
 
 class PhpcsServer {
 	private openedFiles: Map<string, boolean>;
@@ -50,6 +76,10 @@ class PhpcsServer {
 	private documentDiagnostics: Map<string, Diagnostic[]>;
 	// Track ongoing PHPCBF fix operations to prevent concurrent fixes on the same file
 	private fixingDocuments: Map<string, Promise<void>>;
+	// Track pending save acknowledgments for promise-based save completion
+	private pendingSaveAcknowledgments: Map<string, () => void>;
+	// Track pending document version changes for promise-based sync
+	private pendingDocumentChanges: Map<string, { minVersion: number; resolve: () => void }>;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -78,6 +108,7 @@ class PhpcsServer {
 		phpcbfEnable: true,
 		phpcbfExecutablePath: null,
 		phpcbfOnSave: false,
+		phpcbfSaveOnFix: false,
 		phpcbfTimeout: 60,
 	};
 	private documentSettings: Map<string, Promise<PhpcsSettings>> = new Map();
@@ -93,6 +124,8 @@ class PhpcsServer {
 		this.queue = new Map();
 		this.documentDiagnostics = new Map();
 		this.fixingDocuments = new Map();
+		this.pendingSaveAcknowledgments = new Map();
+		this.pendingDocumentChanges = new Map();
 		this.connection = createConnection(ProposedFeatures.all);
 		this.documents = new TextDocuments(TextDocument);
 		this.documents.listen(this.connection);
@@ -157,9 +190,11 @@ class PhpcsServer {
 					willSaveWaitUntil: true,
 					save: { includeText: false },
 				},
-				codeActionProvider: true,
+				codeActionProvider: {
+					codeActionKinds: [CodeActionKind.QuickFix],
+				},
 				executeCommandProvider: {
-					commands: [PHPCBF_FIX_FILE_COMMAND],
+					commands: [PHPCBF_FIX_FILE_COMMAND, PHPCBF_FIX_SINGLE_COMMAND, PHPCBF_PREVIEW_COMMAND],
 				},
 			}
 		});
@@ -290,6 +325,15 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onDidSaveDocument({ document }: { document: TextDocument }): Promise<void> {
+		const uri = document.uri;
+
+		// Resolve any pending save acknowledgment for this document
+		const pendingResolve = this.pendingSaveAcknowledgments.get(uri);
+		if (pendingResolve) {
+			this.pendingSaveAcknowledgments.delete(uri);
+			pendingResolve();
+		}
+
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnSave) {
 			await this.validateSingle(document);
@@ -318,6 +362,20 @@ class PhpcsServer {
 			this.validating.delete(uri);
 		}
 
+		// Clear any pending save acknowledgments (resolve to unblock waiters)
+		const pendingSave = this.pendingSaveAcknowledgments.get(uri);
+		if (pendingSave) {
+			this.pendingSaveAcknowledgments.delete(uri);
+			pendingSave();
+		}
+
+		// Clear any pending document change watchers (resolve to unblock waiters)
+		const pendingChange = this.pendingDocumentChanges.get(uri);
+		if (pendingChange) {
+			this.pendingDocumentChanges.delete(uri);
+			pendingChange.resolve();
+		}
+
 		this.clearDiagnostics(uri);
 	}
 
@@ -328,6 +386,15 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onDidChangeDocument({ document }: { document: TextDocument }): Promise<void> {
+		const uri = document.uri;
+
+		// Resolve any pending document change watcher if version requirement is met
+		const pending = this.pendingDocumentChanges.get(uri);
+		if (pending && document.version >= pending.minVersion) {
+			this.pendingDocumentChanges.delete(uri);
+			pending.resolve();
+		}
+
 		let settings = await this.getDocumentSettings(document);
 		if (settings.lintOnType) {
 			await this.validateSingle(document);
@@ -368,21 +435,427 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onExecuteCommand(params: ExecuteCommandParams): Promise<void> {
-		if (params.command !== PHPCBF_FIX_FILE_COMMAND) {
+		if (params.command === PHPCBF_FIX_FILE_COMMAND) {
+			const uri = params.arguments?.[0] as string | undefined;
+			if (!uri) {
+				return;
+			}
+
+			const document = this.documents.get(uri);
+			if (!document) {
+				return;
+			}
+
+			await this.fixDocument(document);
+		} else if (params.command === PHPCBF_FIX_SINGLE_COMMAND) {
+			const uri = params.arguments?.[0] as string | undefined;
+			const diagnostic = params.arguments?.[1] as Diagnostic | undefined;
+			if (!uri || !diagnostic) {
+				return;
+			}
+
+			const document = this.documents.get(uri);
+			if (!document) {
+				return;
+			}
+
+			await this.fixSingleIssue(document, diagnostic);
+		} else if (params.command === PHPCBF_PREVIEW_COMMAND) {
+			const uri = params.arguments?.[0] as string | undefined;
+			if (!uri) {
+				return;
+			}
+
+			const document = this.documents.get(uri);
+			if (!document) {
+				return;
+			}
+
+			await this.previewFixes(document);
+		}
+	}
+
+	/**
+	 * Fix a single issue in a document using PHPCBF.
+	 * Runs PHPCBF to get the full fix, then applies only the hunk(s) relevant to the diagnostic.
+	 *
+	 * @param document The text document to fix.
+	 * @param targetDiagnostic The specific diagnostic to fix.
+	 * @return void
+	 */
+	private async fixSingleIssue(document: TextDocument, targetDiagnostic: Diagnostic): Promise<void> {
+		const uri = document.uri;
+
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
 			return;
 		}
 
-		const uri = params.arguments?.[0] as string | undefined;
-		if (!uri) {
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFound);
 			return;
 		}
 
-		const document = this.documents.get(uri);
-		if (!document) {
+		// Check if a fix is already in progress for this document.
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
 			return;
 		}
 
-		await this.fixDocument(document);
+		// Create the fix operation promise and track it
+		const fixOperation = this.executeSingleIssueFixOperation(document, settings, phpcbfPath, uri, targetDiagnostic);
+		this.fixingDocuments.set(uri, fixOperation);
+
+		try {
+			await fixOperation;
+		} finally {
+			// Always clean up the tracking entry when done
+			this.fixingDocuments.delete(uri);
+		}
+	}
+
+	/**
+	 * Execute the single issue fix operation for a document.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param uri The document URI.
+	 * @param targetDiagnostic The specific diagnostic to fix.
+	 * @return void
+	 */
+	private async executeSingleIssueFixOperation(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		uri: string,
+		targetDiagnostic: Diagnostic
+	): Promise<void> {
+		// Send start notification
+		this.connection.sendNotification(
+			proto.DidStartFixTextDocumentNotification.type,
+			{ textDocument: TextDocumentIdentifier.create(uri) }
+		);
+
+		let fixed = false;
+		let errorMessage: string | undefined;
+
+		try {
+			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
+			this.connection.console.log(`[PHPCBF] Document version: ${document.version}`);
+			this.connection.console.log(`[PHPCBF] Target diagnostic at line ${targetDiagnostic.range.start.line}: "${targetDiagnostic.message}"`);
+
+			const fixer = await PhpcbfFixer.create(phpcbfPath);
+			fixer.setLogger((message) => this.connection.console.log(message));
+
+			// Get the fully fixed content from PHPCBF
+			const result = await fixer.fix(document, settings);
+
+			this.connection.console.log(`[PHPCBF] Fix result: fixed=${result.fixed}, hasUnfixableIssues=${result.hasUnfixableIssues}, error=${result.error || 'none'}`);
+
+			if (result.error) {
+				errorMessage = result.error;
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+				return;
+			}
+
+			if (!result.fixed) {
+				this.connection.console.log(`[PHPCBF] No fixes available for: ${uri}`);
+				this.connection.window.showInformationMessage(SR.PhpcbfNoFixesAvailable);
+				return;
+			}
+
+			const originalContent = document.getText();
+
+			// Compute diff hunks between original and fully fixed content
+			const hunks = computeDiffHunks(originalContent, result.content);
+
+			this.connection.console.log(`[PHPCBF] Computed ${hunks.length} hunks for single-issue fix`);
+			for (const hunk of hunks) {
+				this.connection.console.log(`[PHPCBF]   Hunk: lines ${hunk.originalStart}-${hunk.originalStart + hunk.originalLength} (${hunk.originalLength} removed, ${hunk.modifiedLength} added)`);
+			}
+
+			if (hunks.length === 0) {
+				this.connection.console.log(`[PHPCBF] No hunks computed for: ${uri}`);
+				return;
+			}
+
+			// Get all diagnostics for correlation
+			const allDiagnostics = this.documentDiagnostics.get(uri) || [];
+			this.connection.console.log(`[PHPCBF] Target diagnostic: line ${targetDiagnostic.range.start.line}, message: "${targetDiagnostic.message.substring(0, 50)}..."`);
+			this.connection.console.log(`[PHPCBF] Document has ${allDiagnostics.length} stored diagnostics`);
+
+			// Correlate hunks to diagnostics
+			const correlations = correlateDiagnosticsToHunks(hunks, allDiagnostics);
+			for (const corr of correlations) {
+				this.connection.console.log(`[PHPCBF]   Correlation: hunk at line ${corr.hunk.originalStart} has ${corr.diagnostics.length} diagnostics (${corr.confidence})`);
+			}
+
+			// Find hunks for the specific diagnostic using strict matching first
+			let relevantHunks = findHunksForDiagnostic(correlations, targetDiagnostic, true);
+			this.connection.console.log(`[PHPCBF] Found ${relevantHunks.length} relevant hunks with strict matching`);
+
+			// If strict matching found nothing, fall back to lenient matching
+			if (relevantHunks.length === 0) {
+				this.connection.console.log(`[PHPCBF] Trying lenient matching...`);
+				relevantHunks = findHunksForDiagnostic(correlations, targetDiagnostic, false);
+				this.connection.console.log(`[PHPCBF] Found ${relevantHunks.length} relevant hunks with lenient matching`);
+			}
+
+			if (relevantHunks.length === 0) {
+				// No hunk found for this diagnostic - might be a side effect of another fix
+				// Log more details to help diagnose
+				this.connection.console.log(`[PHPCBF] No hunk found for diagnostic at line ${targetDiagnostic.range.start.line}`);
+				this.connection.console.log(`[PHPCBF] Target diagnostic details: ${JSON.stringify(targetDiagnostic.range)}`);
+
+				// Check if any hunk covers this line directly
+				for (const hunk of hunks) {
+					const coversLine = targetDiagnostic.range.start.line >= hunk.originalStart &&
+						targetDiagnostic.range.start.line < hunk.originalStart + Math.max(hunk.originalLength, 1);
+					this.connection.console.log(`[PHPCBF]   Hunk ${hunk.originalStart}-${hunk.originalStart + hunk.originalLength} covers line ${targetDiagnostic.range.start.line}? ${coversLine}`);
+				}
+
+				this.connection.window.showWarningMessage(SR.PhpcbfCannotIsolateFix);
+				return;
+			}
+
+			// Validate that hunks can be applied
+			const validation = validateHunks(originalContent, relevantHunks);
+			if (!validation.valid) {
+				this.connection.console.log(`[PHPCBF] Hunk validation failed: ${validation.error}`);
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfCannotApplyFix, validation.error));
+				return;
+			}
+
+			// Apply only the relevant hunks
+			const partiallyFixedContent = applyHunks(originalContent, relevantHunks);
+
+			// Apply the fix using workspace edit
+			const versionBeforeEdit = document.version;
+			const edit = createFullDocumentEdit(document, partiallyFixedContent);
+			const applied = await this.connection.workspace.applyEdit({
+				changes: {
+					[uri]: [edit],
+				},
+			});
+
+			if (applied.applied) {
+				fixed = true;
+				this.connection.console.log(`[PHPCBF] Single issue fix applied to: ${uri}`);
+
+				// Wait for document sync before re-linting
+				// The client applied edits, so we expect version > versionBeforeEdit
+				await this.waitForDocumentChange(uri, versionBeforeEdit + 1);
+
+				// Re-lint the document to refresh diagnostics
+				const updatedDocument = this.documents.get(uri);
+				if (updatedDocument) {
+					await this.validateSingle(updatedDocument);
+				}
+
+				// Request the client to save the document if setting is enabled
+				this.connection.console.log(`[PHPCBF] phpcbfSaveOnFix setting: ${settings.phpcbfSaveOnFix}`);
+				if (settings.phpcbfSaveOnFix) {
+					this.connection.console.log(`[PHPCBF] Sending SaveDocumentNotification for: ${uri}`);
+					this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
+				}
+			} else {
+				this.connection.console.warn(strings.format(SR.PhpcbfFixFailed, uri));
+			}
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : String(error);
+			this.connection.console.error(`[PHPCBF] Error fixing single issue: ${errorMessage}`);
+		} finally {
+			// Send end notification
+			this.connection.sendNotification(
+				proto.DidEndFixTextDocumentNotification.type,
+				{
+					textDocument: TextDocumentIdentifier.create(uri),
+					fixed,
+					error: errorMessage,
+				}
+			);
+		}
+	}
+
+	/**
+	 * Preview PHPCBF fixes with inline diff.
+	 * Always shows the diff preview regardless of settings.
+	 *
+	 * @param document The text document to preview fixes for.
+	 * @return void
+	 */
+	private async previewFixes(document: TextDocument): Promise<void> {
+		const uri = document.uri;
+
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
+			return;
+		}
+
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFound);
+			return;
+		}
+
+		// Check if a fix is already in progress for this document.
+		if (this.fixingDocuments.has(uri)) {
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
+			return;
+		}
+
+		// Create the fix operation promise and track it
+		const fixOperation = this.executePreviewOperation(document, settings, phpcbfPath, uri);
+		this.fixingDocuments.set(uri, fixOperation);
+
+		try {
+			await fixOperation;
+		} finally {
+			// Always clean up the tracking entry when done
+			this.fixingDocuments.delete(uri);
+		}
+	}
+
+	/**
+	 * Execute the preview operation for a document.
+	 * Shows diff preview and applies fixes if user accepts.
+	 *
+	 * @param document The text document to preview.
+	 * @param settings The PHPCS settings.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param uri The document URI.
+	 * @return void
+	 */
+	private async executePreviewOperation(
+		_document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		uri: string
+	): Promise<void> {
+		// Send start notification
+		this.connection.sendNotification(
+			proto.DidStartFixTextDocumentNotification.type,
+			{ textDocument: TextDocumentIdentifier.create(uri) }
+		);
+
+		let fixed = false;
+		let errorMessage: string | undefined;
+
+		try {
+			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
+			const fixer = await PhpcbfFixer.create(phpcbfPath);
+			fixer.setLogger((message) => this.connection.console.log(message));
+
+			// Loop to handle incremental fixes - after each accepted fix,
+			// re-check for more fixes and show preview again
+			let continueFixing = true;
+			let hasUnfixableIssues = false;
+
+			while (continueFixing) {
+				// Get the latest document content
+				const currentDocument = this.documents.get(uri);
+				if (!currentDocument) {
+					break;
+				}
+
+				const result = await fixer.fix(currentDocument, settings);
+
+				if (result.error) {
+					errorMessage = result.error;
+					this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+					break;
+				}
+
+				if (result.hasUnfixableIssues) {
+					hasUnfixableIssues = true;
+				}
+
+				if (!result.fixed) {
+					// No more fixes available
+					if (!fixed) {
+						this.connection.console.log(strings.format(SR.PhpcbfNoFixesApplied, uri));
+					}
+					break;
+				}
+
+				// Compute hunks for per-change preview
+				const originalContent = currentDocument.getText();
+				const versionBeforeEdit = currentDocument.version;
+				const hunks = computeDiffHunks(originalContent, result.content);
+
+				if (hunks.length === 0) {
+					break;
+				}
+
+				// End the "fixing" status before showing interactive preview
+				this.connection.sendNotification(
+					proto.DidEndFixTextDocumentNotification.type,
+					{ textDocument: TextDocumentIdentifier.create(uri), fixed: false }
+				);
+
+				// Show diff preview
+				const shouldApply = await this.connection.sendRequest(
+					proto.ShowDiffPreviewRequest.type,
+					{
+						uri,
+						originalContent,
+						fixedContent: result.content,
+						hunks,
+					}
+				);
+
+				if (!shouldApply) {
+					// User cancelled - stop the loop
+					this.connection.console.log(strings.format(SR.PhpcbfDiffCancelled, uri));
+					continueFixing = false;
+					break;
+				}
+
+				// The client has already applied the selected hunks
+				fixed = true;
+				this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
+
+				// Save after each accepted fix if setting is enabled
+				if (settings.phpcbfSaveOnFix) {
+					this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
+					// Wait for save acknowledgment via didSave notification before re-linting
+					await this.waitForSaveAcknowledgment(uri);
+				}
+
+				// Wait for document sync before re-linting
+				// The client applied edits, so we expect version > versionBeforeEdit
+				await this.waitForDocumentChange(uri, versionBeforeEdit + 1);
+
+				// Re-lint the document to refresh diagnostics
+				const updatedDocument = this.documents.get(uri);
+				if (updatedDocument) {
+					await this.validateSingle(updatedDocument);
+				}
+			}
+
+			if (hasUnfixableIssues) {
+				this.connection.window.showInformationMessage(SR.PhpcbfUnfixableIssues);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			errorMessage = message;
+			this.connection.console.error(strings.format(SR.PhpcbfError, message));
+			this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
+		} finally {
+			// Send end notification
+			this.connection.sendNotification(
+				proto.DidEndFixTextDocumentNotification.type,
+				{
+					textDocument: TextDocumentIdentifier.create(uri),
+					fixed,
+					error: errorMessage,
+				}
+			);
+		}
 	}
 
 	/**
@@ -402,9 +875,7 @@ class PhpcsServer {
 
 		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
-			this.connection.window.showWarningMessage(
-				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
-			);
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFound);
 			return;
 		}
 
@@ -444,6 +915,15 @@ class PhpcsServer {
 		phpcbfPath: string,
 		uri: string
 	): Promise<void> {
+		// Send start notification
+		this.connection.sendNotification(
+			proto.DidStartFixTextDocumentNotification.type,
+			{ textDocument: TextDocumentIdentifier.create(uri) }
+		);
+
+		let fixed = false;
+		let errorMessage: string | undefined;
+
 		try {
 			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
 			const fixer = await PhpcbfFixer.create(phpcbfPath);
@@ -452,12 +932,14 @@ class PhpcsServer {
 			const result = await fixer.fix(document, settings);
 
 			if (result.error) {
+				errorMessage = result.error;
 				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
 				return;
 			}
 
 			if (result.fixed) {
 				// Apply the fix using workspace edit
+				const versionBeforeEdit = document.version;
 				const edit = createFullDocumentEdit(document, result.content);
 				const applied = await this.connection.workspace.applyEdit({
 					changes: {
@@ -466,15 +948,22 @@ class PhpcsServer {
 				});
 
 				if (applied.applied) {
+					fixed = true;
 					this.connection.console.log(strings.format(SR.PhpcbfFixApplied, uri));
 
+					// Wait for document sync before re-linting
+					// The client applied edits, so we expect version > versionBeforeEdit
+					await this.waitForDocumentChange(uri, versionBeforeEdit + 1);
+
 					// Re-lint the document to refresh diagnostics
-					// We need to get the updated document after the edit is applied
-					// The document will be updated via onDidChangeDocument, which triggers validation
-					// But we should also trigger validation explicitly in case lintOnType is disabled
 					const updatedDocument = this.documents.get(uri);
 					if (updatedDocument) {
 						await this.validateSingle(updatedDocument);
+					}
+
+					// Request the client to save the document if setting is enabled
+					if (settings.phpcbfSaveOnFix) {
+						this.connection.sendNotification(proto.SaveDocumentNotification.type, { uri });
 					}
 				} else {
 					this.connection.console.warn(strings.format(SR.PhpcbfFixFailed, uri));
@@ -488,8 +977,19 @@ class PhpcsServer {
 			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
+			errorMessage = message;
 			this.connection.console.error(strings.format(SR.PhpcbfError, message));
 			this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
+		} finally {
+			// Send end notification
+			this.connection.sendNotification(
+				proto.DidEndFixTextDocumentNotification.type,
+				{
+					textDocument: TextDocumentIdentifier.create(uri),
+					fixed,
+					error: errorMessage,
+				}
+			);
 		}
 	}
 
@@ -709,6 +1209,82 @@ class PhpcsServer {
 			}
 		}
 		return strings.format(SR.UnknownErrorWhileValidatingTextDocument, URI.parse(document.uri).fsPath);
+	}
+
+	/**
+	 * Waits for save acknowledgment from the client via the didSave notification.
+	 *
+	 * This method creates a promise that resolves when the onDidSaveDocument handler
+	 * receives the didSave notification for the specified URI. A timeout ensures we
+	 * don't wait indefinitely if the notification is missed.
+	 *
+	 * @param uri The document URI to wait for save acknowledgment.
+	 * @returns A promise that resolves when save is acknowledged or timeout occurs.
+	 */
+	private waitForSaveAcknowledgment(uri: string): Promise<void> {
+		return new Promise((resolve) => {
+			// Resolve any existing pending wait to avoid orphaned promises
+			const existingResolve = this.pendingSaveAcknowledgments.get(uri);
+			if (existingResolve) {
+				existingResolve();
+			}
+
+			// Set up the acknowledgment resolver
+			this.pendingSaveAcknowledgments.set(uri, resolve);
+
+			// Set up timeout fallback
+			setTimeout(() => {
+				if (this.pendingSaveAcknowledgments.has(uri)) {
+					this.pendingSaveAcknowledgments.delete(uri);
+					this.connection.console.log(
+						`Save acknowledgment timeout for ${uri}, proceeding anyway`
+					);
+					resolve();
+				}
+			}, SAVE_ACKNOWLEDGMENT_TIMEOUT_MS);
+		});
+	}
+
+	/**
+	 * Waits for a document version change via the didChange notification.
+	 *
+	 * This method creates a promise that resolves when the onDidChangeDocument handler
+	 * receives a didChange notification with a version >= minVersion. A timeout ensures
+	 * we don't wait indefinitely if the notification is missed.
+	 *
+	 * @param uri The document URI to wait for version change.
+	 * @param minVersion The minimum version number to wait for.
+	 * @returns A promise that resolves when version change is detected or timeout occurs.
+	 */
+	private waitForDocumentChange(uri: string, minVersion: number): Promise<void> {
+		return new Promise((resolve) => {
+			// Check if the document already has the required version
+			const currentDoc = this.documents.get(uri);
+			if (currentDoc && currentDoc.version >= minVersion) {
+				resolve();
+				return;
+			}
+
+			// Resolve any existing pending wait to avoid orphaned promises
+			const existingPending = this.pendingDocumentChanges.get(uri);
+			if (existingPending) {
+				existingPending.resolve();
+			}
+
+			// Set up the change watcher
+			this.pendingDocumentChanges.set(uri, { minVersion, resolve });
+
+			// Set up timeout fallback
+			setTimeout(() => {
+				if (this.pendingDocumentChanges.has(uri)) {
+					this.pendingDocumentChanges.delete(uri);
+					this.connection.console.log(
+						`Document change timeout for ${uri} (waiting for version ${minVersion}), proceeding anyway`
+					);
+					resolve();
+				}
+			}, DOCUMENT_CHANGE_TIMEOUT_MS);
+		});
 	}
 
 	private getSource(uri: string): string

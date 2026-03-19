@@ -199,6 +199,12 @@
 					"default": false,
 					"description": "Automatically fix issues with PHPCBF when saving a file."
 				},
+				"phpcs.phpcbfSaveOnFix": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Automatically save the document after applying PHPCBF fixes. Note: If phpcbfOnSave is also enabled, saving will trigger another PHPCBF run that may fix additional issues."
+				},
 				"phpcs.phpcbfTimeout": {
 					"scope": "resource",
 					"type": "number",

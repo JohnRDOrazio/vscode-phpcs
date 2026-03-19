@@ -29,6 +29,11 @@ export class StringResources {
 	static readonly PhpcbfUnfixableIssues: string = 'PHPCBF: Some issues could not be automatically fixed.';
 	static readonly PhpcbfError: string = '[PHPCBF] Error: {0}';
 	static readonly PhpcbfErrorMessage: string = 'PHPCBF: {0}';
+	static readonly PhpcbfDiffCancelled: string = '[PHPCBF] User cancelled fix for: {0}';
+	static readonly PhpcbfExecutableNotFound: string = 'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.';
+	static readonly PhpcbfNoFixesAvailable: string = 'No fixes available. The issue may have already been fixed or is not auto-fixable.';
+	static readonly PhpcbfCannotIsolateFix: string = 'Could not isolate this specific fix. The fix may depend on other changes. Use "Fix all" to apply all fixes.';
+	static readonly PhpcbfCannotApplyFix: string = 'Cannot apply fix: {0}';
 
 	static readonly UnknownExecutionError: string = 'Unknown error ocurred. Please verify that {0} returns a valid json object.';
 	static readonly CodingStandardNotInstalledError: string = 'The "{0}" coding standard is not installed. Please review your configuration an try again.';
