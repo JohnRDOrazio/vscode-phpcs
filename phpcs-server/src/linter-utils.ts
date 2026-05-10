@@ -14,9 +14,9 @@ import { StringResources as SR } from './strings';
 import { PhpcsMessage } from './message';
 
 import {
-	Diagnostic,
-	DiagnosticSeverity,
-	Range,
+    Diagnostic,
+    DiagnosticSeverity,
+    Range,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -371,6 +371,18 @@ export function extractStdoutError(stdout: string): { message: string; codingSta
 	}
 
 	return { message: error };
+}
+
+/**
+ * Check if PHPCS emitted the benign "No files were checked" message.
+ * The message may be written to STDERR in PHPCS v4.
+ * This helper only matches the message text; the caller decides which stream to inspect.
+ * @param text The emitted PHPCS text to inspect
+ * @returns True if the text indicates no files were checked
+ */
+export function isNoFilesCheckedMessage(text: string): boolean {
+	return /ERROR:\s*No files were checked\./i.test(text) &&
+		/All specified files were excluded or did not match filtering rules\./i.test(text);
 }
 
 /**
