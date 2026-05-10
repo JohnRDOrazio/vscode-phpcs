@@ -4,19 +4,20 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
+import { XMLParser } from 'fast-xml-parser';
 import * as mm from 'micromatch';
 import * as path from 'path';
 import * as semver from 'semver';
+import CharCode from './base/common/charcode';
 import * as strings from './base/common/strings';
 import * as extfs from './base/node/extfs';
-import CharCode from './base/common/charcode';
-import { StringResources as SR } from './strings';
 import { PhpcsMessage } from './message';
+import { StringResources as SR } from './strings';
 
 import {
-	Diagnostic,
-	DiagnosticSeverity,
-	Range,
+    Diagnostic,
+    DiagnosticSeverity,
+    Range,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -429,4 +430,32 @@ export async function resolveStandard(
 	}
 
 	return standard;
+}
+
+/**
+ * Extract <exclude-pattern> entries from a PHPCS XML config file.
+ * Returns an empty array if the file is absent, unreadable, or contains no exclusions.
+ * @param standardPath Absolute path to the phpcs.xml (or equivalent) file
+ * @returns Array of raw exclude-pattern strings as written in the XML
+ */
+export async function getXmlExcludePatterns(standardPath: string): Promise<string[]> {
+	const fs = await import('node:fs/promises');
+	let xmlContent: string;
+	try {
+		xmlContent = await fs.readFile(standardPath, 'utf8');
+	} catch {
+		// File absent or unreadable: silently return nothing.
+		return [];
+	}
+	const parser = new XMLParser({ ignoreAttributes: false });
+	const parsed = parser.parse(xmlContent);
+	if (!parsed || typeof parsed !== 'object' || !('ruleset' in parsed)) {
+		return [];
+	}
+	const ruleset = (parsed as { ruleset?: { 'exclude-pattern'?: string | string[] } }).ruleset ?? {};
+	const raw = ruleset['exclude-pattern'];
+	if (!raw) {
+		return [];
+	}
+	return Array.isArray(raw) ? raw : [raw];
 }
