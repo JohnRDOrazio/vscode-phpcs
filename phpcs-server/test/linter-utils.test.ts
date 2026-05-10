@@ -4,24 +4,27 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as assert from 'assert';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 
 import {
-	FATAL_ERROR_PATTERN,
-	buildLintArguments,
-	createDiagnosticFromMessage,
-	extractFatalError,
-	extractStdoutError,
-	getV4ExitCodeError,
-	getXmlExcludePatterns,
-	isIgnorePatternMatch,
-	parsePhpcsOutput,
-	PhpcsExecutionContext,
-	prepareFileText,
-	shouldIgnoreFile,
-	transformIgnorePattern,
+    FATAL_ERROR_PATTERN,
+    buildLintArguments,
+    createDiagnosticFromMessage,
+    extractFatalError,
+    extractStdoutError,
+    getV4ExitCodeError,
+    getXmlExcludePatterns,
+    isIgnorePatternMatch,
+    parsePhpcsOutput,
+    PhpcsExecutionContext,
+    prepareFileText,
+    shouldIgnoreFile,
+    transformIgnorePattern,
 } from '../src/linter-utils';
 
 suite('Linter Utils', () => {
@@ -472,9 +475,6 @@ suite('Linter Utils', () => {
 	});
 
 	suite('getXmlExcludePatterns', () => {
-		const fs = require('node:fs/promises');
-		const os = require('node:os');
-		const path = require('node:path');
 
 		const xmlWith2Patterns = [
 			'<?xml version="1.0" encoding="UTF-8"?>',
@@ -499,7 +499,7 @@ suite('Linter Utils', () => {
 		].join('\n');
 
 		async function writeTempXml(content: string): Promise<string> {
-			const tmpFile = path.join(os.tmpdir(), `phpcs-test-${Date.now()}.xml`);
+			const tmpFile = path.join(os.tmpdir(), `phpcs-test-${Date.now()}-${Math.random().toString(36).slice(2)}.xml`);
 			await fs.writeFile(tmpFile, content, 'utf8');
 			return tmpFile;
 		}
