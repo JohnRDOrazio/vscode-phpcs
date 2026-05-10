@@ -9,19 +9,18 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 
 import {
-    FATAL_ERROR_PATTERN,
-    buildLintArguments,
-    createDiagnosticFromMessage,
-    extractFatalError,
-    extractStdoutError,
-    getV4ExitCodeError,
-    isIgnorePatternMatch,
-	isNoFilesCheckedMessage,
-    parsePhpcsOutput,
-    PhpcsExecutionContext,
-    prepareFileText,
-    shouldIgnoreFile,
-    transformIgnorePattern,
+	FATAL_ERROR_PATTERN,
+	buildLintArguments,
+	createDiagnosticFromMessage,
+	extractFatalError,
+	extractStdoutError,
+	getV4ExitCodeError,
+	isIgnorePatternMatch,
+	parsePhpcsOutput,
+	PhpcsExecutionContext,
+	prepareFileText,
+	shouldIgnoreFile,
+	transformIgnorePattern,
 } from '../src/linter-utils';
 
 suite('Linter Utils', () => {
@@ -413,24 +412,6 @@ suite('Linter Utils', () => {
 		test('should return null for empty string', () => {
 			const error = extractStdoutError('');
 			assert.strictEqual(error, null);
-		});
-
-	});
-
-	suite('isNoFilesCheckedMessage', () => {
-
-		test('should detect no-files-checked message', () => {
-			const output = 'ERROR: No files were checked.\nAll specified files were excluded or did not match filtering rules.';
-			assert.strictEqual(isNoFilesCheckedMessage(output), true);
-		});
-
-		test('should return false for generic error output', () => {
-			const output = 'ERROR: Some error occurred';
-			assert.strictEqual(isNoFilesCheckedMessage(output), false);
-		});
-
-		test('should return false for empty output', () => {
-			assert.strictEqual(isNoFilesCheckedMessage(''), false);
 		});
 
 	});

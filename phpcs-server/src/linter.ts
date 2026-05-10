@@ -12,7 +12,7 @@ import * as spawn from "cross-spawn";
 import * as strings from "./base/common/strings";
 
 import {
-    Diagnostic,
+	Diagnostic,
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -22,17 +22,16 @@ import { StringResources as SR } from "./strings";
 import { PhpcsSettings } from "./settings";
 
 import {
-    buildLintArguments,
-    createDiagnosticFromMessage,
-    extractFatalError,
-    extractStdoutError,
-    getV4ExitCodeError,
-	isNoFilesCheckedMessage,
-    parsePhpcsOutput,
-    prepareFileText,
-    resolveStandard,
-    shouldIgnoreFile,
-    PhpcsExecutionContext,
+	buildLintArguments,
+	createDiagnosticFromMessage,
+	extractFatalError,
+	extractStdoutError,
+	getV4ExitCodeError,
+	parsePhpcsOutput,
+	prepareFileText,
+	resolveStandard,
+	shouldIgnoreFile,
+	PhpcsExecutionContext,
 } from "./linter-utils";
 
 // Re-export for backward compatibility
@@ -185,16 +184,8 @@ export class PhpcsLinter {
 			stderr,
 		};
 
-		// Handle PHPCS v4+ specific cases: no-files-checked and exit codes.
+		// Handle PHPCS v4+ exit codes first.
 		if (this.isV4OrAbove()) {
-			// "No files were checked" is a benign PHPCS message when filters or exclusions skip the file.
-			// PHPCS v4 writes it to STDERR and returns exit code 16.
-			if (isNoFilesCheckedMessage(stderr)) {
-				this.log('[PHPCS] No files were checked for current lint input (likely excluded by filtering rules).');
-				return [];
-			}
-
-			// Handle exit codes.
 			const exitCodeError = getV4ExitCodeError(exitCode);
 			if (exitCodeError) {
 				throw new Error(exitCodeError);

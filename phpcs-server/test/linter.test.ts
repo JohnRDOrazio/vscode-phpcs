@@ -7,7 +7,7 @@
 import * as assert from 'assert';
 import * as semver from 'semver';
 import { FATAL_ERROR_PATTERN } from '../src/linter';
-import { isIgnorePatternMatch, isNoFilesCheckedMessage, transformIgnorePattern } from '../src/linter-utils';
+import { transformIgnorePattern, isIgnorePatternMatch } from '../src/linter-utils';
 
 /**
  * Tests for PHPCS version comparison logic used in linter.ts
@@ -141,10 +141,6 @@ suite('Linter Version Handling', () => {
 	 */
 	suite('Exit code handling (v4)', () => {
 
-		const shouldTreatNoFilesCheckedAsBenign = (stderr: string, isV4: boolean): boolean => {
-			return isV4 && isNoFilesCheckedMessage(stderr);
-		};
-
 		/**
 		 * Simulates exit code error detection for v4
 		 * Returns error message if exit code indicates an error, null otherwise
@@ -182,18 +178,6 @@ suite('Linter Version Handling', () => {
 
 		test('exit code 64 (requirements not met) should error', () => {
 			assert.strictEqual(getV4ExitCodeError(64), 'Requirements not met');
-		});
-
-		test('should treat no-files-checked stderr as benign before exit code 16', () => {
-			const stderr = 'ERROR: No files were checked.\nAll specified files were excluded or did not match filtering rules.';
-			assert.strictEqual(shouldTreatNoFilesCheckedAsBenign(stderr, true), true);
-			assert.strictEqual(getV4ExitCodeError(16), 'Processing error');
-		});
-
-		test('should not treat stdout-only no-files-checked text as part of v4 stderr handling', () => {
-			const stdout = 'ERROR: No files were checked.\nAll specified files were excluded or did not match filtering rules.';
-			assert.strictEqual(shouldTreatNoFilesCheckedAsBenign('', true), false);
-			assert.strictEqual(isNoFilesCheckedMessage(stdout), true);
 		});
 
 		test('exit code null should not error', () => {
