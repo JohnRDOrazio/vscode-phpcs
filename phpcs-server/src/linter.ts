@@ -12,7 +12,7 @@ import * as spawn from "cross-spawn";
 import * as strings from "./base/common/strings";
 
 import {
-	Diagnostic,
+    Diagnostic,
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -22,16 +22,17 @@ import { StringResources as SR } from "./strings";
 import { PhpcsSettings } from "./settings";
 
 import {
-	buildLintArguments,
-	createDiagnosticFromMessage,
-	extractFatalError,
-	extractStdoutError,
-	getV4ExitCodeError,
-	parsePhpcsOutput,
-	prepareFileText,
-	resolveStandard,
-	shouldIgnoreFile,
-	PhpcsExecutionContext,
+    buildLintArguments,
+    createDiagnosticFromMessage,
+    extractFatalError,
+    extractStdoutError,
+    getV4ExitCodeError,
+    getXmlExcludePatterns,
+    parsePhpcsOutput,
+    prepareFileText,
+    resolveStandard,
+    shouldIgnoreFile,
+    PhpcsExecutionContext,
 } from "./linter-utils";
 
 // Re-export for backward compatibility
@@ -143,6 +144,19 @@ export class PhpcsLinter {
 			settings.ignorePatterns.length &&
 			!semver.gte(this.executableVersion, '3.0.0') &&
 			shouldIgnoreFile(filePath, settings.ignorePatterns)
+		) {
+			return [];
+		}
+
+		// Merge exclude-patterns from the XML config file (if any) with settings patterns.
+		const xmlExcludePatterns = standard ? await getXmlExcludePatterns(standard) : [];
+
+		// Check if file should be ignored for PHPCS > 4.0.0 (As it produces errors for ignored files instead of silently ignoring them)
+		if (
+			filePath !== undefined &&
+			xmlExcludePatterns.length &&
+			semver.gte(this.executableVersion, '4.0.0') &&
+			shouldIgnoreFile(filePath, xmlExcludePatterns)
 		) {
 			return [];
 		}
