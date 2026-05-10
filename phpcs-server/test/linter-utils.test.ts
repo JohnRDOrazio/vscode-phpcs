@@ -15,6 +15,7 @@ import {
 	extractFatalError,
 	extractStdoutError,
 	getV4ExitCodeError,
+	getXmlExcludePatterns,
 	isIgnorePatternMatch,
 	parsePhpcsOutput,
 	PhpcsExecutionContext,
@@ -466,6 +467,76 @@ suite('Linter Utils', () => {
 
 		test('should not match regular ERROR', () => {
 			assert.strictEqual('ERROR: test'.match(FATAL_ERROR_PATTERN), null);
+		});
+
+	});
+
+	suite('getXmlExcludePatterns', () => {
+		const fs = require('node:fs/promises');
+		const os = require('node:os');
+		const path = require('node:path');
+
+		const xmlWith2Patterns = [
+			'<?xml version="1.0" encoding="UTF-8"?>',
+			'<ruleset name="Test">',
+			'  <exclude-pattern>*/vendor/*</exclude-pattern>',
+			'  <exclude-pattern>*/tests/*</exclude-pattern>',
+			'</ruleset>',
+		].join('\n');
+
+		const xmlWith1Pattern = [
+			'<?xml version="1.0" encoding="UTF-8"?>',
+			'<ruleset name="Test">',
+			'  <exclude-pattern>*/vendor/*</exclude-pattern>',
+			'</ruleset>',
+		].join('\n');
+
+		const xmlWithNoPattern = [
+			'<?xml version="1.0" encoding="UTF-8"?>',
+			'<ruleset name="Test">',
+			'  <rule ref="PSR12"/>',
+			'</ruleset>',
+		].join('\n');
+
+		async function writeTempXml(content: string): Promise<string> {
+			const tmpFile = path.join(os.tmpdir(), `phpcs-test-${Date.now()}.xml`);
+			await fs.writeFile(tmpFile, content, 'utf8');
+			return tmpFile;
+		}
+
+		test('should extract multiple exclude-pattern entries', async () => {
+			const tmpFile = await writeTempXml(xmlWith2Patterns);
+			try {
+				const patterns = await getXmlExcludePatterns(tmpFile);
+				assert.deepStrictEqual(patterns, ['*/vendor/*', '*/tests/*']);
+			} finally {
+				await fs.unlink(tmpFile);
+			}
+		});
+
+		test('should extract a single exclude-pattern entry as array', async () => {
+			const tmpFile = await writeTempXml(xmlWith1Pattern);
+			try {
+				const patterns = await getXmlExcludePatterns(tmpFile);
+				assert.deepStrictEqual(patterns, ['*/vendor/*']);
+			} finally {
+				await fs.unlink(tmpFile);
+			}
+		});
+
+		test('should return empty array when no exclude-pattern entries exist', async () => {
+			const tmpFile = await writeTempXml(xmlWithNoPattern);
+			try {
+				const patterns = await getXmlExcludePatterns(tmpFile);
+				assert.deepStrictEqual(patterns, []);
+			} finally {
+				await fs.unlink(tmpFile);
+			}
+		});
+
+		test('should return empty array for a non-existent file', async () => {
+			const patterns = await getXmlExcludePatterns('/non/existent/phpcs.xml');
+			assert.deepStrictEqual(patterns, []);
 		});
 
 	});

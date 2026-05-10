@@ -5,6 +5,7 @@
 'use strict';
 
 import * as mm from 'micromatch';
+import { XMLParser } from 'fast-xml-parser';
 import * as path from 'path';
 import * as semver from 'semver';
 import * as strings from './base/common/strings';
@@ -429,4 +430,29 @@ export async function resolveStandard(
 	}
 
 	return standard;
+}
+
+/**
+ * Extract <exclude-pattern> entries from a PHPCS XML config file.
+ * Returns an empty array if the file is absent, unreadable, or contains no exclusions.
+ * @param standardPath Absolute path to the phpcs.xml (or equivalent) file
+ * @returns Array of raw exclude-pattern strings as written in the XML
+ */
+export async function getXmlExcludePatterns(standardPath: string): Promise<string[]> {
+	const fs = await import('node:fs/promises');
+	let xmlContent: string;
+	try {
+		xmlContent = await fs.readFile(standardPath, 'utf8');
+	} catch {
+		// File absent or unreadable: silently return nothing.
+		return [];
+	}
+	const parser = new XMLParser({ ignoreAttributes: false });
+	const xml = parser.parse(xmlContent) as { ruleset?: { 'exclude-pattern'?: string | string[] } };
+	const ruleset = xml.ruleset ?? {};
+	const raw = ruleset['exclude-pattern'];
+	if (!raw) {
+		return [];
+	}
+	return Array.isArray(raw) ? raw : [raw];
 }
