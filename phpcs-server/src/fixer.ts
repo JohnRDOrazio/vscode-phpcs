@@ -14,7 +14,7 @@ import { URI } from 'vscode-uri';
 
 import { StringResources as SR } from './strings';
 import { PhpcsSettings } from './settings';
-import { prepareFileText, shouldIgnoreFile, resolveStandard } from './linter-utils';
+import { prepareFileText, shouldIgnoreFile, resolveStandard, getXmlExcludePatterns } from './linter-utils';
 
 import {
 	buildFixArguments,
@@ -146,11 +146,24 @@ export class PhpcbfFixer {
 		// Resolve coding standard (uses shared utility to find config files)
 		const standard = await resolveStandard(settings, filePath);
 
-		// Check if file should be ignored
+		// Check if file should be ignored (settings patterns)
 		if (
 			filePath !== undefined &&
 			settings.ignorePatterns.length &&
 			shouldIgnoreFile(filePath, settings.ignorePatterns)
+		) {
+			return createIgnoredFileResult(fileText);
+		}
+
+		// Merge exclude-patterns from the XML config file (if any) with settings patterns.
+		const xmlExcludePatterns = standard ? await getXmlExcludePatterns(standard) : [];
+
+		// Check if file should be ignored for PHPCBF > 4.0.0 (produces errors for ignored files instead of silently ignoring them)
+		if (
+			filePath !== undefined &&
+			xmlExcludePatterns.length &&
+			this.isV4OrAbove() &&
+			shouldIgnoreFile(filePath, xmlExcludePatterns)
 		) {
 			return createIgnoredFileResult(fileText);
 		}
