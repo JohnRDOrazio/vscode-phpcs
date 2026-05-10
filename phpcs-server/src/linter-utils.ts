@@ -4,20 +4,20 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
-import * as mm from 'micromatch';
 import { XMLParser } from 'fast-xml-parser';
+import * as mm from 'micromatch';
 import * as path from 'path';
 import * as semver from 'semver';
+import CharCode from './base/common/charcode';
 import * as strings from './base/common/strings';
 import * as extfs from './base/node/extfs';
-import CharCode from './base/common/charcode';
-import { StringResources as SR } from './strings';
 import { PhpcsMessage } from './message';
+import { StringResources as SR } from './strings';
 
 import {
-	Diagnostic,
-	DiagnosticSeverity,
-	Range,
+    Diagnostic,
+    DiagnosticSeverity,
+    Range,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -448,8 +448,11 @@ export async function getXmlExcludePatterns(standardPath: string): Promise<strin
 		return [];
 	}
 	const parser = new XMLParser({ ignoreAttributes: false });
-	const xml = parser.parse(xmlContent) as { ruleset?: { 'exclude-pattern'?: string | string[] } };
-	const ruleset = xml.ruleset ?? {};
+	const parsed = parser.parse(xmlContent);
+	if (!parsed || typeof parsed !== 'object' || !('ruleset' in parsed)) {
+		return [];
+	}
+	const ruleset = (parsed as { ruleset?: { 'exclude-pattern'?: string | string[] } }).ruleset ?? {};
 	const raw = ruleset['exclude-pattern'];
 	if (!raw) {
 		return [];
