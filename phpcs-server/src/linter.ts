@@ -155,7 +155,7 @@ export class PhpcsLinter {
 		if (
 			filePath !== undefined &&
 			xmlExcludePatterns.length &&
-			semver.gte(this.executableVersion, '4.0.0') &&
+			this.isV4OrAbove() &&
 			shouldIgnoreFile(filePath, xmlExcludePatterns)
 		) {
 			return [];
