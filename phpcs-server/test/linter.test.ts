@@ -10,6 +10,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as semver from 'semver';
 import { FATAL_ERROR_PATTERN, PhpcsLinter } from '../src/linter';
+import { parseVersionString } from '../src/fixer-utils';
 import { transformIgnorePattern, isIgnorePatternMatch } from '../src/linter-utils';
 
 /**
@@ -198,13 +199,8 @@ suite('Linter Version Handling', () => {
 	 * Test version string parsing (from --version output)
 	 */
 	suite('Version string parsing', () => {
-		// Mirrors the pattern in PhpcsLinter.create(); keep the flags in sync.
-		const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/im;
-
-		const parseVersion = (output: string): string | null => {
-			const matches = output.match(versionPattern);
-			return matches ? matches[1] : null;
-		};
+		// Exercises the shared parseVersionString used by PhpcsLinter.create().
+		const parseVersion = parseVersionString;
 
 		test('should parse v3.7.2 version string', () => {
 			const output = 'PHP_CodeSniffer version 3.7.2 (stable) by Squiz (http://www.squiz.net)';
