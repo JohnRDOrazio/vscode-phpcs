@@ -386,7 +386,9 @@ export function createTimeoutResult(fileText: string, errorMessage: string): Fix
  * @returns The version string (e.g., '3.7.2') or null if not found
  */
 export function parseVersionString(output: string): string | null {
-	const versionPattern = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/i;
+	// Multiline flag: PHP notices (e.g. deprecation warnings) emitted by the
+	// project's own code can precede the version line (issue #31).
+	const versionPattern = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/im;
 	const match = output.match(versionPattern);
 	return match ? match[1] : null;
 }

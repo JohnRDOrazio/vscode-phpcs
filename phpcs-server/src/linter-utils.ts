@@ -140,6 +140,18 @@ export function parsePhpcsOutput(text: string, context?: PhpcsExecutionContext):
 	try {
 		return JSON.parse(text) as PhpcsParseResult;
 	} catch (error) {
+		// PHP notices (e.g. deprecation warnings) emitted by the project's own
+		// code can precede the JSON report on stdout — retry from the first
+		// opening brace (issue #31).
+		const jsonStart = text.indexOf('{');
+		if (jsonStart > 0) {
+			try {
+				return JSON.parse(text.slice(jsonStart)) as PhpcsParseResult;
+			} catch {
+				// Fall through to the error handling below.
+			}
+		}
+
 		let errorMessage: string;
 
 		if (text.length === 0) {

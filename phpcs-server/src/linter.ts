@@ -34,6 +34,8 @@ import {
 	PhpcsExecutionContext,
 } from "./linter-utils";
 
+import { parseVersionString } from "./fixer-utils";
+
 // Re-export for backward compatibility
 export { FATAL_ERROR_PATTERN } from "./linter-utils";
 
@@ -95,14 +97,12 @@ export class PhpcsLinter {
 
 			let result: Buffer = cp.execSync(`"${executablePath}" --version`);
 
-			const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/i;
-			const versionMatches = result.toString().match(versionPattern);
+			const executableVersion = parseVersionString(result.toString());
 
-			if (versionMatches === null) {
+			if (executableVersion === null) {
 				throw new Error(SR.InvalidVersionStringError);
 			}
 
-			const executableVersion = versionMatches[1];
 			return new PhpcsLinter(executablePath, executableVersion);
 
 		} catch (error: unknown) {
