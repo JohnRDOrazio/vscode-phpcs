@@ -42,6 +42,15 @@ export class PhpcsStatus {
 		this.getStatusBarItem().show();
 	}
 
+	/**
+	 * Records the end of a lint run for a document and refreshes the status bar.
+	 *
+	 * @param uri The uri of the document whose validation ended.
+	 * @param buffered Number of documents remaining in the queue.
+	 * @param standard The coding standard resolved for the run: a string or null
+	 *                 is stored (null = phpcs default), while undefined (lint
+	 *                 error) leaves the last known value unchanged.
+	 */
 	public endProcessing(uri: string, buffered: number = 0, standard?: string | null) {
 		this.processing -= 1;
 		this.buffered = buffered;

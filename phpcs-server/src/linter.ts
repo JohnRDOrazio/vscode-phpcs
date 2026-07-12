@@ -114,6 +114,14 @@ export class PhpcsLinter {
 		}
 	}
 
+	/**
+	 * Lint a document by running phpcs against its content.
+	 *
+	 * @param document The text document to lint.
+	 * @param settings The resolved phpcs settings for the document.
+	 * @return The diagnostics produced and the coding standard resolved for
+	 *         the run (null when phpcs used its own default).
+	 */
 	public async lint(document: TextDocument, settings: PhpcsSettings): Promise<PhpcsLintResult> {
 
 		const { workspaceRoot } = settings;

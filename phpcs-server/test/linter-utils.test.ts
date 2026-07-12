@@ -527,6 +527,22 @@ suite('Linter Utils', () => {
 			);
 			assert.strictEqual(result, 'PSR12');
 		});
+
+		test('skips config file search when autoConfigSearch is disabled', async () => {
+			fs.writeFileSync(path.join(tmpDir, '.phpcs.xml'), '<?xml version="1.0"?><ruleset/>');
+			const filePath = path.join(tmpDir, 'file.php');
+			const result = await resolveStandard(
+				makeSettings({ autoConfigSearch: false, standard: 'PSR12' }),
+				filePath
+			);
+			assert.strictEqual(result, 'PSR12');
+		});
+
+		test('skips config file search when filePath is undefined', async () => {
+			fs.writeFileSync(path.join(tmpDir, '.phpcs.xml'), '<?xml version="1.0"?><ruleset/>');
+			const result = await resolveStandard(makeSettings({ standard: 'PSR12' }), undefined);
+			assert.strictEqual(result, 'PSR12');
+		});
 	});
 
 });

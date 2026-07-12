@@ -139,10 +139,10 @@ Update every return statement in `lint()`:
 		}
 ```
 
-2. Ignored-file return for PHPCS < 3.0.0 (the `semver.gte(this.executableVersion, '3.0.0')` block just after `resolveStandard`):
+2. Ignored-file return for PHPCS < 3.0.0 (the `semver.gte(this.executableVersion, '3.0.0')` block just after `resolveStandard` — the standard is already resolved at this point, so return it):
 
 ```typescript
-			return { diagnostics: [], standard: null };
+			return { diagnostics: [], standard };
 ```
 
 3. The two `return [];` inside the message-extraction section (missing file key for v2+, missing `STDIN` key for v1) — the `standard` variable is in scope here:

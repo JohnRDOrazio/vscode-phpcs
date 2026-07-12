@@ -42,8 +42,10 @@ export interface PhpcsLintResult {
 }
 ```
 
-Early-return paths (empty file text, ignored file on phpcs < 3.0.0) return
-`{ diagnostics: [], standard: null }`.
+Early-return paths: empty file text returns `{ diagnostics: [], standard: null }`
+(resolution has not happened yet); an ignored file on phpcs < 3.0.0 returns
+`{ diagnostics: [], standard }` with the value already resolved by
+`resolveStandard()`.
 
 ### `phpcs-server/src/server.ts`
 
