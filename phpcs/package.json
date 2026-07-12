@@ -52,6 +52,10 @@
 			{
 				"command": "phpcs.fixWorkspace",
 				"title": "PHPCS: Fix all files in workspace with PHPCBF"
+			},
+			{
+				"command": "phpcs.openStandard",
+				"title": "PHPCS: Open the coding standard in use"
 			}
 		],
 		"configuration": {

@@ -12,6 +12,7 @@ import {
 	commands,
 	ExtensionContext,
 	ProgressLocation,
+	Uri,
 	window,
 	workspace
 } from "vscode";
@@ -255,11 +256,36 @@ export function activate(context: ExtensionContext) {
 			);
 		});
 
+		/**
+		 * Command handler for opening the coding standard in use for the active PHP file.
+		 * Opens the resolved ruleset file when the standard is an existing file path;
+		 * otherwise opens the settings UI filtered to phpcs.standard.
+		 */
+		const openStandardCommand = commands.registerCommand('phpcs.openStandard', async () => {
+			const editor = window.activeTextEditor;
+			const standard = editor && editor.document.languageId === 'php'
+				? status.getStandardForUri(editor.document.uri.toString())
+				: undefined;
+			if (typeof standard === 'string') {
+				try {
+					const fileUri = Uri.file(standard);
+					await workspace.fs.stat(fileUri);
+					await window.showTextDocument(await workspace.openTextDocument(fileUri));
+					return;
+				} catch {
+					// Not an existing file (built-in standard name or stale path):
+					// fall through to the settings UI.
+				}
+			}
+			await commands.executeCommand('workbench.action.openSettings', 'phpcs.standard');
+		});
+
 		// Only register disposables after successful start
 		context.subscriptions.push(status);
 		context.subscriptions.push(config);
 		context.subscriptions.push(fixFileCommand);
 		context.subscriptions.push(fixAllFilesCommand);
+		context.subscriptions.push(openStandardCommand);
 		context.subscriptions.push(
 			window.onDidChangeActiveTextEditor(() => status.updateStandardStatusBar()),
 			workspace.onDidCloseTextDocument(document => status.removeDocument(document.uri.toString()))
