@@ -24,6 +24,7 @@ export class StringResources {
 	static readonly PhpcbfOnSaveFailed: string = 'PHPCBF on save failed: {0}';
 	static readonly PhpcbfTimeoutError: string = 'PHPCBF operation timed out after {0} seconds. Try increasing phpcs.phpcbfTimeout for large files.';
 	static readonly PhpcbfFixingDocument: string = '[PHPCBF] Fixing document: {0}';
+	static readonly PhpcbfUsingStandard: string = '[PHPCBF] Fixing: {0} using standard: {1}';
 	static readonly PhpcbfFixApplied: string = '[PHPCBF] Fixed document: {0}';
 	static readonly PhpcbfFixFailed: string = '[PHPCBF] Failed to apply edit to: {0}';
 	static readonly PhpcbfNoFixesApplied: string = '[PHPCBF] No fixes applied to: {0}';

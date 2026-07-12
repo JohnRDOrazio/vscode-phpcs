@@ -146,6 +146,8 @@ export class PhpcbfFixer {
 		// Resolve coding standard (uses shared utility to find config files)
 		const standard = await resolveStandard(settings, filePath);
 
+		this.log(strings.format(SR.PhpcbfUsingStandard, filePath ?? document.uri, standard ?? 'default'));
+
 		// Check if file should be ignored
 		if (
 			filePath !== undefined &&
