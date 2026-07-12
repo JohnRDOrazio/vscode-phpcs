@@ -8,6 +8,12 @@ import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { URI } from 'vscode-uri';
+
+import { PhpcsLinter } from '../src/linter';
+import { PhpcsSettings } from '../src/settings';
 
 /**
  * Integration tests that require PHPCS to be installed.
@@ -254,6 +260,171 @@ class badClassName {
 					`PHPCS v3 should return 1 (errors) or 2 (warnings only) for issues (got ${errorResult.status})`
 				);
 			}
+		});
+	});
+
+	suite('PhpcsLinter.lint()', function () {
+		let lintFixturesDir: string;
+		let errorPhpFile: string;
+		let cleanPhpFile: string;
+
+		suiteSetup(function () {
+			if (skipTests) {
+				return;
+			}
+
+			lintFixturesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-lint-integration-'));
+
+			errorPhpFile = path.join(lintFixturesDir, 'with-errors.php');
+			fs.writeFileSync(
+				errorPhpFile,
+				`<?php
+class badClassName {
+    function noVisibility() {
+        echo "missing visibility";
+    }
+}
+`
+			);
+
+			cleanPhpFile = path.join(lintFixturesDir, 'clean.php');
+			fs.writeFileSync(
+				cleanPhpFile,
+				`<?php
+
+declare(strict_types=1);
+
+namespace Test;
+
+class CleanClass
+{
+    public function doSomething(): void
+    {
+        echo "Hello";
+    }
+}
+`
+			);
+		});
+
+		suiteTeardown(function () {
+			if (lintFixturesDir && fs.existsSync(lintFixturesDir)) {
+				fs.rmSync(lintFixturesDir, { recursive: true, force: true });
+			}
+		});
+
+		function makeSettings(overrides: Partial<PhpcsSettings> = {}): PhpcsSettings {
+			return {
+				enable: true,
+				workspaceRoot: lintFixturesDir,
+				executablePath: phpcsPath,
+				composerJsonPath: null,
+				standard: null,
+				autoConfigSearch: false,
+				showSources: false,
+				showWarnings: true,
+				ignorePatterns: [],
+				ignoreSource: [],
+				warningSeverity: 5,
+				errorSeverity: 5,
+				lintOnOpen: true,
+				lintOnSave: true,
+				lintOnType: true,
+				queueBuffer: 10,
+				lintOnlyOpened: true,
+				phpcbfEnable: false,
+				phpcbfExecutablePath: null,
+				phpcbfOnSave: false,
+				phpcbfTimeout: 60,
+				...overrides,
+			};
+		}
+
+		function makeDocument(filePath: string): TextDocument {
+			return TextDocument.create(
+				URI.file(filePath).toString(),
+				'php',
+				1,
+				fs.readFileSync(filePath, 'utf8')
+			);
+		}
+
+		test('should return empty diagnostics and null standard for an empty document', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const linter = await PhpcsLinter.create(phpcsPath!);
+			const emptyDocument = TextDocument.create(
+				URI.file(path.join(lintFixturesDir, 'empty.php')).toString(),
+				'php',
+				1,
+				''
+			);
+			const result = await linter.lint(emptyDocument, makeSettings());
+
+			assert.deepStrictEqual(result, { diagnostics: [], standard: null });
+		});
+
+		test('should return diagnostics and the configured standard', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const linter = await PhpcsLinter.create(phpcsPath!);
+			const result = await linter.lint(
+				makeDocument(errorPhpFile),
+				makeSettings({ standard: 'PSR12' })
+			);
+
+			assert.strictEqual(result.standard, 'PSR12');
+			assert.ok(
+				result.diagnostics.length > 0,
+				'Should produce diagnostics for non-compliant code'
+			);
+		});
+
+		test('should return the auto-detected ruleset path as the standard', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const rulesetPath = path.join(lintFixturesDir, '.phpcs.xml');
+			fs.writeFileSync(
+				rulesetPath,
+				'<?xml version="1.0"?>\n<ruleset name="Test"><rule ref="PSR12"/></ruleset>\n'
+			);
+
+			try {
+				const linter = await PhpcsLinter.create(phpcsPath!);
+				const result = await linter.lint(
+					makeDocument(errorPhpFile),
+					makeSettings({ autoConfigSearch: true })
+				);
+
+				assert.strictEqual(result.standard, rulesetPath);
+				assert.ok(
+					result.diagnostics.length > 0,
+					'Should produce diagnostics via the auto-detected ruleset'
+				);
+			} finally {
+				fs.rmSync(rulesetPath, { force: true });
+			}
+		});
+
+		test('should return empty diagnostics but the resolved standard for a clean document', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const linter = await PhpcsLinter.create(phpcsPath!);
+			const result = await linter.lint(
+				makeDocument(cleanPhpFile),
+				makeSettings({ standard: 'PSR12' })
+			);
+
+			assert.strictEqual(result.standard, 'PSR12');
+			assert.deepStrictEqual(result.diagnostics, []);
 		});
 	});
 });
