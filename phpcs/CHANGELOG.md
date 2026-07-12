@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expected output
   ([#31](https://github.com/JohnRDOrazio/vscode-phpcs/issues/31))
 
+### Security
+
+- Resolved all open Dependabot security alerts (27 total: 1 critical, 10 high)
+  across the development/build dependency tree — including `shell-quote`,
+  `undici`, `serialize-javascript` (via npm overrides), and `markdownlint-cli2`.
+  All affected packages are dev dependencies; nothing shipped in the extension
+  runtime was affected
+  ([#27](https://github.com/JohnRDOrazio/vscode-phpcs/pull/27),
+  [#28](https://github.com/JohnRDOrazio/vscode-phpcs/pull/28),
+  [#33](https://github.com/JohnRDOrazio/vscode-phpcs/pull/33),
+  [#34](https://github.com/JohnRDOrazio/vscode-phpcs/pull/34))
+
 ## [1.2.3] - 2026-01-10
 
 ### Added
