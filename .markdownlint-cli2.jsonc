@@ -2,5 +2,5 @@
 	// Internal design specs and implementation plans embed tab-indented
 	// TypeScript samples (per project code style), which conflicts with
 	// MD010/MD013 rules meant for published markdown.
-	"ignores": ["docs/superpowers/**"]
+	"ignores": ["docs/superpowers/**", ".superpowers/**"]
 }
