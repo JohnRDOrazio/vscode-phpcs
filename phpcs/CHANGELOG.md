@@ -5,6 +5,16 @@ All notable changes to the "vscode-phpcs" extension will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Resolved standard visibility**: lint log lines now include
+  `using standard: <standard>`, PHPCBF runs log the standard, and a status bar
+  item shows the standard used for the active PHP file — click it to open the
+  resolved ruleset file (or the `phpcs.standard` setting)
+  ([#21](https://github.com/JohnRDOrazio/vscode-phpcs/issues/21))
+
 ## [1.2.3] - 2026-01-10
 
 ### Added

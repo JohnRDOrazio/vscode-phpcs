@@ -79,6 +79,17 @@ The `phpcs` linter can be installed in your project using the Composer Dependenc
 1. Press Enter or click the cloud icon to install it.
 1. Restart Visual Studio Code when prompted.
 
+## Status Bar
+
+While a PHP file is active, the status bar shows the coding standard used for
+its most recent lint, e.g. `phpcs: ruleset.xml` or `phpcs: PSR12`
+(`phpcs: default` when no standard is configured and none was auto-detected).
+Hover to see the full ruleset path. Click to open the resolved ruleset file,
+or the `phpcs.standard` setting when the standard is not a file.
+
+The server log ("Output" panel, "PHP Code Sniffer" channel) also reports the
+standard for every run: `Linting completed on: <file> using standard: <standard>`.
+
 ## Basic Configuration
 
 There are various options that can be configured to control how the plugin operates which can be set
