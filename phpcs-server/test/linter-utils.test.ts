@@ -5,6 +5,9 @@
 'use strict';
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 
@@ -19,6 +22,7 @@ import {
 	parsePhpcsOutput,
 	PhpcsExecutionContext,
 	prepareFileText,
+	resolveStandard,
 	shouldIgnoreFile,
 	transformIgnorePattern,
 } from '../src/linter-utils';
@@ -468,6 +472,61 @@ suite('Linter Utils', () => {
 			assert.strictEqual('ERROR: test'.match(FATAL_ERROR_PATTERN), null);
 		});
 
+	});
+
+	suite('resolveStandard', () => {
+
+		let tmpDir: string;
+
+		setup(() => {
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-resolve-test-'));
+		});
+
+		teardown(() => {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		});
+
+		function makeSettings(overrides: Partial<{ autoConfigSearch: boolean; standard: string | null; workspaceRoot: string | null; ignorePatterns: string[] }> = {}): { autoConfigSearch: boolean; standard: string | null; workspaceRoot: string; ignorePatterns: string[] } {
+			return {
+				autoConfigSearch: true,
+				standard: null,
+				workspaceRoot: tmpDir,
+				ignorePatterns: [],
+				...overrides,
+			};
+		}
+
+		test('returns the auto-detected config file path when one exists', async () => {
+			const rulesetPath = path.join(tmpDir, '.phpcs.xml');
+			fs.writeFileSync(rulesetPath, '<?xml version="1.0"?><ruleset/>');
+			fs.mkdirSync(path.join(tmpDir, 'src'));
+			const filePath = path.join(tmpDir, 'src', 'file.php');
+			const result = await resolveStandard(makeSettings(), filePath);
+			assert.strictEqual(result, rulesetPath);
+		});
+
+		test('returns the configured standard when no config file exists', async () => {
+			const filePath = path.join(tmpDir, 'file.php');
+			const result = await resolveStandard(makeSettings({ standard: 'PSR12' }), filePath);
+			assert.strictEqual(result, 'PSR12');
+		});
+
+		test('returns null when no config file exists and no standard is configured', async () => {
+			const filePath = path.join(tmpDir, 'file.php');
+			const result = await resolveStandard(makeSettings(), filePath);
+			assert.strictEqual(result, null);
+		});
+
+		test('falls back to the configured standard for ignored files', async () => {
+			fs.writeFileSync(path.join(tmpDir, '.phpcs.xml'), '<?xml version="1.0"?><ruleset/>');
+			fs.mkdirSync(path.join(tmpDir, 'vendor'));
+			const filePath = path.join(tmpDir, 'vendor', 'file.php');
+			const result = await resolveStandard(
+				makeSettings({ standard: 'PSR12', ignorePatterns: ['**/vendor/**'] }),
+				filePath
+			);
+			assert.strictEqual(result, 'PSR12');
+		});
 	});
 
 });

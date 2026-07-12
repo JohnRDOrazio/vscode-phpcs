@@ -610,7 +610,7 @@ class PhpcsServer {
 				}
 				const phpcs = await PhpcsLinter.create(settings.executablePath);
 				phpcs.setLogger((message) => this.connection.console.log(message));
-				diagnostics = await phpcs.lint(document, settings);
+				diagnostics = (await phpcs.lint(document, settings)).diagnostics;
 			} catch(error) {
 				this.connection.console.error(`Error during linting: ${error}`);
 				throw new Error(this.getExceptionMessage(error, document));
