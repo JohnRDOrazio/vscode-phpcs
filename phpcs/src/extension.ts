@@ -97,7 +97,7 @@ export function activate(context: ExtensionContext) {
 			status.startProcessing(event.textDocument.uri, event.buffered);
 		});
 		client.onNotification(proto.DidEndValidateTextDocumentNotification.type, event => {
-			status.endProcessing(event.textDocument.uri, event.buffered);
+			status.endProcessing(event.textDocument.uri, event.buffered, event.standard);
 		});
 
 		/**
@@ -260,6 +260,10 @@ export function activate(context: ExtensionContext) {
 		context.subscriptions.push(config);
 		context.subscriptions.push(fixFileCommand);
 		context.subscriptions.push(fixAllFilesCommand);
+		context.subscriptions.push(
+			window.onDidChangeActiveTextEditor(() => status.updateStandardStatusBar()),
+			workspace.onDidCloseTextDocument(document => status.removeDocument(document.uri.toString()))
+		);
 	}).catch((error) => {
 		const message = error instanceof Error ? error.message : String(error);
 		window.showErrorMessage(format(SR.FailedToStartServer, message));

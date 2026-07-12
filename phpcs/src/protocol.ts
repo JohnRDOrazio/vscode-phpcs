@@ -43,6 +43,11 @@ export interface DidEndValidateTextDocumentParams {
 	 * Number of documents in queue
 	 */
 	buffered: number;
+	/**
+	 * The coding standard resolved for the lint run.
+	 * `undefined` when unknown (lint error), `null` when phpcs used its default.
+	 */
+	standard?: string | null;
 }
 
 /**
