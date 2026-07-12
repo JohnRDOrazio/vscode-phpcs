@@ -153,7 +153,7 @@ export class PhpcsLinter {
 			!semver.gte(this.executableVersion, '3.0.0') &&
 			shouldIgnoreFile(filePath, settings.ignorePatterns)
 		) {
-			return { diagnostics: [], standard: null };
+			return { diagnostics: [], standard };
 		}
 
 		// Build lint arguments using the extracted function

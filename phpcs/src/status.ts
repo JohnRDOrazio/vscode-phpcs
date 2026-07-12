@@ -110,6 +110,7 @@ export class PhpcsStatus {
 		// Create as needed
 		if (!this.standardStatusBarItem) {
 			this.standardStatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left);
+			this.standardStatusBarItem.name = 'PHPCS Standard';
 			this.standardStatusBarItem.command = 'phpcs.openStandard';
 		}
 		return this.standardStatusBarItem;
