@@ -47,5 +47,8 @@
     "test:integration": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/integration.test.ts test/fixer.test.ts",
     "test:coverage": "c8 --reporter=lcov --reporter=text node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts || true",
     "clean": "rimraf ../phpcs/server"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.7"
   }
 }
