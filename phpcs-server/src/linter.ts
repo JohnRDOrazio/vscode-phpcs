@@ -39,6 +39,15 @@ export { FATAL_ERROR_PATTERN } from "./linter-utils";
 
 export type LoggerFunction = (message: string) => void;
 
+/**
+ * Result of a lint run: the diagnostics produced and the coding standard
+ * that was resolved for the run (null when phpcs used its own default).
+ */
+export interface PhpcsLintResult {
+	diagnostics: Diagnostic[];
+	standard: string | null;
+}
+
 export class PhpcsLinter {
 
 	private executablePath: string;
@@ -105,7 +114,15 @@ export class PhpcsLinter {
 		}
 	}
 
-	public async lint(document: TextDocument, settings: PhpcsSettings): Promise<Diagnostic[]> {
+	/**
+	 * Lint a document by running phpcs against its content.
+	 *
+	 * @param document The text document to lint.
+	 * @param settings The resolved phpcs settings for the document.
+	 * @return The diagnostics produced and the coding standard resolved for
+	 *         the run (null when phpcs used its own default).
+	 */
+	public async lint(document: TextDocument, settings: PhpcsSettings): Promise<PhpcsLintResult> {
 
 		const { workspaceRoot } = settings;
 
@@ -131,7 +148,7 @@ export class PhpcsLinter {
 
 		// Return empty on empty text.
 		if (fileText === '') {
-			return [];
+			return { diagnostics: [], standard: null };
 		}
 
 		// Resolve coding standard (uses shared utility to find config files)
@@ -144,7 +161,7 @@ export class PhpcsLinter {
 			!semver.gte(this.executableVersion, '3.0.0') &&
 			shouldIgnoreFile(filePath, settings.ignorePatterns)
 		) {
-			return [];
+			return { diagnostics: [], standard };
 		}
 
 		// Build lint arguments using the extracted function
@@ -225,20 +242,23 @@ export class PhpcsLinter {
 		if (filePath !== undefined && semver.gte(this.executableVersion, '2.0.0')) {
 			const fileRealPath = extfs.realpathSync(filePath);
 			if (!data.files[fileRealPath]) {
-				return [];
+				return { diagnostics: [], standard };
 			}
 			({ messages } = data.files[fileRealPath]);
 		} else {
 			// PHPCS v1 can't associate a filename with STDIN input
 			if (!data.files.STDIN) {
-				return [];
+				return { diagnostics: [], standard };
 			}
 			({ messages } = data.files.STDIN);
 		}
 
 		// Create diagnostics using the extracted function
-		return messages.map(message =>
-			createDiagnosticFromMessage(document, message, settings.showSources)
-		);
+		return {
+			diagnostics: messages.map(message =>
+				createDiagnosticFromMessage(document, message, settings.showSources)
+			),
+			standard,
+		};
 	}
 }

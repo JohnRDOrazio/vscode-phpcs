@@ -155,6 +155,8 @@ export class PhpcbfFixer {
 			return createIgnoredFileResult(fileText);
 		}
 
+		this.log(strings.format(SR.PhpcbfUsingStandard, filePath ?? document.uri, standard ?? 'default'));
+
 		// Build fix arguments
 		const fixArgs = buildFixArguments({
 			executableVersion: this.executableVersion,

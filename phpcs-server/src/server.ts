@@ -545,17 +545,24 @@ class PhpcsServer {
 	 * Sends a notification for ending validation of a document.
 	 *
 	 * @param document The text document on which validation ended.
+	 * @param standard The coding standard resolved for the run; undefined when
+	 *                 unknown (lint error), null when phpcs used its default.
 	 */
-	private sendEndValidationNotification(document: TextDocument): void {
+	private sendEndValidationNotification(document: TextDocument, standard?: string | null): void {
 		this.validating.delete(document.uri);
 		this.connection.sendNotification(
 			proto.DidEndValidateTextDocumentNotification.type,
 			{
 				textDocument: TextDocumentIdentifier.create(document.uri),
-				buffered: this.queue.size
+				buffered: this.queue.size,
+				standard
 			}
 		);
-		this.connection.console.log(strings.format(SR.DidEndValidateTextDocument, document.uri));
+		if (standard === undefined) {
+			this.connection.console.log(strings.format(SR.DidEndValidateTextDocumentNoStandard, document.uri));
+		} else {
+			this.connection.console.log(strings.format(SR.DidEndValidateTextDocument, document.uri, standard ?? 'default'));
+		}
 	}
 
 	/**
@@ -602,6 +609,7 @@ class PhpcsServer {
 
 		if (this.validating.has(uri) === false) {
 			let diagnostics: Diagnostic[] = [];
+			let standard: string | null | undefined;
 			this.sendStartValidationNotification(document);
 			try {
 				if (!settings.executablePath) {
@@ -610,13 +618,15 @@ class PhpcsServer {
 				}
 				const phpcs = await PhpcsLinter.create(settings.executablePath);
 				phpcs.setLogger((message) => this.connection.console.log(message));
-				diagnostics = await phpcs.lint(document, settings);
+				const result = await phpcs.lint(document, settings);
+				diagnostics = result.diagnostics;
+				standard = result.standard;
 			} catch(error) {
 				this.connection.console.error(`Error during linting: ${error}`);
 				throw new Error(this.getExceptionMessage(error, document));
 			} finally {
 				this.sendDiagnostics({ uri, diagnostics });
-				this.sendEndValidationNotification(document);
+				this.sendEndValidationNotification(document, standard);
 			}
 		} else {
 			const inQueue: boolean = this.queue.has(uri);
