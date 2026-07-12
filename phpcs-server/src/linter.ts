@@ -95,7 +95,9 @@ export class PhpcsLinter {
 
 			let result: Buffer = cp.execSync(`"${executablePath}" --version`);
 
-			const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/i;
+			// Multiline flag: PHP notices (e.g. deprecation warnings) emitted by the
+			// project's own code can precede the version line (issue #31).
+			const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/im;
 			const versionMatches = result.toString().match(versionPattern);
 
 			if (versionMatches === null) {

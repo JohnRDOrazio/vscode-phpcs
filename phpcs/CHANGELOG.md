@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resolved ruleset file (or the `phpcs.standard` setting)
   ([#21](https://github.com/JohnRDOrazio/vscode-phpcs/issues/21))
 
+### Fixed
+
+- **PHP deprecation notices no longer break the extension**: version detection
+  for phpcs/phpcbf and JSON report parsing now tolerate PHP notices (e.g.
+  deprecation warnings from the project's own dependencies) printed before the
+  expected output
+  ([#31](https://github.com/JohnRDOrazio/vscode-phpcs/issues/31))
+
 ## [1.2.3] - 2026-01-10
 
 ### Added

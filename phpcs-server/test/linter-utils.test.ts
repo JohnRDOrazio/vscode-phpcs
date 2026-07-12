@@ -110,6 +110,20 @@ suite('Linter Utils', () => {
 			assert.deepStrictEqual(result.files, {});
 		});
 
+		test('should parse JSON preceded by PHP deprecation notices (issue #31)', () => {
+			const json = '{"totals":{"errors":1,"warnings":0},"files":{"/path/file.php":{"errors":1,"warnings":0,"messages":[]}}}';
+			const polluted = 'Deprecated: DI\\create(): Implicitly marking parameter $className as nullable is deprecated in /project/vendor/php-di/php-di/src/functions.php on line 35\n' + json;
+			const result = parsePhpcsOutput(polluted);
+			assert.ok(result.files['/path/file.php']);
+		});
+
+		test('should still throw when output contains a brace but no valid JSON', () => {
+			assert.throws(
+				() => parsePhpcsOutput('Deprecated: something {broken'),
+				(error: Error) => error.message.includes('invalid json')
+			);
+		});
+
 		test('should throw on invalid JSON with raw output preview', () => {
 			const invalidInput = 'this is not valid json';
 			assert.throws(

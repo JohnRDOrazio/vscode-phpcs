@@ -5,8 +5,11 @@
 'use strict';
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as semver from 'semver';
-import { FATAL_ERROR_PATTERN } from '../src/linter';
+import { FATAL_ERROR_PATTERN, PhpcsLinter } from '../src/linter';
 import { transformIgnorePattern, isIgnorePatternMatch } from '../src/linter-utils';
 
 /**
@@ -195,7 +198,8 @@ suite('Linter Version Handling', () => {
 	 * Test version string parsing (from --version output)
 	 */
 	suite('Version string parsing', () => {
-		const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/i;
+		// Mirrors the pattern in PhpcsLinter.create(); keep the flags in sync.
+		const versionPattern: RegExp = /^PHP_CodeSniffer version (\d+\.\d+\.\d+)/im;
 
 		const parseVersion = (output: string): string | null => {
 			const matches = output.match(versionPattern);
@@ -229,6 +233,68 @@ suite('Linter Version Handling', () => {
 
 		test('should return null for empty output', () => {
 			assert.strictEqual(parseVersion(''), null);
+		});
+	});
+
+	/**
+	 * Test PhpcsLinter.create() version detection against fake executables,
+	 * including output polluted by PHP deprecation notices (issue #31).
+	 */
+	suite('PhpcsLinter.create version detection', () => {
+		const DEPRECATION_LINES = [
+			'PHP Deprecated:  DI\\create(): Implicitly marking parameter $className as nullable is deprecated, the explicit nullable type must be used instead in /project/vendor/php-di/php-di/src/functions.php on line 35',
+			'',
+			'Deprecated: DI\\create(): Implicitly marking parameter $className as nullable is deprecated, the explicit nullable type must be used instead in /project/vendor/php-di/php-di/src/functions.php on line 35',
+		];
+		const VERSION_LINE = 'PHP_CodeSniffer version 3.12.0 (stable) by Squiz and PHPCSStandards';
+
+		let tmpDir: string;
+
+		setup(() => {
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-fake-executable-'));
+		});
+
+		teardown(() => {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		});
+
+		/**
+		 * Create a fake phpcs executable that prints the given lines on any invocation.
+		 */
+		function makeFakeExecutable(lines: string[]): string {
+			if (process.platform === 'win32') {
+				const file = path.join(tmpDir, 'fake-phpcs.cmd');
+				const body = ['@echo off', ...lines.map(line => (line === '' ? 'echo.' : `echo ${line}`))].join('\r\n');
+				fs.writeFileSync(file, body);
+				return file;
+			}
+			const file = path.join(tmpDir, 'fake-phpcs');
+			// printf '%s\n' (not echo): some /bin/sh implementations (dash) interpret
+			// backslash escapes like \c in echo arguments, truncating the output.
+			const body = ['#!/bin/sh', ...lines.map(line => `printf '%s\\n' '${line}'`)].join('\n');
+			fs.writeFileSync(file, body);
+			fs.chmodSync(file, 0o755);
+			return file;
+		}
+
+		test('should detect the version from clean output', async () => {
+			const executable = makeFakeExecutable([VERSION_LINE]);
+			const linter = await PhpcsLinter.create(executable);
+			assert.ok(linter instanceof PhpcsLinter);
+		});
+
+		test('should detect the version when preceded by PHP deprecation notices (issue #31)', async () => {
+			const executable = makeFakeExecutable([...DEPRECATION_LINES, VERSION_LINE]);
+			const linter = await PhpcsLinter.create(executable);
+			assert.ok(linter instanceof PhpcsLinter);
+		});
+
+		test('should reject when the output contains no version line', async () => {
+			const executable = makeFakeExecutable(['No version information here']);
+			await assert.rejects(
+				() => PhpcsLinter.create(executable),
+				(error: Error) => error.message.includes('Unable to locate phpcs')
+			);
 		});
 	});
 

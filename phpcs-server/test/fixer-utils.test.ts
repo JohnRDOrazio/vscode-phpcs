@@ -436,6 +436,16 @@ suite('Fixer Utils', () => {
 			assert.strictEqual(version, null);
 		});
 
+		test('should parse version preceded by PHP deprecation notices (issue #31)', () => {
+			const polluted = [
+				'PHP Deprecated:  DI\\create(): Implicitly marking parameter $className as nullable is deprecated, the explicit nullable type must be used instead in /project/vendor/php-di/php-di/src/functions.php on line 35',
+				'',
+				'Deprecated: DI\\create(): Implicitly marking parameter $className as nullable is deprecated, the explicit nullable type must be used instead in /project/vendor/php-di/php-di/src/functions.php on line 35',
+				'PHP_CodeSniffer version 3.12.0 (stable) by Squiz and PHPCSStandards',
+			].join('\n');
+			assert.strictEqual(parseVersionString(polluted), '3.12.0');
+		});
+
 		test('should parse version with extra text', () => {
 			const version = parseVersionString('PHP_CodeSniffer version 3.9.1 (dev) by PHPCSStandards\nUsage: phpcs [options]');
 			assert.strictEqual(version, '3.9.1');
