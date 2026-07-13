@@ -291,6 +291,33 @@ Configure PHPCBF to automatically fix issues when saving a file.
 }
 ```
 
+## Formatting
+
+The extension registers as a document formatter for PHP files, so PHPCBF can
+be used through VS Code's standard formatting commands:
+
+```json
+"[php]": {
+  "editor.defaultFormatter": "johnrdorazio.vscode-phpcs",
+  "editor.formatOnSave": true
+}
+```
+
+With this configuration, **Format Document** and format-on-save run PHPCBF on
+the current buffer (unsaved changes included) using the resolved coding
+standard.
+
+Notes:
+
+- **Format Selection** is not supported: PHPCBF can only fix whole documents.
+- Editor indentation preferences (tab size, spaces) are ignored — formatting
+  follows the coding standard, like running `phpcbf` on the command line.
+- Formatting requires `phpcs.phpcbfEnable` (on by default). When disabled,
+  Format Document shows a warning instead.
+- `editor.formatOnSave` and `phpcs.phpcbfOnSave` both fix on save — enable
+  only one. Prefer `editor.formatOnSave` if you set a default formatter;
+  `phpcs.phpcbfOnSave` works without one.
+
 ## Advanced Configuration
 
 ### **phpcs.composerJsonPath**

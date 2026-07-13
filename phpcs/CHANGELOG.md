@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   item shows the standard used for the active PHP file — click it to open the
   resolved ruleset file (or the `phpcs.standard` setting)
   ([#21](https://github.com/JohnRDOrazio/vscode-phpcs/issues/21))
+- **Document formatter support**: the extension registers as a VS Code
+  formatter for PHP, so `editor.defaultFormatter`, **Format Document**, and
+  `editor.formatOnSave` now run PHPCBF on the current buffer
+  ([#23](https://github.com/JohnRDOrazio/vscode-phpcs/issues/23))
 
 ### Fixed
 

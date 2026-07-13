@@ -14,6 +14,7 @@ import {
 	Diagnostic,
 	DidChangeConfigurationParams,
 	DidChangeWatchedFilesParams,
+	DocumentFormattingParams,
 	ExecuteCommandParams,
 	InitializeParams,
 	InitializeResult,
@@ -33,6 +34,7 @@ import { URI } from 'vscode-uri';
 
 import { PhpcsLinter } from "./linter";
 import { PhpcbfFixer } from "./fixer";
+import { FixResult } from "./fixer-utils";
 import { PhpcsSettings } from "./settings";
 import { StringResources as SR } from "./strings";
 import {
@@ -50,6 +52,8 @@ class PhpcsServer {
 	private documentDiagnostics: Map<string, Diagnostic[]>;
 	// Track ongoing PHPCBF fix operations to prevent concurrent fixes on the same file
 	private fixingDocuments: Map<string, Promise<void>>;
+	// Show the "PHPCBF is disabled" formatting warning at most once per session
+	private phpcbfDisabledWarningShown: boolean = false;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -103,6 +107,7 @@ class PhpcsServer {
 		this.connection.onCodeAction(this.safeEventHandler(this.onCodeAction));
 		this.connection.onExecuteCommand(this.safeEventHandler(this.onExecuteCommand));
 		this.connection.onWillSaveTextDocumentWaitUntil(this.safeEventHandler(this.onWillSaveTextDocument));
+		this.connection.onDocumentFormatting(this.safeEventHandler(this.onDocumentFormatting));
 		this.documents.onDidChangeContent(this.safeEventHandler(this.onDidChangeDocument));
 		this.documents.onDidOpen(this.safeEventHandler(this.onDidOpenDocument));
 		this.documents.onDidSave(this.safeEventHandler(this.onDidSaveDocument));
@@ -158,6 +163,7 @@ class PhpcsServer {
 					save: { includeText: false },
 				},
 				codeActionProvider: true,
+				documentFormattingProvider: true,
 				executeCommandProvider: {
 					commands: [PHPCBF_FIX_FILE_COMMAND],
 				},
@@ -183,6 +189,7 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onDidChangeConfiguration(params: DidChangeConfigurationParams): Promise<void> {
+		this.phpcbfDisabledWarningShown = false;
 		if (this.hasConfigurationCapability) {
 			this.documentSettings.clear();
 		} else {
@@ -230,8 +237,6 @@ class PhpcsServer {
 			return [];
 		}
 
-		const uri = document.uri;
-
 		// Only process PHP files
 		if (document.languageId !== 'php') {
 			return [];
@@ -249,38 +254,146 @@ class PhpcsServer {
 			return [];
 		}
 
+		return this.computeFixEdits(document, settings, phpcbfPath, false);
+	}
+
+	/**
+	 * Run PHPCBF on a document and return the resulting text edits.
+	 *
+	 * Shared by the on-save fix path and the document formatting handler.
+	 * Registers the operation in fixingDocuments for concurrency control.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings for the document.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param surfaceErrors When true (explicit formatting), failures show an
+	 *                      error toast and unfixable issues show an info
+	 *                      notice; when false (on-save), failures are logged
+	 *                      only and never block saving.
+	 * @return The edits to apply, or an empty array.
+	 */
+	private async computeFixEdits(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		surfaceErrors: boolean
+	): Promise<TextEdit[]> {
+		const uri = document.uri;
+
 		// Check if a fix is already in progress for this document.
 		// Note: A small race window exists where two callers could both pass this check
 		// before either registers in fixingDocuments. This is acceptable since double-fixing
 		// is a UX annoyance rather than a correctness issue, and the window is small in practice.
 		if (this.fixingDocuments.has(uri)) {
-			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping on-save fix`);
+			this.connection.console.log(`[PHPCBF] Fix already in progress for: ${uri}, skipping duplicate request`);
 			return [];
 		}
 
 		const fixOperation = (async (): Promise<TextEdit[]> => {
 			try {
-				const fixer = await PhpcbfFixer.create(phpcbfPath);
-				fixer.setLogger((message) => this.connection.console.log(message));
+				const result = await this.runPhpcbf(document, settings, phpcbfPath, surfaceErrors);
+				if (!result) {
+					return [];
+				}
 
-				const result = await fixer.fix(document, settings);
+				if (surfaceErrors && result.hasUnfixableIssues) {
+					this.connection.window.showInformationMessage(SR.PhpcbfUnfixableIssues);
+				}
+
 				if (result.fixed && result.content !== document.getText()) {
 					return [createFullDocumentEdit(document, result.content)];
 				}
 			} catch (error) {
-				// Log error but don't block save
-				this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, String(error)));
+				const message = error instanceof Error ? error.message : String(error);
+				if (surfaceErrors) {
+					this.connection.console.error(strings.format(SR.PhpcbfError, message));
+					this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, message));
+				} else {
+					// Log error but don't block save
+					this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, message));
+				}
 			}
 			return [];
 		})();
 
-		// Track for concurrency control across on-save + command-based fixes
+		// Track for concurrency control across on-save, formatting, and command-based fixes
 		this.fixingDocuments.set(uri, fixOperation.then((): void => undefined, (): void => undefined));
 		try {
 			return await fixOperation;
 		} finally {
 			this.fixingDocuments.delete(uri);
 		}
+	}
+
+	/**
+	 * Create a PHPCBF fixer wired to the connection logger, run it on a
+	 * document, and handle a failed result.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings for the document.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param surfaceErrors When true, a failed result shows an error toast in
+	 *                      addition to the log; when false it is logged only.
+	 * @return The fix result, or null when the run reported an error.
+	 */
+	private async runPhpcbf(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		surfaceErrors: boolean
+	): Promise<FixResult | null> {
+		const fixer = await PhpcbfFixer.create(phpcbfPath);
+		fixer.setLogger((message) => this.connection.console.log(message));
+
+		const result = await fixer.fix(document, settings);
+
+		if (result.error) {
+			if (surfaceErrors) {
+				this.connection.console.error(strings.format(SR.PhpcbfError, result.error));
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+			} else {
+				this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, result.error));
+			}
+			return null;
+		}
+
+		return result;
+	}
+
+	/**
+	 * Handles textDocument/formatting requests by running PHPCBF on the document.
+	 *
+	 * The LSP formatting options (tab size, spaces) are ignored: PHPCBF formats
+	 * according to the resolved coding standard, not editor preferences.
+	 *
+	 * @param params The document formatting parameters.
+	 * @return Text edits that reformat the document, or an empty array.
+	 */
+	private async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
+		const document = this.documents.get(params.textDocument.uri);
+		if (!document || document.languageId !== 'php') {
+			return [];
+		}
+
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
+			this.connection.console.log(SR.PhpcbfDisabledWarning);
+			// editor.formatOnSave issues the same request on every save; warn once per session.
+			if (!this.phpcbfDisabledWarningShown) {
+				this.phpcbfDisabledWarningShown = true;
+				this.connection.window.showWarningMessage(SR.PhpcbfDisabledWarning);
+			}
+			return [];
+		}
+
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFoundWarning);
+			return [];
+		}
+
+		return this.computeFixEdits(document, settings, phpcbfPath, true);
 	}
 
 	/**
@@ -402,9 +515,7 @@ class PhpcsServer {
 
 		const phpcbfPath = this.resolvePhpcbfPath(settings);
 		if (!phpcbfPath) {
-			this.connection.window.showWarningMessage(
-				'PHPCBF executable not found. Please set phpcs.phpcbfExecutablePath or ensure phpcbf is alongside phpcs.'
-			);
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFoundWarning);
 			return;
 		}
 
@@ -446,13 +557,9 @@ class PhpcsServer {
 	): Promise<void> {
 		try {
 			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
-			const fixer = await PhpcbfFixer.create(phpcbfPath);
-			fixer.setLogger((message) => this.connection.console.log(message));
 
-			const result = await fixer.fix(document, settings);
-
-			if (result.error) {
-				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+			const result = await this.runPhpcbf(document, settings, phpcbfPath, true);
+			if (!result) {
 				return;
 			}
 
