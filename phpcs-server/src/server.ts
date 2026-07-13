@@ -297,6 +297,7 @@ class PhpcsServer {
 
 				if (result.error) {
 					if (surfaceErrors) {
+						this.connection.console.error(strings.format(SR.PhpcbfError, result.error));
 						this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
 					} else {
 						this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, result.error));
