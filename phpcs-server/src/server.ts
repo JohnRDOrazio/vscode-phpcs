@@ -34,6 +34,7 @@ import { URI } from 'vscode-uri';
 
 import { PhpcsLinter } from "./linter";
 import { PhpcbfFixer } from "./fixer";
+import { FixResult } from "./fixer-utils";
 import { PhpcsSettings } from "./settings";
 import { StringResources as SR } from "./strings";
 import {
@@ -290,18 +291,8 @@ class PhpcsServer {
 
 		const fixOperation = (async (): Promise<TextEdit[]> => {
 			try {
-				const fixer = await PhpcbfFixer.create(phpcbfPath);
-				fixer.setLogger((message) => this.connection.console.log(message));
-
-				const result = await fixer.fix(document, settings);
-
-				if (result.error) {
-					if (surfaceErrors) {
-						this.connection.console.error(strings.format(SR.PhpcbfError, result.error));
-						this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
-					} else {
-						this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, result.error));
-					}
+				const result = await this.runPhpcbf(document, settings, phpcbfPath, surfaceErrors);
+				if (!result) {
 					return [];
 				}
 
@@ -332,6 +323,41 @@ class PhpcsServer {
 		} finally {
 			this.fixingDocuments.delete(uri);
 		}
+	}
+
+	/**
+	 * Create a PHPCBF fixer wired to the connection logger, run it on a
+	 * document, and handle a failed result.
+	 *
+	 * @param document The text document to fix.
+	 * @param settings The PHPCS settings for the document.
+	 * @param phpcbfPath Path to the PHPCBF executable.
+	 * @param surfaceErrors When true, a failed result shows an error toast in
+	 *                      addition to the log; when false it is logged only.
+	 * @return The fix result, or null when the run reported an error.
+	 */
+	private async runPhpcbf(
+		document: TextDocument,
+		settings: PhpcsSettings,
+		phpcbfPath: string,
+		surfaceErrors: boolean
+	): Promise<FixResult | null> {
+		const fixer = await PhpcbfFixer.create(phpcbfPath);
+		fixer.setLogger((message) => this.connection.console.log(message));
+
+		const result = await fixer.fix(document, settings);
+
+		if (result.error) {
+			if (surfaceErrors) {
+				this.connection.console.error(strings.format(SR.PhpcbfError, result.error));
+				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+			} else {
+				this.connection.console.error(strings.format(SR.PhpcbfOnSaveFailed, result.error));
+			}
+			return null;
+		}
+
+		return result;
 	}
 
 	/**
@@ -531,13 +557,9 @@ class PhpcsServer {
 	): Promise<void> {
 		try {
 			this.connection.console.log(strings.format(SR.PhpcbfFixingDocument, uri));
-			const fixer = await PhpcbfFixer.create(phpcbfPath);
-			fixer.setLogger((message) => this.connection.console.log(message));
 
-			const result = await fixer.fix(document, settings);
-
-			if (result.error) {
-				this.connection.window.showErrorMessage(strings.format(SR.PhpcbfErrorMessage, result.error));
+			const result = await this.runPhpcbf(document, settings, phpcbfPath, true);
+			if (!result) {
 				return;
 			}
 
