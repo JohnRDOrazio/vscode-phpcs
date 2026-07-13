@@ -14,6 +14,7 @@ import {
 	Diagnostic,
 	DidChangeConfigurationParams,
 	DidChangeWatchedFilesParams,
+	DocumentFormattingParams,
 	ExecuteCommandParams,
 	InitializeParams,
 	InitializeResult,
@@ -50,6 +51,8 @@ class PhpcsServer {
 	private documentDiagnostics: Map<string, Diagnostic[]>;
 	// Track ongoing PHPCBF fix operations to prevent concurrent fixes on the same file
 	private fixingDocuments: Map<string, Promise<void>>;
+	// Show the "PHPCBF is disabled" formatting warning at most once per session
+	private phpcbfDisabledWarningShown: boolean = false;
 
 	// Cache the settings of all open documents
 	private hasConfigurationCapability: boolean = false;
@@ -103,6 +106,7 @@ class PhpcsServer {
 		this.connection.onCodeAction(this.safeEventHandler(this.onCodeAction));
 		this.connection.onExecuteCommand(this.safeEventHandler(this.onExecuteCommand));
 		this.connection.onWillSaveTextDocumentWaitUntil(this.safeEventHandler(this.onWillSaveTextDocument));
+		this.connection.onDocumentFormatting(this.safeEventHandler(this.onDocumentFormatting));
 		this.documents.onDidChangeContent(this.safeEventHandler(this.onDidChangeDocument));
 		this.documents.onDidOpen(this.safeEventHandler(this.onDidOpenDocument));
 		this.documents.onDidSave(this.safeEventHandler(this.onDidSaveDocument));
@@ -158,6 +162,7 @@ class PhpcsServer {
 					save: { includeText: false },
 				},
 				codeActionProvider: true,
+				documentFormattingProvider: true,
 				executeCommandProvider: {
 					commands: [PHPCBF_FIX_FILE_COMMAND],
 				},
@@ -183,6 +188,7 @@ class PhpcsServer {
 	 * @return void
 	 */
 	private async onDidChangeConfiguration(params: DidChangeConfigurationParams): Promise<void> {
+		this.phpcbfDisabledWarningShown = false;
 		if (this.hasConfigurationCapability) {
 			this.documentSettings.clear();
 		} else {
@@ -325,6 +331,42 @@ class PhpcsServer {
 		} finally {
 			this.fixingDocuments.delete(uri);
 		}
+	}
+
+	/**
+	 * Handles textDocument/formatting requests by running PHPCBF on the document.
+	 *
+	 * The LSP formatting options (tab size, spaces) are ignored: PHPCBF formats
+	 * according to the resolved coding standard, not editor preferences.
+	 *
+	 * @param params The document formatting parameters.
+	 * @return Text edits that reformat the document, or an empty array.
+	 */
+	private async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
+		const document = this.documents.get(params.textDocument.uri);
+		if (!document || document.languageId !== 'php') {
+			return [];
+		}
+
+		const settings = await this.getDocumentSettings(document);
+
+		if (!settings.phpcbfEnable) {
+			this.connection.console.log(SR.PhpcbfDisabledWarning);
+			// editor.formatOnSave issues the same request on every save; warn once per session.
+			if (!this.phpcbfDisabledWarningShown) {
+				this.phpcbfDisabledWarningShown = true;
+				this.connection.window.showWarningMessage(SR.PhpcbfDisabledWarning);
+			}
+			return [];
+		}
+
+		const phpcbfPath = this.resolvePhpcbfPath(settings);
+		if (!phpcbfPath) {
+			this.connection.window.showWarningMessage(SR.PhpcbfExecutableNotFoundWarning);
+			return [];
+		}
+
+		return this.computeFixEdits(document, settings, phpcbfPath, true);
 	}
 
 	/**
