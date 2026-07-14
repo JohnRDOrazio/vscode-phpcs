@@ -27,6 +27,7 @@ import {
 	extractFatalError,
 	extractStdoutError,
 	getV4ExitCodeError,
+	isNoFilesCheckedMessage,
 	parsePhpcsOutput,
 	prepareFileText,
 	resolveStandard,
@@ -201,8 +202,13 @@ export class PhpcsLinter {
 			stderr,
 		};
 
-		// Handle PHPCS v4+ exit codes first.
+		// Handle PHPCS v4+ specific cases first.
 		if (this.isV4OrAbove()) {
+			if (exitCode === 16 && isNoFilesCheckedMessage(stderr)) {
+				this.log('[PHPCS] No files were checked for current lint input (filtered by PHPCS rules).');
+				return { diagnostics: [], standard };
+			}
+
 			const exitCodeError = getV4ExitCodeError(exitCode);
 			if (exitCodeError) {
 				throw new Error(exitCodeError);
