@@ -386,6 +386,18 @@ export function extractStdoutError(stdout: string): { message: string; codingSta
 }
 
 /**
+ * Check if PHPCS emitted the benign "No files were checked" message.
+ * The message may be written to STDERR depending on PHPCS behavior.
+ * This isNoFilesCheckedMessage helper only matches message text; the caller
+ * decides which stream to inspect.
+ * @param text The emitted PHPCS text to inspect
+ * @returns True if the text indicates no files were checked
+ */
+export function isNoFilesCheckedMessage(text: string): boolean {
+	return /ERROR:\s*No files were checked\./i.test(text);
+}
+
+/**
  * Check if a PHPCS v4 exit code indicates an error.
  * @param exitCode The exit code from PHPCS
  * @returns Error message if exit code indicates error, null otherwise

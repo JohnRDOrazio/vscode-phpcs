@@ -166,6 +166,23 @@ suite('Fixer Utils', () => {
 			assert.ok(result.error!.includes('processing error'));
 		});
 
+		test('should treat exit code 16 with "No files were checked" as benign in v4+ (issue #29)', () => {
+			const stderr = 'ERROR: No files were checked.\nAll specified files were excluded or did not match filtering rules.';
+			const result = parseFixResult('', stderr, PhpcbfExitCode.ProcessingError, originalContent, true);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, originalContent);
+			assert.strictEqual(result.hasUnfixableIssues, false);
+			assert.strictEqual(result.error, undefined);
+		});
+
+		test('should still return error for exit code 16 with unrelated stderr in v4+', () => {
+			const stderr = 'ERROR: Referenced sniff "Foo.Bar.Baz" does not exist';
+			const result = parseFixResult('', stderr, PhpcbfExitCode.ProcessingError, originalContent, true);
+			assert.strictEqual(result.fixed, false);
+			assert.ok(result.error);
+			assert.ok(result.error!.includes('processing error'));
+		});
+
 		test('should return error for exit code 64 (requirements not met) in v4+', () => {
 			const result = parseFixResult('', '', PhpcbfExitCode.RequirementsNotMet, originalContent, true);
 			assert.strictEqual(result.fixed, false);

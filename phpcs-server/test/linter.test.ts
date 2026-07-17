@@ -9,9 +9,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as semver from 'semver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { FATAL_ERROR_PATTERN, PhpcsLinter } from '../src/linter';
 import { parseVersionString } from '../src/fixer-utils';
 import { transformIgnorePattern, isIgnorePatternMatch } from '../src/linter-utils';
+import { PhpcsSettings } from '../src/settings';
 
 /**
  * Tests for PHPCS version comparison logic used in linter.ts
@@ -290,6 +292,111 @@ suite('Linter Version Handling', () => {
 			await assert.rejects(
 				() => PhpcsLinter.create(executable),
 				(error: Error) => error.message.includes('Unable to locate phpcs')
+			);
+		});
+	});
+
+	/**
+	 * Test PhpcsLinter.lint() handling of PHPCS v4 exit code 16 using fake
+	 * executables, covering the benign "No files were checked" case where the
+	 * ruleset filtered out the file entirely (issue #29).
+	 */
+	suite('PhpcsLinter.lint v4 exit code 16 handling', () => {
+		let tmpDir: string;
+
+		setup(() => {
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-fake-v4-'));
+		});
+
+		teardown(() => {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		});
+
+		/**
+		 * Create a fake phpcs v4 executable: reports version 4.0.1 when invoked
+		 * with --version, otherwise prints the given lines to STDERR and exits 16.
+		 */
+		function makeFakeV4Executable(stderrLines: string[]): string {
+			if (process.platform === 'win32') {
+				const file = path.join(tmpDir, 'fake-phpcs.cmd');
+				const body = [
+					'@echo off',
+					'for %%a in (%*) do (',
+					'if "%%a"=="--version" (',
+					'echo PHP_CodeSniffer version 4.0.1',
+					'exit /b 0',
+					')',
+					')',
+					...stderrLines.map(line => `1>&2 echo ${line}`),
+					'exit /b 16',
+				].join('\r\n');
+				fs.writeFileSync(file, body);
+				return file;
+			}
+			const file = path.join(tmpDir, 'fake-phpcs');
+			const body = [
+				'#!/bin/sh',
+				'for arg in "$@"; do',
+				'	if [ "$arg" = "--version" ]; then',
+				"	printf '%s\\n' 'PHP_CodeSniffer version 4.0.1'",
+				'	exit 0',
+				'	fi',
+				'done',
+				...stderrLines.map(line => `printf '%s\\n' '${line}' >&2`),
+				'exit 16',
+			].join('\n');
+			fs.writeFileSync(file, body);
+			fs.chmodSync(file, 0o755);
+			return file;
+		}
+
+		function makeSettings(): PhpcsSettings {
+			return {
+				enable: true,
+				workspaceRoot: null,
+				executablePath: null,
+				composerJsonPath: null,
+				standard: null,
+				autoConfigSearch: false,
+				showSources: false,
+				showWarnings: true,
+				ignorePatterns: [],
+				ignoreSource: [],
+				warningSeverity: 5,
+				errorSeverity: 5,
+				lintOnOpen: true,
+				lintOnSave: true,
+				lintOnType: true,
+				queueBuffer: 10,
+				lintOnlyOpened: true,
+				phpcbfEnable: false,
+				phpcbfExecutablePath: null,
+				phpcbfOnSave: false,
+				phpcbfTimeout: 60,
+			};
+		}
+
+		const document = TextDocument.create('untitled:test.php', 'php', 1, '<?php $a = 1;\n');
+
+		test('should return empty diagnostics for "No files were checked" (issue #29)', async () => {
+			const executable = makeFakeV4Executable([
+				'ERROR: No files were checked.',
+				'All specified files were excluded or did not match filtering rules.',
+			]);
+			const linter = await PhpcsLinter.create(executable);
+			const result = await linter.lint(document, makeSettings());
+			assert.deepStrictEqual(result.diagnostics, []);
+			assert.strictEqual(result.standard, null);
+		});
+
+		test('should still throw for exit code 16 with unrelated stderr', async () => {
+			const executable = makeFakeV4Executable([
+				'ERROR: Referenced sniff "Foo.Bar.Baz" does not exist',
+			]);
+			const linter = await PhpcsLinter.create(executable);
+			await assert.rejects(
+				() => linter.lint(document, makeSettings()),
+				(error: Error) => error.message.includes('processing error (exit code 16)')
 			);
 		});
 	});

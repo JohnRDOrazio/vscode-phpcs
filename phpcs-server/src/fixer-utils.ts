@@ -7,6 +7,8 @@
 import * as path from 'path';
 import * as semver from 'semver';
 
+import { isNoFilesCheckedMessage } from './linter-utils';
+
 /**
  * Options for building PHPCBF fix arguments.
  */
@@ -119,6 +121,16 @@ export function parseFixResult(
 ): FixResult {
 	// Check for processing errors (v4+)
 	if (isV4OrAbove && exitCode === PhpcbfExitCode.ProcessingError) {
+		// Benign case: the ruleset filtered out the file (e.g. via an
+		// exclude-pattern), so PHPCBF checked nothing — treat as "no changes"
+		// rather than surfacing an error.
+		if (isNoFilesCheckedMessage(stderr)) {
+			return {
+				fixed: false,
+				content: originalContent,
+				hasUnfixableIssues: false,
+			};
+		}
 		return {
 			fixed: false,
 			content: originalContent,

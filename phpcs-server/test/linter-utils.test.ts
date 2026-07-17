@@ -19,6 +19,7 @@ import {
 	extractStdoutError,
 	getV4ExitCodeError,
 	isIgnorePatternMatch,
+	isNoFilesCheckedMessage,
 	parsePhpcsOutput,
 	PhpcsExecutionContext,
 	prepareFileText,
@@ -464,6 +465,24 @@ suite('Linter Utils', () => {
 
 		test('should return null for null exit code', () => {
 			assert.strictEqual(getV4ExitCodeError(null), null);
+		});
+
+	});
+
+	suite('isNoFilesCheckedMessage', () => {
+
+		test('should detect no-files-checked message', () => {
+			const output = 'ERROR: No files were checked.\nAll specified files were excluded or did not match filtering rules.';
+			assert.strictEqual(isNoFilesCheckedMessage(output), true);
+		});
+
+		test('should return false for generic error output', () => {
+			const output = 'ERROR: Some error occurred';
+			assert.strictEqual(isNoFilesCheckedMessage(output), false);
+		});
+
+		test('should return false for empty output', () => {
+			assert.strictEqual(isNoFilesCheckedMessage(''), false);
 		});
 
 	});
