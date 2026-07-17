@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deprecation warnings from the project's own dependencies) printed before the
   expected output
   ([#31](https://github.com/JohnRDOrazio/vscode-phpcs/issues/31))
+- **No more error toast for files excluded by the PHPCS ruleset** (PHPCS v4):
+  when the ruleset filters out the file being linted or fixed (e.g. via an
+  `exclude-pattern`), PHPCS v4 exits with code 16 and "No files were checked" —
+  this is now treated as a benign "nothing to check" result for both linting
+  and PHPCBF instead of surfacing a processing-error toast on every save.
+  Thanks [@Kwaadpepper](https://github.com/Kwaadpepper) for the report and fix
+  ([#29](https://github.com/JohnRDOrazio/vscode-phpcs/issues/29),
+  [#30](https://github.com/JohnRDOrazio/vscode-phpcs/pull/30))
 
 ### Security
 
