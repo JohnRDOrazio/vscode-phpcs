@@ -1,11 +1,14 @@
 # PHPCBF Selective Fixes Implementation Plan
 
-> **ABANDONED (2026-07-18):** Task 1's validation spike falsified the design's
-> core assumption (`editor.action.codeAction` has no `preview` argument; see
-> the Outcome section of the companion spec). The effort was stopped by
-> decision; no task beyond the spike was executed. Kept as a record.
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **ABANDONED (2026-07-18) — DO NOT EXECUTE.** Task 1's validation spike
+> falsified the design's core assumption (`editor.action.codeAction` has no
+> `preview` argument; see the Outcome section of the companion spec). The
+> effort was stopped by decision; no task beyond the spike was executed, and
+> none of the features described below (preview command, sniff-scoped fixes,
+> `phpcbfSaveOnFix`, `source.fixAll.phpcs`) exist in the extension. This
+> document is a historical record only: task instructions — including
+> Task 11's README/CHANGELOG copy — describe what *would have been* built
+> and must not be applied to the repository.
 
 **Goal:** Per-change accept/reject preview of PHPCBF fixes via VS Code's native Refactor Preview panel, plus sniff-scoped quick fixes, replacing the abandoned custom-UI approach of PR #19.
 
