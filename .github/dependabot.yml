@@ -1,0 +1,84 @@
+# Dependabot configuration for vscode-phpcs.
+#
+# Unlike the sibling PHP repositories there is no `target-branch` here: this
+# repository's default branch is `develop`, which is also the branch releases
+# are cut from, so version updates belong there directly.
+#
+# Minor and patch updates are grouped into a single pull request per ecosystem
+# and auto-merged once the required checks on `develop` pass (see
+# .github/workflows/dependabot-auto-merge.yml). Major updates always fall out
+# of the groups into their own pull request and are always reviewed by hand.
+
+version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    # Wait 7 days before proposing updates to newly published versions, to
+    # reduce exposure to a compromised or yanked release (supply-chain).
+    cooldown:
+      default-days: 7
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+    commit-message:
+      prefix: 'ci'
+    # The workflows pin actions by commit SHA with the version in a trailing
+    # comment; Dependabot rewrites both together, which is the whole reason the
+    # pins stay readable.
+    groups:
+      github-actions:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: 'npm'
+    # Three independent installs, none of them npm workspaces: the repository
+    # root (build, test and lint tooling), the VS Code extension client, and the
+    # language server. Listing them together lets a single grouped pull request
+    # span all three.
+    directories:
+      - '/'
+      - '/phpcs'
+      - '/phpcs-server'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 7
+    # Dependabot's default ceiling on open version-update PRs is five. Once it
+    # is reached Dependabot stops opening new ones — silently, with nothing to
+    # indicate an update was withheld — so a group can be starved by unrelated
+    # PRs sitting in review. Ten leaves headroom for the groups below plus the
+    # major-version PRs and a security update or two.
+    open-pull-requests-limit: 10
+    labels:
+      - 'dependencies'
+      - 'javascript'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+    # Groups are matched in the order they are declared — a dependency joins the
+    # FIRST group whose patterns match — so the specific group must precede the
+    # catch-all.
+    groups:
+      # `@types/vscode` must never move ahead of `engines.vscode` in
+      # phpcs/package.json: vsce refuses to package an extension whose types are
+      # newer than the engine it declares. The `lint` job runs `vsce package`
+      # precisely to catch that, so such a bump fails a required check and is
+      # left unmerged. It still needs its own pull request: inside the group
+      # below it would drag every other weekly minor and patch down with it.
+      # Raising it means deciding to raise the minimum supported VS Code version
+      # too, which is a judgement call, not a dependency bump.
+      types-vscode:
+        patterns:
+          - '@types/vscode'
+      # One pull request per week covering every minor and patch bump across all
+      # three directories, which also keeps the devDependencies shared between
+      # them (mocha, tsx, typescript, …) on the same version everywhere.
+      npm-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
