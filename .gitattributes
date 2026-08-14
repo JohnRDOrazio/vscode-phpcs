@@ -1,0 +1,15 @@
+# Line endings.
+#
+# .editorconfig already asks editors for `end_of_line = lf`, but nothing there
+# is enforced by git: a contributor whose editor ignores it, or who has
+# core.autocrlf=true (the default on Windows installs, and on GitHub's Windows
+# runners), can still introduce CRLF. This makes LF true in the repository and
+# in every working tree regardless of platform or local git config.
+#
+# The index was already 100% LF when this file was added — 81 text files, zero
+# CRLF — so it normalises nothing and introduces no churn. It is preventive.
+* text=auto eol=lf
+
+# Binary assets: never normalised, never diffed as text.
+*.png binary
+*.vsix binary
