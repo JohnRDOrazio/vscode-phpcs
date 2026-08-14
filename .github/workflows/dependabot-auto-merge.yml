@@ -1,0 +1,44 @@
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
+
+      # --auto enables auto-merge rather than merging on the spot: the pull
+      # request lands only once the branch protection on `develop` is satisfied,
+      # which today means the full CI matrix plus `coverage`, `lint` and
+      # `security`. That gate is what makes this safe; with no required check
+      # the pull request would be mergeable on arrival and this would merge it
+      # immediately, CI result notwithstanding.
+      #
+      # Grouped pull requests report the highest update-type they contain, so a
+      # group holding a major is correctly excluded. The npm groups already
+      # exclude majors by construction.
+      #
+      # GITHUB_TOKEN cannot merge a pull request that modifies .github/workflows
+      # (a hard GitHub restriction, not something the `permissions:` block above
+      # can grant), which is exactly what github-actions ecosystem PRs do. If a
+      # WORKFLOW_AUTOMERGE_PAT Dependabot secret (fine-grained, repo-scoped,
+      # Workflows: write) is configured it is used instead; when it is absent —
+      # as it is today — action bumps simply wait for a manual merge and every
+      # other update still flows.
+      - name: Auto-merge minor and patch updates
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_AUTOMERGE_PAT || secrets.GITHUB_TOKEN }}
