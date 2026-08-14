@@ -42,12 +42,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        phpcs-version: ['3.10.3', '4.0.1']
+        # Both lines are held at or above the fix for CVE-2026-67434 (OS command
+        # injection, PHPCS < 3.13.6 and >= 4.0.0 < 4.0.2). Composer refuses to
+        # install a release covered by an advisory, so anything below these
+        # fails to resolve rather than installing something vulnerable.
+        phpcs-version: ['3.13.6', '4.0.4']
         php-version: ['8.1', '8.3']
         install-type: ['global', 'local']
         exclude:
           # PHPCS 4.x works best with PHP 8.3
-          - phpcs-version: '4.0.1'
+          - phpcs-version: '4.0.4'
             php-version: '8.1'
       fail-fast: false
 
