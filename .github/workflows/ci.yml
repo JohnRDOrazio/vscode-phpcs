@@ -42,12 +42,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        phpcs-version: ['3.10.3', '4.0.1']
+        # Both lines are held at or above the fix for CVE-2026-67434 (OS command
+        # injection, PHPCS < 3.13.6 and >= 4.0.0 < 4.0.2). Composer refuses to
+        # install a release covered by an advisory, so anything below these
+        # fails to resolve rather than installing something vulnerable.
+        phpcs-version: ['3.13.6', '4.0.4']
         php-version: ['8.1', '8.3']
         install-type: ['global', 'local']
         exclude:
           # PHPCS 4.x works best with PHP 8.3
-          - phpcs-version: '4.0.1'
+          - phpcs-version: '4.0.4'
             php-version: '8.1'
       fail-fast: false
 
@@ -159,3 +163,38 @@ jobs:
 
       - name: Lint markdown
         run: npm run lint:md
+
+  # The single status check that branch protection should require from this
+  # workflow.
+  #
+  # Every other job here is a matrix job whose name embeds the PHPCS, PHP, Node
+  # and OS versions it runs against, so requiring those contexts directly means
+  # the protection rules have to be rewritten by hand on every bump. Worse, the
+  # failure mode is silent and total: a required context that stops reporting —
+  # because the version in its name changed — is never satisfied, so every pull
+  # request is blocked until someone notices the rule is stale. Requiring only
+  # this job leaves the matrix underneath free to change.
+  #
+  # `security`, in snyk.yml, is required separately: `needs` cannot reach across
+  # workflows, and that job's name is already static.
+  ci-required:
+    runs-on: ubuntu-latest
+    needs: [build, phpcs-integration, coverage, lint]
+    # Without `if: always()` this job is skipped whenever an upstream job fails,
+    # and branch protection counts a skipped check as a passing one — which
+    # would make the gate wave through exactly the failures it exists to catch.
+    if: always()
+
+    steps:
+      - name: Verify every upstream job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Upstream job results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::CI did not pass — an upstream job reported '$result'"
+              exit 1
+            fi
+          done
+          echo "All upstream jobs succeeded."

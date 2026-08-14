@@ -179,8 +179,8 @@ static readonly StderrDebugOutput: string = 'PHPCS debug output: {0}';
 - [x] Create test fixtures for PHPCS v4 output (version comparison logic tests in linter.test.ts)
 - [x] Add unit tests for STDERR handling with v4
 - [x] Add unit tests for new exit code handling
-- [x] Add integration tests with actual PHPCS v4 binary (CI runs tests against v3.10.3 and v4.0.1)
-- [x] Test backwards compatibility with PHPCS v3.x (CI matrix includes v3.10.3)
+- [x] Add integration tests with actual PHPCS v4 binary (CI runs tests against v3.13.6 and v4.0.4)
+- [x] Test backwards compatibility with PHPCS v3.x (CI matrix includes v3.13.6)
 
 **Test scenarios covered:**
 
