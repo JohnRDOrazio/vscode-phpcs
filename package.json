@@ -75,7 +75,7 @@
     "@types/node": "^20.17.10",
     "@types/semver": "^7.8.0",
     "@vscode/vsce": "^3.9.2",
-    "cpy-cli": "^5.0.0",
+    "cpy-cli": "^7.0.0",
     "esbuild": "^0.28.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
