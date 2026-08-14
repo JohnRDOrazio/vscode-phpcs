@@ -58,21 +58,29 @@ updates:
     commit-message:
       prefix: 'chore'
       include: 'scope'
+    ignore:
+      # `@types/vscode` is pinned to `engines.vscode` in phpcs/package.json by
+      # hand, because bumping it is not a dependency update — it is a decision
+      # to raise the minimum VS Code version the extension will install on.
+      # vsce enforces the pairing and refuses to package when the types are
+      # newer than the declared engine, which the `lint` job catches (#45), so
+      # every such bump arrives as a red pull request that cannot be merged
+      # without also editing the manifest.
+      #
+      # There is nothing to gain by taking them. The client imports only
+      # long-stable API — window, workspace, commands, StatusBarItem, Uri,
+      # OutputChannel, ExtensionContext — and a survey of the 1.107…1.125
+      # release notes found no linting, diagnostics or code-action API added in
+      # that range. The one worthwhile addition, LSP 3.18, comes from
+      # vscode-languageclient 10, which itself declares `engines.vscode ^1.91.0`
+      # and so needs no change here at all.
+      #
+      # Raise both together, deliberately, if a newer API is ever wanted.
+      - dependency-name: '@types/vscode'
     # Groups are matched in the order they are declared — a dependency joins the
-    # FIRST group whose patterns match — so the specific group must precede the
+    # FIRST group whose patterns match — so any specific group must precede the
     # catch-all.
     groups:
-      # `@types/vscode` must never move ahead of `engines.vscode` in
-      # phpcs/package.json: vsce refuses to package an extension whose types are
-      # newer than the engine it declares. The `lint` job runs `vsce package`
-      # precisely to catch that, so such a bump fails a required check and is
-      # left unmerged. It still needs its own pull request: inside the group
-      # below it would drag every other weekly minor and patch down with it.
-      # Raising it means deciding to raise the minimum supported VS Code version
-      # too, which is a judgement call, not a dependency bump.
-      types-vscode:
-        patterns:
-          - '@types/vscode'
       # One pull request per week covering every minor and patch bump across all
       # three directories, which also keeps the devDependencies shared between
       # them (mocha, tsx, typescript, …) on the same version everywhere.
