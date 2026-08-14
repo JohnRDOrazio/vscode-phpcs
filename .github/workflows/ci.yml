@@ -164,6 +164,17 @@ jobs:
       - name: Lint markdown
         run: npm run lint:md
 
+      - name: Bundle
+        run: npm run bundle
+
+      # `vsce package` is the only check that catches `@types/vscode` drifting
+      # ahead of `engines.vscode` in phpcs/package.json — it refuses to package
+      # when the types are newer than the engine the extension declares. Without
+      # this step the mismatch would first surface in the publish workflow, on a
+      # tag, after the offending dependency bump had already been merged.
+      - name: Verify the extension packages
+        run: npm run package
+
   # The single status check that branch protection should require from this
   # workflow.
   #
