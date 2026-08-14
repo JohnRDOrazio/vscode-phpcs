@@ -20,7 +20,10 @@ jobs:
         # server runs in VS Code's extension host, whose Node version is the
         # host's choice, not ours. Unrelated to the newer Node the developer
         # tooling needs — see .node-version and the `tooling` job.
-        node-version: [20, 22, 24]
+        # 26 is still Current rather than LTS (24 is LTS "Krypton" until 26
+        # promotes in October 2026). It is here to catch breakage early, not
+        # because anything ships on it yet.
+        node-version: [20, 22, 24, 26]
       fail-fast: false
 
     steps:
