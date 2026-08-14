@@ -330,7 +330,11 @@ suite('Linter Utils', () => {
 				column: 1,
 			};
 			const diagnostic = createDiagnosticFromMessage(document, message, true);
-			assert.ok(diagnostic.message.includes('(Test.Rule)'));
+			// LSP 3.18 widened Diagnostic.message to `string | MarkupContent`.
+			// We only ever emit a plain string, so assert that before reading it
+			// as one — the narrowing is the point, not a cast to silence tsc.
+			assert.strictEqual(typeof diagnostic.message, 'string');
+			assert.ok((diagnostic.message as string).includes('(Test.Rule)'));
 		});
 
 		test('should set Warning severity for WARNING type', () => {

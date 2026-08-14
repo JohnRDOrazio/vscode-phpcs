@@ -225,6 +225,6 @@
 		"@vscode/test-electron": "^2.4.1"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^9.0.1"
+		"vscode-languageclient": "^10.1.0"
 	}
 }
