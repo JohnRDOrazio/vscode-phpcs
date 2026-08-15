@@ -1,5 +1,12 @@
 {
 	"compilerOptions": {
+		// Explicit rather than inherited: TypeScript 5 defaults strict to false
+		// and TypeScript 7 defaults it to true, so a bare compiler upgrade would
+		// silently turn it on here. The client has 41 strict findings — the same
+		// 41 under 5.9.3 and 7.0.2, so pre-existing debt rather than anything the
+		// upgrade introduced. Tracked in #78; sibling phpcs-server already sets
+		// this to true.
+		"strict": false,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noImplicitAny": true,
