@@ -20,10 +20,18 @@ jobs:
         # server runs in VS Code's extension host, whose Node version is the
         # host's choice, not ours. Unrelated to the newer Node the developer
         # tooling needs — see .node-version and the `tooling` job.
-        # 26 is still Current rather than LTS (24 is LTS "Krypton" until 26
-        # promotes in October 2026). It is here to catch breakage early, not
-        # because anything ships on it yet.
-        node-version: [20, 22, 24, 26]
+        #
+        # The floor is 22 because that is what the oldest VS Code we support
+        # actually runs: 1.106.3 — our engines.vscode floor — is Electron
+        # 37.7.0, which is Node 22.20.0, and its remote server targets 22.20.0
+        # as well. No supported host runs Node 20. (Node 20 also went end of
+        # life in April 2026, but the host is the binding constraint: were VS
+        # Code still shipping it, we would still have to test it.)
+        #
+        # 26 is still Current rather than LTS — 24 is LTS "Krypton" until 26
+        # promotes in October 2026 — so it is here to catch breakage early,
+        # not because anything ships on it yet.
+        node-version: [22, 24, 26]
       fail-fast: false
 
     steps:
@@ -84,7 +92,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install PHPCS globally
@@ -139,7 +147,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -169,7 +177,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
