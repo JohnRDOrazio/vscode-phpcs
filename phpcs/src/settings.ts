@@ -8,7 +8,11 @@ export interface PhpcsSettings {
 	enable: boolean;
 	workspaceRoot: string | null;
 	executablePath: string | null;
-	composerJsonPath: string | null;
+	// Not nullable: package.json declares this `type: "string"` with a default
+	// of "composer.json", so it is always a string by the time it is read. The
+	// wider type let a null reach path.isAbsolute() in the composer resolver,
+	// which throws rather than reporting that phpcs could not be found.
+	composerJsonPath: string;
 	standard: string | null;
 	autoConfigSearch: boolean;
 	showSources: boolean;
