@@ -77,6 +77,34 @@ updates:
       #
       # Raise both together, deliberately, if a newer API is ever wanted.
       - dependency-name: '@types/vscode'
+
+      # `@types/node` tracks the MINIMUM runtime we support, not the newest.
+      # That floor is the oldest VS Code we run on, because the language server
+      # executes in its extension host: 1.106.3 is Electron 37.7.0, which is
+      # Node 22.20.0. Typing against anything newer would let code compile
+      # against APIs that are simply absent on the runtime we claim to support,
+      # and unlike `@types/vscode` there is no vsce-style check to catch it.
+      #
+      # #64 proposed 26. Widening the CI matrix upward (22, 24, 26) is not an
+      # argument for it: the matrix is the range we support, and the types have
+      # to match its floor. Raise this only when the floor itself moves, which
+      # means raising engines.vscode first.
+      #
+      # Majors only — 22.x type fixes should keep flowing.
+      - dependency-name: '@types/node'
+        update-types:
+          - 'version-update:semver-major'
+
+      # TypeScript 7 (the native port) cannot be adopted yet: ts-node crashes
+      # against it, so the client suite cannot load, and @types/mocha stops
+      # resolving from the root node_modules into the sub-projects. Both are
+      # tracked in #75, along with the tsx migration that would unblock the
+      # first. Drop this ignore when that issue closes.
+      #
+      # Majors only — 5.x updates should keep flowing.
+      - dependency-name: 'typescript'
+        update-types:
+          - 'version-update:semver-major'
     # Groups are matched in the order they are declared — a dependency joins the
     # FIRST group whose patterns match — so any specific group must precede the
     # catch-all.
