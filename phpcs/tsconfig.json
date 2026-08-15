@@ -11,7 +11,12 @@
 		"lib": [ "ES2022" ],
 		"rootDir": ".",
 		"outDir": "out",
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		// Ambient type packages are named explicitly rather than left to
+		// whatever happens to be in node_modules. TypeScript 5 auto-includes
+		// every @types/* it can walk up to; TypeScript 7 does not, and without
+		// this the mocha TDD globals (suite/test/setup/teardown) go undefined.
+		"types": ["node", "mocha", "vscode"]
 	},
 	"exclude": [
 		"node_modules",

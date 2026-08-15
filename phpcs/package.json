@@ -217,11 +217,13 @@
 	"scripts": {
 		"build": "vsce package",
 		"compile": "tsc -watch -p ./",
-		"test": "mocha -r ts-node/register --ui tdd --timeout 10000 test/**/*.test.ts",
+		"test": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
 		"clean": "rimraf out"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.106.0"
+		"@types/vscode": "^1.106.0",
+		"mocha": "^11.8.0",
+		"tsx": "^4.23.12"
 	},
 	"dependencies": {
 		"vscode-languageclient": "^10.1.0"
