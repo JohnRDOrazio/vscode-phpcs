@@ -14,8 +14,12 @@ export class ComposerPhpcsPathResolver extends PhpcsPathResolverBase {
 	protected readonly _workspaceRoot: string;
 	protected readonly _workingPath: string;
 
-	protected _composerJsonPath: string;
-	protected _composerLockPath: string;
+	// Lazy caches, resolved on first access by the getters below. Left
+	// unresolved in the constructor because fs.realpathSync throws when the
+	// file is absent, which is a normal case here — hasComposerJson() exists
+	// precisely to ask.
+	protected _composerJsonPath: string | undefined;
+	protected _composerLockPath: string | undefined;
 
 	/**
 	 * Class constructor.

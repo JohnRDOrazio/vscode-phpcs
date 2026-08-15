@@ -1,11 +1,10 @@
 {
 	"compilerOptions": {
-		// Not yet the umbrella "strict": true that phpcs-server carries — that
-		// also turns on strictPropertyInitialization, which still reports the
-		// uninitialised status bar fields in status.ts. strictNullChecks is on
-		// and clean; the rest of #78 is what closes the gap.
-		"strict": false,
-		"strictNullChecks": true,
+		// Matches phpcs-server. Reached in stages through #78: the resolvers, then
+		// configuration.ts, then the lazily-initialised fields this last flag
+		// covers. Explicit rather than inherited, because TypeScript 5 defaults
+		// it to false and 7 defaults it to true.
+		"strict": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noImplicitAny": true,
