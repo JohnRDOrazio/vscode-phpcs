@@ -523,7 +523,7 @@ suite('Linter Utils', () => {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		});
 
-		function makeSettings(overrides: Partial<{ autoConfigSearch: boolean; standard: string | null; workspaceRoot: string | null; ignorePatterns: string[] }> = {}): { autoConfigSearch: boolean; standard: string | null; workspaceRoot: string; ignorePatterns: string[] } {
+		function makeSettings(overrides: Partial<{ autoConfigSearch: boolean; standard: string | null; workspaceRoot: string | null; ignorePatterns: string[] }> = {}): { autoConfigSearch: boolean; standard: string | null; workspaceRoot: string | null; ignorePatterns: string[] } {
 			return {
 				autoConfigSearch: true,
 				standard: null,
