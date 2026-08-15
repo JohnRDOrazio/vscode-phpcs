@@ -27,9 +27,13 @@ import { PhpcsPathResolver } from "./resolvers/path-resolver";
 
 export class PhpcsConfiguration extends Disposable {
 
-	private client: LanguageClient;
+	// Nulled on dispose to release the reference, so the field is nullable and
+	// reached through the accessor below rather than directly.
+	private client: LanguageClient | null;
 	private disposables: Array<Disposable> = [];
-	private globalSettings: PhpcsSettings;
+	// Null rather than undefined-until-first-computed. The `if (this.globalSettings)`
+	// check below already treated it as absent-or-present; the type now says so.
+	private globalSettings: PhpcsSettings | null = null;
 	private folderSettings: Map<Uri, PhpcsSettings> = new Map();
 
 	/**
@@ -45,11 +49,32 @@ export class PhpcsConfiguration extends Disposable {
 		this.client = client;
 	}
 
+	/**
+	 * The language client, or a clear failure if this object has been disposed.
+	 *
+	 * Every use here is reached from a callback registered while the object was
+	 * live, so a null client means something is running after dispose. That was
+	 * already fatal — it threw "Cannot read properties of null" from whichever
+	 * property happened to be touched first. This says which object is at fault.
+	 */
+	private get languageClient(): LanguageClient {
+		if (this.client === null) {
+			throw new Error('PhpcsConfiguration has been disposed and can no longer be used.');
+		}
+		return this.client;
+	}
+
 	// Convert VS Code specific settings to a format acceptable by the server. Since
 	// both client and server do use JSON the conversion is trivial.
 	public async compute(params: ConfigurationParams, _token: CancellationToken, _next: Function): Promise<any[]> {
+		// An empty result rather than null. The declared Promise<any[]> is not
+		// negotiable — vscode-languageclient's MiddlewareSignature requires an
+		// array, so returning null was a protocol violation as well as a type
+		// error. `items` is required by the LSP spec, so this is defensive
+		// anyway, and an empty array is the correct answer to a request that
+		// asks for nothing.
 		if (!params.items) {
-			return null;
+			return [];
 		}
 		let result: (PhpcsSettings | null)[] = [];
 		for (let item of params.items) {
@@ -66,7 +91,7 @@ export class PhpcsConfiguration extends Disposable {
 			// checks below already assumed this; the declaration did not.
 			let folder: WorkspaceFolder | undefined;
 			if (item.scopeUri) {
-				let resource = this.client.protocol2CodeConverter.asUri(item.scopeUri);
+				let resource = this.languageClient.protocol2CodeConverter.asUri(item.scopeUri);
 				folder = workspace.getWorkspaceFolder(resource);
 			}
 
@@ -143,7 +168,7 @@ export class PhpcsConfiguration extends Disposable {
 					? path.basename(settings.workspaceRoot)
 					: 'global';
 				const message = error instanceof Error ? error.message : String(error);
-				this.client.outputChannel.appendLine(`[Warning] ${folderName}: ${message}`);
+				this.languageClient.outputChannel.appendLine(`[Warning] ${folderName}: ${message}`);
 				// Leave executablePath as null - the server will skip validation for this folder
 			}
 		} else if (!path.isAbsolute(settings.executablePath) && settings.workspaceRoot !== null) {
@@ -158,7 +183,7 @@ export class PhpcsConfiguration extends Disposable {
 		this.disposables.push(workspace.onDidChangeConfiguration(() => {
 			this.folderSettings.clear();
 			this.globalSettings = null;
-			this.client.sendNotification(DidChangeConfigurationNotification.type, { settings: null });
+			this.languageClient.sendNotification(DidChangeConfigurationNotification.type, { settings: null });
 		}));
 	}
 }
