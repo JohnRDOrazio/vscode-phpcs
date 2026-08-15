@@ -18,8 +18,13 @@ import { PhpcsPathResolver } from '../src/resolvers/path-resolver';
 // Windows leg of the build matrix.
 const PHPCS_BINARY = /^win/.test(process.platform) ? 'phpcs.bat' : 'phpcs';
 
+// Canonicalised deliberately. On macOS os.tmpdir() is /var/folders/…, a symlink
+// to /private/var/folders/…, and ComposerPhpcsPathResolver runs the composer.json
+// path through fs.realpathSync — so the resolver returns the real path while an
+// uncanonicalised fixture would expect the symlinked one. Linux and Windows never
+// show the difference, so this fails only on the macOS leg of the matrix.
 function makeTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-resolver-'));
+	return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-resolver-')));
 }
 
 function writeFile(filePath: string, contents: string): string {
