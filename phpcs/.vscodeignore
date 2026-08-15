@@ -3,6 +3,8 @@ typings/**
 test/**
 src/**
 out/**
+# Legacy: phpcs-server emitted here before it owned its own out/. Kept so a
+# stale directory cannot be packaged into the vsix.
 server/**
 node_modules/**
 esbuild.js

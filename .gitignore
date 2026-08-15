@@ -2,6 +2,8 @@
 */out/
 */dist/
 *.vsix
+# Legacy: phpcs-server emitted here before it owned its own out/. Kept so a
+# stale directory in an existing checkout cannot be committed by accident.
 phpcs/server
 
 # General

@@ -13,7 +13,11 @@
 		"moduleResolution": "node16",
 		"sourceMap": true,
 		"lib": [ "ES2022" ],
-		"outDir": "../phpcs/server",
+		// Own package, mirroring phpcs/tsconfig.json. It used to emit into
+		// ../phpcs/server, from the era when the server shipped as loose JS inside
+		// the extension; esbuild has bundled it to phpcs/dist/server.js since, so
+		// that path was scratch space wearing a shipping name.
+		"outDir": "out",
 		"skipLibCheck": true,
 		// Ambient type packages are named explicitly rather than left to
 		// whatever happens to be in node_modules. TypeScript 5 auto-includes
