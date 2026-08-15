@@ -5,6 +5,37 @@ All notable changes to the "vscode-phpcs" extension will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-15
+
+### Fixed
+
+- **`phpcs.phpcbfTimeout` now takes effect**: the setting was declared,
+  documented and range-validated, but the client never sent it to the server,
+  so PHPCBF always used the 60 second default — including for anyone following
+  the timeout message's own advice to raise it
+  ([#81](https://github.com/JohnRDOrazio/vscode-phpcs/issues/81))
+- **No longer crashes when `PATH` is unset**: resolving the phpcs executable in
+  an environment with no `PATH` threw
+  `TypeError: Cannot read properties of undefined (reading 'split')` instead of
+  reporting that phpcs could not be found
+  ([#80](https://github.com/JohnRDOrazio/vscode-phpcs/pull/80))
+- **Empty `PATH` entries no longer resolve a relative executable**: a trailing
+  separator in `PATH` produced an empty entry, which joined to a bare `phpcs`
+  and was then resolved against the working directory — so a file named `phpcs`
+  in the open workspace could be selected as the linter
+  ([#80](https://github.com/JohnRDOrazio/vscode-phpcs/pull/80))
+
+### Changed
+
+- **Language Server Protocol 3.18**: `vscode-languageclient` and
+  `vscode-languageserver` upgraded from 9 to 10. No change in behaviour; the
+  bundled server grows from 292 KB to 312 KB
+  ([#71](https://github.com/JohnRDOrazio/vscode-phpcs/pull/71))
+- **`engines.node` raised to `>=22`**, matching the runtime the oldest
+  supported VS Code actually provides: 1.106.3 ships Electron 37.7.0, which is
+  Node 22.20.0. VS Code does not enforce this field, so installation is
+  unaffected ([#76](https://github.com/JohnRDOrazio/vscode-phpcs/pull/76))
+
 ## [1.3.0] - 2026-07-18
 
 ### Added
