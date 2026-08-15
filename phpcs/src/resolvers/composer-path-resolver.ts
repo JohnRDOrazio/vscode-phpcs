@@ -23,7 +23,10 @@ export class ComposerPhpcsPathResolver extends PhpcsPathResolverBase {
 	 * @param workspaceRoot The workspace path.
 	 * @param composerJsonPath The path to composer.json.
 	 */
-	constructor(workspaceRoot: string, workingPath?: string) {
+	// Defaulted rather than optional-and-unchecked: the sole caller always
+	// passes a value, but omitting it used to throw from path.isAbsolute
+	// instead of falling back to the workspace root's own composer.json.
+	constructor(workspaceRoot: string, workingPath: string = 'composer.json') {
 		super();
 		this._workspaceRoot = workspaceRoot;
 		this._workingPath = path.isAbsolute(workingPath)
@@ -133,8 +136,8 @@ export class ComposerPhpcsPathResolver extends PhpcsPathResolverBase {
 		return vendorPath;
 	}
 
-	async resolve(): Promise<string> {
-		let resolvedPath = null;
+	async resolve(): Promise<string | null> {
+		let resolvedPath: string | null = null;
 		if (this.workspaceRoot) {
 			// Determine whether composer.json and composer.lock exist and phpcs is defined as a dependency.
 			if (this.hasComposerJson() && this.hasComposerLock() && this.hasComposerDependency()) {

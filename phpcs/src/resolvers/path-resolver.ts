@@ -26,7 +26,9 @@ export class PhpcsPathResolver extends PhpcsPathResolverBase {
 	}
 
 	async resolve(): Promise<string> {
-		let resolvedPath: string = null;
+		// Stays Promise<string> publicly: this is the resolver that turns "none
+		// of them found it" into a raised error, so callers never see null.
+		let resolvedPath: string | null = null;
 		for (let i = 0, len = this.resolvers.length; i < len; i++) {
 			let resolverPath = await this.resolvers[i].resolve();
 			if (resolvedPath !== resolverPath) {
