@@ -17,15 +17,19 @@ import { Timer } from './timer';
 
 export class PhpcsStatus {
 
-	private statusBarItem: StatusBarItem;
+	// Created on first use by getStatusBarItem(), not in the constructor — a
+	// status bar item is only worth allocating once there is something to show.
+	private statusBarItem: StatusBarItem | undefined;
 	private documents: string[] = [];
 	private processing: number = 0;
 	private buffered: number = 0;
 	private spinnerIndex = 0;
 	private spinnerSequence: string[] = ["|", "/", "-", "\\"];
-	private timer: Timer;
+	// Likewise created on demand by getTimer().
+	private timer: Timer | undefined;
 	private channel: OutputChannel;
-	private standardStatusBarItem: StatusBarItem;
+	// Likewise created on demand by getStandardStatusBarItem().
+	private standardStatusBarItem: StatusBarItem | undefined;
 	private documentStandards: Map<string, string | null> = new Map();
 
 	public constructor()
