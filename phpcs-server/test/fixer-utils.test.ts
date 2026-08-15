@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) John R. D'Orazio. All rights reserved.
+ * Copyright (c) 2026 John Romano D'Orazio. All rights reserved.
  * Licensed under the MIT License. See License.md in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
