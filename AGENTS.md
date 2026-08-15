@@ -35,9 +35,10 @@ vscode-phpcs/
 - **TypeScript 5.x** - Both client and server
 - **vscode-languageserver v9** - LSP server implementation
 - **vscode-languageclient v9** - LSP client for VS Code
-- **Node.js 20+** - Runtime requirement (the language server runs in VS Code's
-  extension host, so `phpcs/` and `phpcs-server/` stay compatible with Node 20,
-  and CI builds and tests on both 20 and 22)
+- **Node.js 22+** - Runtime requirement. The language server runs in VS Code's
+  extension host, so the floor is whatever the oldest supported host runs, not
+  what Node still maintains: VS Code 1.106.3 (the `engines.vscode` floor) is
+  Electron 37.7.0, which is Node 22.20.0. CI builds and tests on 22, 24 and 26
 - **Node.js 22.22.1+** - Development requirement, pinned in `.node-version`.
   Only the root tooling needs it: `lint-staged` 17 declares
   `engines.node >= 22.22.1`, and the `.husky/pre-commit` hook runs it on every
