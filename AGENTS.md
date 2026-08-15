@@ -67,14 +67,21 @@ npm run format:md          # Format markdown files with Prettier
 ### Running and Debugging in VS Code
 
 The extension runs from the esbuild bundle in `phpcs/dist/`. **F5 builds it for
-you** — each launch configuration has a `preLaunchTask` that starts the matching
-esbuild watcher and waits for its first build to finish before the extension
-host starts.
+you** — both launch configurations carry a `preLaunchTask` that starts the
+matching esbuild watcher and waits for its first build to finish.
 
 Use VS Code's **Run and Debug** panel:
 
-- **Launch Extension** - Starts the extension in a new VS Code window
-- **Client+Server** - Launches extension with server debugging attached
+- **Launch Extension** - `preLaunchTask: watch:client` starts the client
+  watcher, then launches a new VS Code window with the extension loaded
+- **Attach to Server** - `preLaunchTask: watch:server` starts the server
+  watcher, then attaches to port 6199. It is `request: attach`, so it launches
+  nothing itself: the language server has to be running already, which it is
+  once the extension host has spawned it with `--inspect=6199` (see
+  `debugOptions` in `phpcs/src/extension.ts`)
+- **Client+Server** - a compound running both of the above, so client and
+  server are debuggable together. It has no `preLaunchTask` of its own; each
+  configuration brings one
 
 Building by hand first is optional:
 
