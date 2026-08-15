@@ -220,6 +220,9 @@
 		"test": "node --import tsx node_modules/mocha/bin/mocha.js --ui tdd --timeout 10000 test/**/*.test.ts",
 		"clean": "rimraf out"
 	},
+	"overrides": {
+		"serialize-javascript": "^7.0.7"
+	},
 	"devDependencies": {
 		"@types/vscode": "^1.106.0",
 		"mocha": "^11.8.0",
