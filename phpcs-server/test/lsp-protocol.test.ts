@@ -11,9 +11,16 @@ import * as os from 'os';
 import * as path from 'path';
 
 import {
+	ApplyWorkspaceEditRequest,
+	CodeActionRequest,
 	ConfigurationRequest,
 	createProtocolConnection,
+	DidChangeConfigurationNotification,
+	DidChangeTextDocumentNotification,
+	DidCloseTextDocumentNotification,
 	DidOpenTextDocumentNotification,
+	DidSaveTextDocumentNotification,
+	DocumentFormattingRequest,
 	ExitNotification,
 	InitializedNotification,
 	InitializeRequest,
@@ -21,6 +28,8 @@ import {
 	RegistrationRequest,
 	PublishDiagnosticsNotification,
 	PublishDiagnosticsParams,
+	ExecuteCommandRequest,
+	ShowMessageRequest,
 	ShutdownRequest,
 	StreamMessageReader,
 	StreamMessageWriter,
@@ -85,8 +94,22 @@ async function stopServer(server: ServerHandle): Promise<void> {
 	} catch {
 		// The process may already be gone.
 	}
+
+	// Wait for the child to exit of its own accord before resorting to a signal.
+	// V8 writes its coverage profile on clean exit only, so a SIGTERM here throws
+	// away everything the server did — which is how this suite first appeared to
+	// add twelve tests and no coverage at all.
+	const exitedCleanly = await new Promise<boolean>(resolve => {
+		if (server.child.exitCode !== null) {
+			resolve(true);
+			return;
+		}
+		const timer = setTimeout(() => resolve(false), 5000);
+		server.child.once('exit', () => { clearTimeout(timer); resolve(true); });
+	});
+
 	server.connection.dispose();
-	if (server.child.exitCode === null) {
+	if (!exitedCleanly) {
 		server.child.kill();
 	}
 }
@@ -117,6 +140,121 @@ function findPhpcs(): string | null {
 		}
 	}
 	return null;
+}
+
+/**
+ * A server that has completed the handshake and is answering configuration
+ * requests, plus the plumbing to drive documents through it.
+ *
+ * The client side has to answer more than configuration: the server registers
+ * capabilities dynamically and applies PHPCBF fixes through workspace/applyEdit,
+ * and an unanswered request there is not a failed assertion — it is a hung test.
+ */
+/** The settings a real client would send, with room to vary one at a time. */
+function clientSettings(tmpDir: string, phpcsPath: string, overrides: Record<string, unknown> = {}) {
+	return {
+		enable: true,
+		workspaceRoot: tmpDir,
+		executablePath: phpcsPath,
+		composerJsonPath: 'composer.json',
+		standard: 'PSR12',
+		autoConfigSearch: false,
+		showSources: false,
+		showWarnings: true,
+		ignorePatterns: [],
+		ignoreSource: [],
+		warningSeverity: 5,
+		errorSeverity: 5,
+		lintOnType: true,
+		lintOnOpen: true,
+		lintOnSave: true,
+		queueBuffer: 10,
+		lintOnlyOpened: false,
+		phpcbfEnable: true,
+		// Left null on purpose: the server derives phpcbf from executablePath,
+		// which is a path the client never has to compute.
+		phpcbfExecutablePath: null,
+		phpcbfOnSave: false,
+		phpcbfTimeout: 60,
+		...overrides,
+	};
+}
+
+class LiveServer {
+	private readonly diagnostics: PublishDiagnosticsParams[] = [];
+	private readonly waiters: Array<{ match: (p: PublishDiagnosticsParams) => boolean; resolve: (p: PublishDiagnosticsParams) => void }> = [];
+	public readonly appliedEdits: any[] = [];
+
+	private constructor(private readonly server: ServerHandle) {}
+
+	static async start(settings: Record<string, unknown>): Promise<LiveServer> {
+		const live = new LiveServer(startServer());
+		const { connection } = live.server;
+
+		connection.onRequest(ConfigurationRequest.type, params => params.items.map(() => settings));
+		// The server surfaces lint failures through window/showMessageRequest.
+		// Leaving it unanswered rejects the server's pending promise and the
+		// unhandled rejection kills the process, so the failure that gets
+		// reported is "server died", not the error it was trying to report.
+		connection.onRequest(ShowMessageRequest.type, () => null);
+		connection.onRequest(ApplyWorkspaceEditRequest.type, params => {
+			live.appliedEdits.push(params.edit);
+			return { applied: true };
+		});
+		connection.onNotification(PublishDiagnosticsNotification.type, params => {
+			const index = live.waiters.findIndex(w => w.match(params));
+			if (index >= 0) {
+				live.waiters.splice(index, 1)[0].resolve(params);
+			} else {
+				live.diagnostics.push(params);
+			}
+		});
+
+		await connection.sendRequest(InitializeRequest.type, initializeParams(true) as any);
+		connection.sendNotification(InitializedNotification.type, {});
+		return live;
+	}
+
+	get connection(): ProtocolConnection {
+		return this.server.connection;
+	}
+
+	open(uri: string, text: string): void {
+		this.connection.sendNotification(DidOpenTextDocumentNotification.type, {
+			textDocument: { uri, languageId: 'php', version: 1, text },
+		});
+	}
+
+	/** Resolves with the next diagnostics matching `match`, or one already seen. */
+	waitForDiagnostics(match: (p: PublishDiagnosticsParams) => boolean, timeoutMs = 20000): Promise<PublishDiagnosticsParams> {
+		const seen = this.diagnostics.findIndex(match);
+		if (seen >= 0) {
+			return Promise.resolve(this.diagnostics.splice(seen, 1)[0]);
+		}
+		return new Promise((resolve, reject) => {
+			const timer = setTimeout(() => reject(new Error('timed out waiting for diagnostics')), timeoutMs);
+			this.waiters.push({ match, resolve: params => { clearTimeout(timer); resolve(params); } });
+		});
+	}
+
+	async stop(): Promise<void> {
+		await stopServer(this.server);
+	}
+}
+
+/**
+ * Writes the fixture and opens it.
+ *
+ * The document text reaches PHPCS over stdin, but the linter still access()es
+ * the path first, so a document that exists only in memory lints to nothing —
+ * silently, since the error goes to the log rather than the diagnostics.
+ */
+function writeAndOpen(live: LiveServer, dir: string, name: string, text: string): string {
+	const filePath = path.join(dir, name);
+	fs.writeFileSync(filePath, text);
+	const uri = `file://${filePath}`;
+	live.open(uri, text);
+	return uri;
 }
 
 suite('LSP protocol', function () {
@@ -295,6 +433,163 @@ suite('LSP protocol', function () {
 			} finally {
 				await stopServer(server);
 			}
+		});
+	});
+
+	// Everything below drives the handlers that unit tests cannot reach: they
+	// only exist as responses to protocol messages. Together they are most of
+	// what server.ts does.
+	suite('document lifecycle', () => {
+		let phpcsPath: string | null = null;
+		let tmpDir: string;
+		let live: LiveServer | null = null;
+
+		suiteSetup(() => { phpcsPath = findPhpcs(); });
+		setup(() => { tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-lsp-'))); });
+		teardown(async () => {
+			if (live) { await live.stop(); live = null; }
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		});
+
+		const BAD = '<?php\nclass  Foo{\n public function bar(){}\n}\n';
+
+		test('re-lints when the document changes', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'change.php', BAD);
+			const first = await live.waitForDiagnostics(p => p.uri === uri);
+			assert.ok(first.diagnostics.length > 0);
+
+			live.connection.sendNotification(DidChangeTextDocumentNotification.type, {
+				textDocument: { uri, version: 2 },
+				contentChanges: [{ text: '<?php\n\ndeclare(strict_types=1);\n' }],
+			});
+
+			const second = await live.waitForDiagnostics(p => p.uri === uri);
+			assert.ok(
+				second.diagnostics.length < first.diagnostics.length,
+				'fixing the file should reduce the diagnostics republished on change'
+			);
+		});
+
+		test('re-lints on save', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'save.php', BAD);
+			await live.waitForDiagnostics(p => p.uri === uri);
+
+			live.connection.sendNotification(DidSaveTextDocumentNotification.type, {
+				textDocument: { uri },
+			});
+
+			const republished = await live.waitForDiagnostics(p => p.uri === uri);
+			assert.ok(republished.diagnostics.length > 0, 'save should republish diagnostics');
+		});
+
+		test('clears diagnostics when the document closes', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'close.php', BAD);
+			const opened = await live.waitForDiagnostics(p => p.uri === uri);
+			assert.ok(opened.diagnostics.length > 0);
+
+			live.connection.sendNotification(DidCloseTextDocumentNotification.type, {
+				textDocument: { uri },
+			});
+
+			const cleared = await live.waitForDiagnostics(p => p.uri === uri && p.diagnostics.length === 0);
+			assert.deepStrictEqual(cleared.diagnostics, [], 'closing must clear the squiggles it put there');
+		});
+
+		test('revalidates open documents when the configuration changes', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'reconfigure.php', BAD);
+			await live.waitForDiagnostics(p => p.uri === uri);
+
+			live.connection.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
+
+			const republished = await live.waitForDiagnostics(p => p.uri === uri);
+			assert.ok(republished.diagnostics.length > 0, 'a configuration change should revalidate open documents');
+		});
+	});
+
+	suite('code actions and fixing', () => {
+		let phpcsPath: string | null = null;
+		let tmpDir: string;
+		let live: LiveServer | null = null;
+
+		suiteSetup(() => { phpcsPath = findPhpcs(); });
+		setup(() => { tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'phpcs-lsp-'))); });
+		teardown(async () => {
+			if (live) { await live.stop(); live = null; }
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		});
+
+		const BAD = '<?php\nclass  Foo{\n public function bar(){}\n}\n';
+
+		test('offers code actions for a reported diagnostic', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'actions.php', BAD);
+			const published = await live.waitForDiagnostics(p => p.uri === uri);
+
+			const actions: any = await live.connection.sendRequest(CodeActionRequest.type, {
+				textDocument: { uri },
+				range: published.diagnostics[0].range,
+				context: { diagnostics: published.diagnostics },
+			} as any);
+
+			assert.ok(Array.isArray(actions) && actions.length > 0, 'expected at least one code action');
+			assert.ok(
+				actions.some((a: any) => a.command?.command === PHPCBF_FIX_FILE_COMMAND || a.kind),
+				'expected the fix-file command or a kinded action'
+			);
+		});
+
+		test('formatting returns the edits PHPCBF would make', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'format.php', BAD);
+			await live.waitForDiagnostics(p => p.uri === uri);
+
+			const edits: any = await live.connection.sendRequest(DocumentFormattingRequest.type, {
+				textDocument: { uri },
+				options: { tabSize: 4, insertSpaces: true },
+			} as any);
+
+			assert.ok(Array.isArray(edits) && edits.length > 0, 'expected formatting edits from phpcbf');
+			assert.ok(typeof edits[0].newText === 'string' && edits[0].range, 'edits must be well formed');
+		});
+
+		test('formatting returns nothing when phpcbf is disabled', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!, { phpcbfEnable: false }));
+			const uri = writeAndOpen(live, tmpDir, 'disabled.php', BAD);
+			await live.waitForDiagnostics(p => p.uri === uri);
+
+			const edits: any = await live.connection.sendRequest(DocumentFormattingRequest.type, {
+				textDocument: { uri },
+				options: { tabSize: 4, insertSpaces: true },
+			} as any);
+
+			assert.deepStrictEqual(edits, [], 'phpcbfEnable=false must suppress formatting edits');
+		});
+
+		test('the fix-file command applies a workspace edit', async function () {
+			if (!phpcsPath) { this.skip(); }
+			live = await LiveServer.start(clientSettings(tmpDir, phpcsPath!));
+			const uri = writeAndOpen(live, tmpDir, 'fixcmd.php', BAD);
+			await live.waitForDiagnostics(p => p.uri === uri);
+
+			await live.connection.sendRequest(ExecuteCommandRequest.type, {
+				command: PHPCBF_FIX_FILE_COMMAND,
+				arguments: [uri],
+			} as any);
+
+			assert.strictEqual(live.appliedEdits.length, 1, 'expected exactly one workspace edit');
+			const changes = live.appliedEdits[0].changes ?? live.appliedEdits[0].documentChanges;
+			assert.ok(changes, 'workspace edit carried no changes');
 		});
 	});
 });
