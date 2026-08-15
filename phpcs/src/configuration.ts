@@ -61,15 +61,19 @@ export class PhpcsConfiguration extends Disposable {
 			}
 
 			let config: WorkspaceConfiguration;
-			let folder: WorkspaceFolder;
+			// Only assigned when the request carries a scope, and getWorkspaceFolder
+			// returns undefined for a resource outside every folder. The `if (folder)`
+			// checks below already assumed this; the declaration did not.
+			let folder: WorkspaceFolder | undefined;
 			if (item.scopeUri) {
 				let resource = this.client.protocol2CodeConverter.asUri(item.scopeUri);
 				folder = workspace.getWorkspaceFolder(resource);
 			}
 
 			if (folder) {
-				if (this.folderSettings.has(folder.uri)) {
-					result.push(this.folderSettings.get(folder.uri));
+				const cached = this.folderSettings.get(folder.uri);
+				if (cached) {
+					result.push(cached);
 					continue;
 				}
 				config = workspace.getConfiguration('phpcs', folder.uri);
@@ -81,28 +85,38 @@ export class PhpcsConfiguration extends Disposable {
 				config = workspace.getConfiguration('phpcs');
 			}
 
+			// Every default below is the one declared for the same key in
+			// package.json under contributes.configuration. The single-argument
+			// config.get() returns `T | undefined`, which is honest — it yields
+			// undefined for a key VS Code does not know about — so the fields it
+			// filled were only non-undefined by the grace of the manifest. Passing
+			// the default explicitly makes that dependency visible and gives the
+			// two-argument overload, which returns `T`.
+			//
+			// These must stay in step with the manifest; a value drifting here
+			// would change behaviour silently for anyone who has not set the key.
 			let settings: PhpcsSettings = {
-				enable: config.get('enable'),
+				enable: config.get<boolean>('enable', true),
 				workspaceRoot: folder ? folder.uri.fsPath : null,
-				executablePath: config.get('executablePath'),
-				composerJsonPath: config.get('composerJsonPath'),
-				standard: config.get('standard'),
-				autoConfigSearch: config.get('autoConfigSearch'),
-				showSources: config.get('showSources'),
-				showWarnings: config.get('showWarnings'),
-				ignorePatterns: config.get('ignorePatterns'),
-				ignoreSource: config.get('ignoreSource'),
-				warningSeverity: config.get('warningSeverity'),
-				errorSeverity: config.get('errorSeverity'),
-				lintOnType: config.get('lintOnType'),
-				lintOnOpen: config.get('lintOnOpen'),
-				lintOnSave: config.get('lintOnSave'),
-				queueBuffer: config.get('queueBuffer'),
-				lintOnlyOpened: config.get('lintOnlyOpened'),
+				executablePath: config.get<string | null>('executablePath', null),
+				composerJsonPath: config.get<string>('composerJsonPath', 'composer.json'),
+				standard: config.get<string | null>('standard', null),
+				autoConfigSearch: config.get<boolean>('autoConfigSearch', true),
+				showSources: config.get<boolean>('showSources', false),
+				showWarnings: config.get<boolean>('showWarnings', true),
+				ignorePatterns: config.get<string[]>('ignorePatterns', []),
+				ignoreSource: config.get<string[]>('ignoreSource', []),
+				warningSeverity: config.get<number>('warningSeverity', 5),
+				errorSeverity: config.get<number>('errorSeverity', 5),
+				lintOnType: config.get<boolean>('lintOnType', true),
+				lintOnOpen: config.get<boolean>('lintOnOpen', true),
+				lintOnSave: config.get<boolean>('lintOnSave', true),
+				queueBuffer: config.get<number>('queueBuffer', 10),
+				lintOnlyOpened: config.get<boolean>('lintOnlyOpened', true),
 				// PHPCBF settings
-				phpcbfEnable: config.get('phpcbfEnable'),
-				phpcbfExecutablePath: config.get('phpcbfExecutablePath'),
-				phpcbfOnSave: config.get('phpcbfOnSave'),
+				phpcbfEnable: config.get<boolean>('phpcbfEnable', true),
+				phpcbfExecutablePath: config.get<string | null>('phpcbfExecutablePath', null),
+				phpcbfOnSave: config.get<boolean>('phpcbfOnSave', false),
 			};
 
 			settings = await this.resolveExecutablePath(settings);
