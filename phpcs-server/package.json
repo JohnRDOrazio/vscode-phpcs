@@ -37,7 +37,7 @@
   "devDependencies": {
     "c8": "^12.0.0",
     "mocha": "^11.8.0",
-    "tsx": "^4.23.11",
+    "tsx": "^4.23.12",
     "vscode-languageserver-protocol": "^3.18.2"
   },
   "scripts": {
