@@ -72,6 +72,37 @@ suite('Executable version detection', () => {
 		assert.strictEqual(fs.existsSync(marker), false, 'The command substitution in the path was executed');
 	});
 
+	/**
+	 * Create a fake executable that prints an error to STDERR and exits 3.
+	 */
+	function makeFailingExecutable(): string {
+		if (process.platform === 'win32') {
+			const file = path.join(tmpDir, 'failing.cmd');
+			fs.writeFileSync(file, ['@echo off', '1>&2 echo PHP Warning: broken install', 'exit /b 3'].join('\r\n'));
+			return file;
+		}
+		const file = path.join(tmpDir, 'failing');
+		fs.writeFileSync(file, "#!/bin/sh\nprintf '%s\\n' 'PHP Warning: broken install' >&2\nexit 3\n");
+		fs.chmodSync(file, 0o755);
+		return file;
+	}
+
+	test('PhpcsLinter.create should reject when --version exits non-zero, reporting STDERR', async () => {
+		const executable = makeFailingExecutable();
+		await assert.rejects(
+			() => PhpcsLinter.create(executable),
+			(error: Error) => error.message.includes('Unable to locate phpcs') && error.message.includes('broken install')
+		);
+	});
+
+	test('PhpcbfFixer.create should reject when --version exits non-zero, reporting STDERR', async () => {
+		const executable = makeFailingExecutable();
+		await assert.rejects(
+			() => PhpcbfFixer.create(executable),
+			(error: Error) => error.message.includes('Unable to locate phpcbf') && error.message.includes('broken install')
+		);
+	});
+
 	test('PhpcsLinter.create should reject a path that does not exist', async () => {
 		await assert.rejects(
 			() => PhpcsLinter.create(path.join(tmpDir, 'missing-phpcs')),

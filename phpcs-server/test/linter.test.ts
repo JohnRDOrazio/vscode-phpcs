@@ -319,10 +319,13 @@ suite('Linter Version Handling', () => {
 		function makeFakeV4Executable(stderrLines: string[]): string {
 			if (process.platform === 'win32') {
 				const file = path.join(tmpDir, 'fake-phpcs.cmd');
+				// %%~a strips the quotes cross-spawn wraps each argument in when it
+				// runs a .cmd file through cmd.exe, as real phpcs.bat wrappers
+				// receive them (PHP strips them again when parsing its argv).
 				const body = [
 					'@echo off',
 					'for %%a in (%*) do (',
-					'if "%%a"=="--version" (',
+					'if "%%~a"=="--version" (',
 					'echo PHP_CodeSniffer version 4.0.1',
 					'exit /b 0',
 					')',
