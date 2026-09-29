@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See License.md in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 "use strict";
-import * as cp from "child_process";
 import * as extfs from "./base/node/extfs";
 import * as os from "os";
 import * as path from "path";
@@ -96,9 +95,17 @@ export class PhpcsLinter {
 	static async create(executablePath: string): Promise<PhpcsLinter> {
 		try {
 
-			let result: Buffer = cp.execSync(`"${executablePath}" --version`);
+			// No shell: the path can contain workspace-controlled text (folder
+			// names, Composer's vendor-dir) that a shell would expand.
+			const result = spawn.sync(executablePath, ['--version']);
+			if (result.error) {
+				throw result.error;
+			}
+			if (result.status !== 0) {
+				throw new Error(`Command failed: ${executablePath} --version ${result.stderr.toString().trim()}`.trim());
+			}
 
-			const executableVersion = parseVersionString(result.toString());
+			const executableVersion = parseVersionString(result.stdout.toString());
 
 			if (executableVersion === null) {
 				throw new Error(SR.InvalidVersionStringError);
