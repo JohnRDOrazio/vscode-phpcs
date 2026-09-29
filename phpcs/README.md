@@ -79,6 +79,18 @@ The `phpcs` linter can be installed in your project using the Composer Dependenc
 1. Press Enter or click the cloud icon to install it.
 1. Restart Visual Studio Code when prompted.
 
+## Workspace Trust
+
+The extension only runs in
+[trusted workspaces](https://code.visualstudio.com/docs/editing/workspaces/workspace-trust).
+It runs PHP_CodeSniffer from the project's `vendor/bin`, and it loads rulesets
+(such as `phpcs.xml`) that can execute PHP code from the project. Doing either
+in a folder you haven't reviewed could run code you didn't intend to run.
+
+In Restricted Mode the extension is disabled. Trust the folder to enable
+linting and formatting. It is also unavailable in virtual workspaces, because
+PHP_CodeSniffer needs the files on local disk.
+
 ## Status Bar
 
 While a PHP file is active, the status bar shows the coding standard used for
