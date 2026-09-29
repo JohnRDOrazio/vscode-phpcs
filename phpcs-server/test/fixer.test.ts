@@ -39,6 +39,7 @@ suite('PHPCBF Fixer Integration Tests', function () {
 		showSources: false,
 		showWarnings: true,
 		ignorePatterns: [],
+		extensions: [],
 		ignoreSource: [],
 		warningSeverity: 5,
 		errorSeverity: 5,
@@ -232,6 +233,35 @@ echo "hello";
 
 			assert.strictEqual(result.fixed, false);
 			assert.strictEqual(result.content, content);
+			assert.strictEqual(result.error, undefined, 'Should not have an error');
+		});
+
+		test('should fix a file with a listed extension via phpcs.extensions (issue #115)', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const fixer = await PhpcbfFixer.create(phpcbfPath!);
+
+			const content = `<?php
+class TestClass {
+public function test() {
+echo "hello";
+}
+}`;
+
+			const document = TextDocument.create(
+				'file:///test/my_module.install',
+				'php',
+				1,
+				content
+			);
+
+			const result = await fixer.fix(document, { ...defaultSettings, extensions: ['module', 'install'] });
+
+			assert.strictEqual(result.fixed, true);
+			assert.notStrictEqual(result.content, content);
+			assert.ok(result.content.startsWith('<?php'), 'Fixed content should be the file, not a report');
 			assert.strictEqual(result.error, undefined, 'Should not have an error');
 		});
 

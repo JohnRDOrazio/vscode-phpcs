@@ -18,6 +18,7 @@ export interface PhpcsSettings {
 	showSources: boolean;
 	showWarnings: boolean;
 	ignorePatterns: string[];
+	extensions: string[];
 	ignoreSource: string[];
 	warningSeverity: number;
 	errorSeverity: number;

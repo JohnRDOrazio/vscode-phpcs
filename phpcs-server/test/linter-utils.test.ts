@@ -20,6 +20,7 @@ import {
 	getV4ExitCodeError,
 	isIgnorePatternMatch,
 	isNoFilesCheckedMessage,
+	matchExtension,
 	parsePhpcsOutput,
 	PhpcsExecutionContext,
 	prepareFileText,
@@ -210,6 +211,7 @@ suite('Linter Utils', () => {
 			errorSeverity: 5,
 			warningSeverity: 5,
 			ignorePatterns: [] as string[],
+			extensions: [] as string[],
 		};
 
 		test('should include --report=json', () => {
@@ -260,6 +262,51 @@ suite('Linter Utils', () => {
 			assert.ok(args.includes('--stdin-path=/path/file.php'));
 		});
 
+		test('should include --extensions for a file whose extension is listed (issue #115)', () => {
+			const args = buildLintArguments({
+				...baseOptions,
+				filePath: '/path/my_module.install',
+				extensions: ['module', 'install'],
+			});
+			assert.ok(args.includes('--extensions=install/PHP'));
+			// Must come before the STDIN marker to be parsed as an option
+			assert.ok(args.indexOf('--extensions=install/PHP') < args.indexOf('-'));
+		});
+
+		test('should force the PHP tokenizer for extensions PHPCS 3.x would tokenize otherwise', () => {
+			// PHPCS 3.x tokenizes a bare `js` or `css` as JavaScript or CSS
+			const args = buildLintArguments({
+				...baseOptions,
+				filePath: '/path/script.js',
+				extensions: ['js'],
+			});
+			assert.ok(args.includes('--extensions=js/PHP'));
+		});
+
+		test('should not include --extensions for a file whose extension is not listed', () => {
+			const args = buildLintArguments({
+				...baseOptions,
+				filePath: '/path/file.php',
+				extensions: ['module', 'install'],
+			});
+			assert.ok(!args.some(arg => arg.startsWith('--extensions=')));
+		});
+
+		test('should not include --extensions without a file path', () => {
+			const args = buildLintArguments({ ...baseOptions, extensions: ['install'] });
+			assert.ok(!args.some(arg => arg.startsWith('--extensions=')));
+		});
+
+		test('should not include --extensions for version < 2.6.0', () => {
+			const args = buildLintArguments({
+				...baseOptions,
+				executableVersion: '2.5.0',
+				filePath: '/path/my_module.install',
+				extensions: ['install'],
+			});
+			assert.ok(!args.some(arg => arg.startsWith('--extensions=')));
+		});
+
 		test('should set warning-severity to 0 when showWarnings is false', () => {
 			const args = buildLintArguments({ ...baseOptions, showWarnings: false });
 			assert.ok(args.includes('--warning-severity=0'));
@@ -268,6 +315,56 @@ suite('Linter Utils', () => {
 		test('should end with stdin marker', () => {
 			const args = buildLintArguments(baseOptions);
 			assert.strictEqual(args[args.length - 1], '-');
+		});
+
+	});
+
+	suite('matchExtension', () => {
+
+		test('should return the listed extension of the file', () => {
+			assert.strictEqual(matchExtension('/path/my_module.install', ['module', 'install']), 'install');
+		});
+
+		test('should return null when the extension is not listed', () => {
+			assert.strictEqual(matchExtension('/path/file.php', ['module', 'install']), null);
+		});
+
+		test('should return null for an empty list', () => {
+			assert.strictEqual(matchExtension('/path/my_module.install', []), null);
+		});
+
+		test('should match multi-part extensions like PHPCS does', () => {
+			assert.strictEqual(matchExtension('/path/page.tpl.php', ['tpl.php']), 'tpl.php');
+			assert.strictEqual(matchExtension('/path/page.tpl.php', ['php']), 'php');
+		});
+
+		test('should accept entries with a leading dot or surrounding whitespace', () => {
+			assert.strictEqual(matchExtension('/path/my_module.module', ['.module']), 'module');
+			assert.strictEqual(matchExtension('/path/my_module.module', [' module ']), 'module');
+		});
+
+		test('should ignore blank entries', () => {
+			assert.strictEqual(matchExtension('/path/file', ['', '  ']), null);
+		});
+
+		test('should be case-sensitive, like PHPCS', () => {
+			assert.strictEqual(matchExtension('/path/my_module.INSTALL', ['install']), null);
+		});
+
+		test('should not match files without an extension or starting with a dot', () => {
+			assert.strictEqual(matchExtension('/path/install', ['install']), null);
+			assert.strictEqual(matchExtension('/path/.install', ['install']), null);
+		});
+
+		test('should tolerate a malformed setting instead of throwing', () => {
+			// VS Code only warns about values that don't match the schema
+			assert.strictEqual(matchExtension('/path/my_module.module', null as unknown as string[]), null);
+			assert.strictEqual(matchExtension('/path/my_module.module', 'module' as unknown as string[]), null);
+			assert.strictEqual(matchExtension('/path/my_module.module', [42, 'module'] as unknown as string[]), 'module');
+		});
+
+		test('should match Windows paths', () => {
+			assert.strictEqual(matchExtension('C:\\site\\my_module.module', ['module']), 'module');
 		});
 
 	});

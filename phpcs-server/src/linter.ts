@@ -175,6 +175,7 @@ export class PhpcsLinter {
 			errorSeverity: settings.errorSeverity,
 			warningSeverity: settings.warningSeverity,
 			ignorePatterns: settings.ignorePatterns,
+			extensions: settings.extensions,
 		});
 
 		// Prepare file text (handles version-specific requirements)

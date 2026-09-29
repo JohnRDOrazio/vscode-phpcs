@@ -361,6 +361,7 @@ suite('Linter Version Handling', () => {
 				showSources: false,
 				showWarnings: true,
 				ignorePatterns: [],
+				extensions: [],
 				ignoreSource: [],
 				warningSeverity: 5,
 				errorSeverity: 5,

@@ -30,6 +30,7 @@ suite('Fixer Utils', () => {
 
 		const baseOptions = {
 			executableVersion: '3.7.2',
+			extensions: [] as string[],
 		};
 
 		test('should include -q for version >= 2.6.2', () => {
@@ -78,6 +79,35 @@ suite('Fixer Utils', () => {
 				filePath: '/path/file.php',
 			});
 			assert.ok(!args.some(arg => arg.startsWith('--stdin-path=')));
+		});
+
+		test('should include --extensions for a file whose extension is listed (issue #115)', () => {
+			const args = buildFixArguments({
+				...baseOptions,
+				filePath: '/path/my_module.module',
+				extensions: ['module', 'install'],
+			});
+			assert.ok(args.includes('--extensions=module/PHP'));
+			assert.ok(args.indexOf('--extensions=module/PHP') < args.indexOf('-'));
+		});
+
+		test('should not include --extensions for a file whose extension is not listed', () => {
+			const args = buildFixArguments({
+				...baseOptions,
+				filePath: '/path/file.php',
+				extensions: ['module', 'install'],
+			});
+			assert.ok(!args.some(arg => arg.startsWith('--extensions=')));
+		});
+
+		test('should not include --extensions for version < 2.6.0', () => {
+			const args = buildFixArguments({
+				...baseOptions,
+				executableVersion: '2.5.0',
+				filePath: '/path/my_module.module',
+				extensions: ['module'],
+			});
+			assert.ok(!args.some(arg => arg.startsWith('--extensions=')));
 		});
 
 		test('should end with stdin marker', () => {
