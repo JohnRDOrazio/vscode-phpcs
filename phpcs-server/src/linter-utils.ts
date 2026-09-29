@@ -116,13 +116,17 @@ export function matchExtension(filePath: string, extensions: string[]): string |
  * list PHPCS would otherwise use, so passing the user's list verbatim would
  * make PHPCS skip `.php` files that are not in it. Files whose extension is not
  * listed get no argument, leaving PHPCS defaults and project rulesets in charge.
+ *
+ * The `/PHP` suffix forces the PHP tokenizer: PHPCS 2.x and 3.x would
+ * otherwise tokenize a bare `js` or `css` as JavaScript or CSS. PHPCS 4.x
+ * accepts the suffix as long as the tokenizer is PHP.
  * @param filePath The file path passed as `--stdin-path`
  * @param extensions The configured extensions
  * @returns The arguments to add (empty when the extension is not listed)
  */
 export function buildExtensionsArgument(filePath: string, extensions: string[]): string[] {
 	const extension = matchExtension(filePath, extensions);
-	return extension !== null ? [`--extensions=${extension}`] : [];
+	return extension !== null ? [`--extensions=${extension}/PHP`] : [];
 }
 
 /**

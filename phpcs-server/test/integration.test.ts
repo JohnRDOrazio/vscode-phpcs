@@ -420,6 +420,39 @@ class CleanClass
 			}
 		});
 
+		test('should tokenize a listed .js extension as PHP', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			// PHPCS 3.x tokenizes a bare `js` extension as JavaScript, which reads
+			// `<?php` as operators and misses every class-level PHP sniff
+			const jsFile = path.join(lintFixturesDir, 'php-classified.js');
+			fs.copyFileSync(errorPhpFile, jsFile);
+
+			try {
+				const linter = await PhpcsLinter.create(phpcsPath!);
+				const result = await linter.lint(
+					makeDocument(jsFile),
+					makeSettings({ standard: 'PSR12', showSources: true, extensions: ['js'] })
+				);
+				// LSP 3.18 widened Diagnostic.message to `string | MarkupContent`;
+				// the linter always produces strings.
+				const messages = result.diagnostics.map(diagnostic => diagnostic.message as string);
+
+				assert.ok(
+					messages.some(message => message.includes('Squiz.Classes.ValidClassName')),
+					`Should run PHP sniffs on the file (got: ${messages.join(' | ')})`
+				);
+				assert.ok(
+					!messages.some(message => message.includes('OperatorSpacing')),
+					`Should not treat <?php as JavaScript operators (got: ${messages.join(' | ')})`
+				);
+			} finally {
+				fs.rmSync(jsFile, { force: true });
+			}
+		});
+
 		test('should keep linting .php files when phpcs.extensions lists other extensions', async function () {
 			if (skipTests) {
 				this.skip();

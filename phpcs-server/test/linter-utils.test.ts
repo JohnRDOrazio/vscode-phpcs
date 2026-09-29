@@ -268,9 +268,19 @@ suite('Linter Utils', () => {
 				filePath: '/path/my_module.install',
 				extensions: ['module', 'install'],
 			});
-			assert.ok(args.includes('--extensions=install'));
+			assert.ok(args.includes('--extensions=install/PHP'));
 			// Must come before the STDIN marker to be parsed as an option
-			assert.ok(args.indexOf('--extensions=install') < args.indexOf('-'));
+			assert.ok(args.indexOf('--extensions=install/PHP') < args.indexOf('-'));
+		});
+
+		test('should force the PHP tokenizer for extensions PHPCS 3.x would tokenize otherwise', () => {
+			// PHPCS 3.x tokenizes a bare `js` or `css` as JavaScript or CSS
+			const args = buildLintArguments({
+				...baseOptions,
+				filePath: '/path/script.js',
+				extensions: ['js'],
+			});
+			assert.ok(args.includes('--extensions=js/PHP'));
 		});
 
 		test('should not include --extensions for a file whose extension is not listed', () => {

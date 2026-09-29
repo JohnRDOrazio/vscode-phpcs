@@ -87,8 +87,8 @@ suite('Fixer Utils', () => {
 				filePath: '/path/my_module.module',
 				extensions: ['module', 'install'],
 			});
-			assert.ok(args.includes('--extensions=module'));
-			assert.ok(args.indexOf('--extensions=module') < args.indexOf('-'));
+			assert.ok(args.includes('--extensions=module/PHP'));
+			assert.ok(args.indexOf('--extensions=module/PHP') < args.indexOf('-'));
 		});
 
 		test('should not include --extensions for a file whose extension is not listed', () => {

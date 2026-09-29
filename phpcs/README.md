@@ -237,9 +237,11 @@ here to have them linted and fixed:
 }
 ```
 
-For a file whose extension is listed, `--extensions=<extension>` is passed to
-`phpcs` and `phpcbf`, so the file is always checked. This applies even when a
-project ruleset's `<arg name="extensions">` leaves that extension out. Files
+For a file whose extension is listed, `--extensions=<extension>/PHP` is passed
+to `phpcs` and `phpcbf`, so the file is always checked, and always as PHP. The
+`/PHP` suffix matters for extensions PHP_CodeSniffer 3.x would otherwise
+tokenize as JavaScript or CSS, such as `js`. Listing an extension applies even
+when a project ruleset's `<arg name="extensions">` leaves it out. Files
 with any other extension, including `.php`, are unaffected. They follow
 PHP_CodeSniffer's defaults or your ruleset, so you don't need to list `php`.
 

@@ -116,7 +116,7 @@
 					},
 					"uniqueItems": true,
 					"default": [],
-					"markdownDescription": "Extra file extensions to lint and fix as PHP, such as Drupal's `[\"module\", \"install\", \"theme\"]`. PHP_CodeSniffer skips files whose extension is not in its list; for a file whose extension is listed here, `--extensions=<extension>` is passed so it is always processed. Files with other extensions are unaffected and follow PHP_CodeSniffer's defaults or your ruleset."
+					"markdownDescription": "Extra file extensions to lint and fix as PHP, such as Drupal's `[\"module\", \"install\", \"theme\"]`. PHP_CodeSniffer skips files whose extension is not in its list; for a file whose extension is listed here, `--extensions=<extension>/PHP` is passed so it is always processed as PHP. Files with other extensions are unaffected and follow PHP_CodeSniffer's defaults or your ruleset."
 				},
 				"phpcs.ignoreSource": {
 					"scope": "resource",
