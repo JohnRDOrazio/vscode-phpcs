@@ -5,6 +5,30 @@ All notable changes to the "vscode-phpcs" extension will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-30
+
+### Added
+
+- **`phpcs.extensions` setting**: extra file extensions to lint and fix as
+  PHP, for example Drupal's
+  `["module", "install", "theme", "profile", "test"]`. PHP_CodeSniffer
+  otherwise skips files whose extension is not in its list, so these files
+  were neither linted nor formatted. For a file whose extension is listed,
+  `--extensions=<extension>/PHP` is passed to `phpcs` and `phpcbf`. Files with
+  other extensions, including `.php`, keep following PHP_CodeSniffer's
+  defaults or your ruleset, so there is no need to list `php`
+  ([#115](https://github.com/JohnRDOrazio/vscode-phpcs/issues/115))
+
+### Security
+
+- **The executable path is no longer run through a shell**: the version check
+  run when phpcs or phpcbf is first found built a shell command from the
+  executable path. Shell syntax in the path, such as `$(...)` in a workspace
+  folder name or a Composer `vendor-dir`, was executed, and paths containing
+  `$` broke. The path is now passed directly to the operating system, as it
+  already was for linting and fixing
+  ([#118](https://github.com/JohnRDOrazio/vscode-phpcs/pull/118))
+
 ## [1.3.2] - 2026-09-29
 
 ### Fixed
