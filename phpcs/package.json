@@ -43,6 +43,13 @@
 		"onLanguage:php"
 	],
 	"main": "./dist/extension.js",
+	"capabilities": {
+		"virtualWorkspaces": false,
+		"untrustedWorkspaces": {
+			"supported": false,
+			"description": "The extension requires workspace trust because it runs PHP_CodeSniffer from the workspace (vendor/bin) and loads rulesets that can execute PHP code from the workspace."
+		}
+	},
 	"contributes": {
 		"commands": [
 			{
