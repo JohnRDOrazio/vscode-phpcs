@@ -204,6 +204,37 @@ class CleanClass
 			assert.strictEqual(result.error, undefined, 'Should not have an error');
 		});
 
+		test('should leave content untouched for a file extension PHPCBF skips (issue #98)', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const fixer = await PhpcbfFixer.create(phpcbfPath!);
+
+			// Drupal's .install/.module files are PHP, but not in PHPCBF's default
+			// extension list, so PHPCBF skips them. 3.x then prints its summary
+			// report to STDOUT, which must not replace the document.
+			const content = `<?php
+class TestClass {
+public function test() {
+echo "hello";
+}
+}`;
+
+			const document = TextDocument.create(
+				'file:///test/my_module.install',
+				'php',
+				1,
+				content
+			);
+
+			const result = await fixer.fix(document, defaultSettings);
+
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, content);
+			assert.strictEqual(result.error, undefined, 'Should not have an error');
+		});
+
 		test('should return empty result for empty file', async function () {
 			if (skipTests) {
 				this.skip();
