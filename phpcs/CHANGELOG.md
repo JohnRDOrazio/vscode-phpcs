@@ -5,6 +5,28 @@ All notable changes to the "vscode-phpcs" extension will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-09-29
+
+### Fixed
+
+- **Formatting no longer replaces a file with PHPCBF's report**: with
+  PHP_CodeSniffer 3.x, formatting a file that PHPCBF skips replaced the whole
+  document with `No violations were found` and a timing line. PHPCBF skips a
+  file whose extension is not in its list (such as Drupal's `.install` and
+  `.module` files) or that a ruleset `exclude-pattern` matches. The document is
+  now left unchanged. PHP_CodeSniffer 4.x was not affected
+  ([#98](https://github.com/JohnRDOrazio/vscode-phpcs/issues/98))
+
+  To have such files formatted and linted, list their extensions in a project
+  ruleset, for example
+  `<arg name="extensions" value="php,module,inc,install,test,profile,theme"/>`
+
+### Changed
+
+- Updated bundled dependencies: `vscode-languageclient` and
+  `vscode-languageserver` 10.1.1, `vscode-languageserver-textdocument` 1.0.14
+  and `vscode-uri` 3.2.0
+
 ## [1.3.1] - 2026-08-15
 
 ### Fixed
