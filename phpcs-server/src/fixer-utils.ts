@@ -170,6 +170,18 @@ export function parseFixResult(
 		};
 	}
 
+	// PHPCBF 3.x skipped the file (extension not in its list, or matched by an
+	// exclude-pattern) and printed its summary report instead of the file
+	// content. Treat as "no changes" rather than replacing the document with
+	// the report (issue #98). PHPCBF 4.x reports this as exit code 16 instead.
+	if (isNoFilesFixedReport(stdout)) {
+		return {
+			fixed: false,
+			content: originalContent,
+			hasUnfixableIssues: false,
+		};
+	}
+
 	// PHPCBF outputs the (potentially fixed) content to stdout.
 	// We compare stdout with original content to detect if changes were made,
 	// rather than relying solely on exit code (which can be inconsistent).
@@ -314,6 +326,19 @@ export function extractPhpcbfFatalError(stderr: string): string | null {
 	}
 
 	return null;
+}
+
+/**
+ * Check if STDOUT is the PHPCBF summary report rather than file content.
+ *
+ * When PHPCBF 3.x processes STDIN it always writes the file content to STDOUT.
+ * Only when no file was processed at all does it fall through to the summary
+ * report, which consists of nothing but this message and an optional timing line.
+ * @param stdout The STDOUT content
+ * @returns True if STDOUT is the summary report
+ */
+export function isNoFilesFixedReport(stdout: string): boolean {
+	return /^\s*No (?:violations|fixable errors) were found\s*(?:Time: [^\r\n]*\s*)?$/.test(stdout);
 }
 
 /**

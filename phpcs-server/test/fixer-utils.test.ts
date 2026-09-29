@@ -19,6 +19,7 @@ import {
 	parseVersionString,
 	isVersionV4OrAbove,
 	getTimeoutMs,
+	isNoFilesFixedReport,
 	DEFAULT_PHPCBF_TIMEOUT_SECONDS,
 	PhpcbfExitCode,
 } from '../src/fixer-utils';
@@ -242,6 +243,44 @@ suite('Fixer Utils', () => {
 			assert.strictEqual(result.fixed, false);
 			assert.ok(result.error);
 			assert.ok(result.error!.includes('unexpected exit code'));
+		});
+
+		test('should not replace content with the v3 summary report when no file was processed (issue #98)', () => {
+			// PHPCBF 3.x skips a STDIN file whose extension is not in its list
+			// (e.g. Drupal's .install/.module) or that matches an exclude-pattern,
+			// then prints its summary report to STDOUT with exit code 0.
+			const stdout = '\nNo violations were found\n\nTime: 83ms; Memory: 6MB\n\n';
+			const result = parseFixResult(stdout, '', PhpcbfExitCode.NoErrorsOrFixed, originalContent, false);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, originalContent);
+			assert.strictEqual(result.hasUnfixableIssues, false);
+			assert.strictEqual(result.error, undefined);
+		});
+
+		test('should not replace content with the v3 "No fixable errors" summary report', () => {
+			const stdout = '\r\nNo fixable errors were found\r\n\r\nTime: 12ms; Memory: 6MB\r\n\r\n';
+			const result = parseFixResult(stdout, '', PhpcbfExitCode.NoErrorsOrFixed, originalContent, false);
+			assert.strictEqual(result.fixed, false);
+			assert.strictEqual(result.content, originalContent);
+		});
+
+	});
+
+	suite('isNoFilesFixedReport', () => {
+
+		test('should match the summary report printed when no file was processed', () => {
+			assert.strictEqual(isNoFilesFixedReport('\nNo violations were found\n\nTime: 83ms; Memory: 6MB\n\n'), true);
+			assert.strictEqual(isNoFilesFixedReport('\nNo fixable errors were found\n'), true);
+		});
+
+		test('should match Windows line endings', () => {
+			assert.strictEqual(isNoFilesFixedReport('\r\nNo violations were found\r\n\r\nTime: 5ms; Memory: 4MB\r\n\r\n'), true);
+		});
+
+		test('should not match file content', () => {
+			assert.strictEqual(isNoFilesFixedReport('<?php echo 1;\n'), false);
+			assert.strictEqual(isNoFilesFixedReport('<?php\n// No violations were found\n'), false);
+			assert.strictEqual(isNoFilesFixedReport(''), false);
 		});
 
 	});
