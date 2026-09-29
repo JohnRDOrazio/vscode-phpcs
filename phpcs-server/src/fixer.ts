@@ -162,6 +162,7 @@ export class PhpcbfFixer {
 			executableVersion: this.executableVersion,
 			filePath,
 			standard,
+			extensions: settings.extensions,
 		});
 
 		// Prepare file text (handles version-specific requirements)

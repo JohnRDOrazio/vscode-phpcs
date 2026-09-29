@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as semver from 'semver';
 
-import { isNoFilesCheckedMessage } from './linter-utils';
+import { buildExtensionsArgument, isNoFilesCheckedMessage } from './linter-utils';
 
 /**
  * Options for building PHPCBF fix arguments.
@@ -16,6 +16,7 @@ export interface FixArgumentOptions {
 	executableVersion: string;
 	filePath?: string;
 	standard?: string | null;
+	extensions: string[];
 }
 
 /**
@@ -73,6 +74,7 @@ export function buildFixArguments(options: FixArgumentOptions): string[] {
 		executableVersion,
 		filePath,
 		standard,
+		extensions,
 	} = options;
 
 	const args: string[] = [];
@@ -94,6 +96,7 @@ export function buildFixArguments(options: FixArgumentOptions): string[] {
 
 	// Add stdin-path for PHPCBF 2.6.0+
 	if (filePath && semver.gte(executableVersion, '2.6.0')) {
+		args.push(...buildExtensionsArgument(filePath, extensions));
 		args.push(`--stdin-path=${filePath}`);
 	}
 

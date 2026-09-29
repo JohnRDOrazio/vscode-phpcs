@@ -324,6 +324,7 @@ class CleanClass
 				showSources: false,
 				showWarnings: true,
 				ignorePatterns: [],
+				extensions: [],
 				ignoreSource: [],
 				warningSeverity: 5,
 				errorSeverity: 5,
@@ -381,6 +382,58 @@ class CleanClass
 			assert.ok(
 				result.diagnostics.length > 0,
 				'Should produce diagnostics for non-compliant code'
+			);
+		});
+
+		test('should lint a file with a listed extension via phpcs.extensions (issue #115)', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			// Drupal's .install files are PHP, but not in PHPCS's default extension list
+			const installFile = path.join(lintFixturesDir, 'my_module.install');
+			fs.copyFileSync(errorPhpFile, installFile);
+
+			try {
+				const linter = await PhpcsLinter.create(phpcsPath!);
+
+				const skipped = await linter.lint(
+					makeDocument(installFile),
+					makeSettings({ standard: 'PSR12' })
+				);
+				assert.strictEqual(
+					skipped.diagnostics.length,
+					0,
+					'PHPCS should skip the file when its extension is not configured'
+				);
+
+				const linted = await linter.lint(
+					makeDocument(installFile),
+					makeSettings({ standard: 'PSR12', extensions: ['module', 'install'] })
+				);
+				assert.ok(
+					linted.diagnostics.length > 0,
+					'Should produce diagnostics once the extension is configured'
+				);
+			} finally {
+				fs.rmSync(installFile, { force: true });
+			}
+		});
+
+		test('should keep linting .php files when phpcs.extensions lists other extensions', async function () {
+			if (skipTests) {
+				this.skip();
+			}
+
+			const linter = await PhpcsLinter.create(phpcsPath!);
+			const result = await linter.lint(
+				makeDocument(errorPhpFile),
+				makeSettings({ standard: 'PSR12', extensions: ['module', 'install'] })
+			);
+
+			assert.ok(
+				result.diagnostics.length > 0,
+				'Listing extra extensions must not stop PHPCS from checking .php files'
 			);
 		});
 

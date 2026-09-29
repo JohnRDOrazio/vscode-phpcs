@@ -66,6 +66,63 @@ export interface LintArgumentOptions {
 	errorSeverity: number;
 	warningSeverity: number;
 	ignorePatterns: string[];
+	extensions: string[];
+}
+
+/**
+ * Find which of the configured extensions a file has, matching the way PHPCS
+ * filters files: case-sensitively, trying every suffix after each dot (so
+ * `page.tpl.php` has both `tpl.php` and `php`), and never matching a file name
+ * that has no dot or starts with one.
+ * @param filePath The file path being processed
+ * @param extensions The configured extensions (a leading dot is optional)
+ * @returns The matching extension, or null if none matches
+ */
+export function matchExtension(filePath: string, extensions: string[]): string | null {
+	// VS Code only warns about settings that don't match the schema
+	if (!Array.isArray(extensions)) {
+		return null;
+	}
+
+	const fileName = filePath.split(/[\\/]/).pop() ?? '';
+	const fileParts = fileName.split('.');
+	if (fileParts[0] === fileName || fileParts[0] === '') {
+		return null;
+	}
+
+	const candidates = new Set<string>();
+	for (let i = 1; i < fileParts.length; i++) {
+		candidates.add(fileParts.slice(i).join('.'));
+	}
+
+	for (const entry of extensions) {
+		if (typeof entry !== 'string') {
+			continue;
+		}
+		const extension = entry.trim().replace(/^\.+/, '');
+		if (extension !== '' && candidates.has(extension)) {
+			return extension;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Build the `--extensions` argument that makes PHPCS/PHPCBF process a file
+ * whose extension the user listed in `phpcs.extensions`.
+ *
+ * Only the file's own extension is passed: `--extensions` replaces the whole
+ * list PHPCS would otherwise use, so passing the user's list verbatim would
+ * make PHPCS skip `.php` files that are not in it. Files whose extension is not
+ * listed get no argument, leaving PHPCS defaults and project rulesets in charge.
+ * @param filePath The file path passed as `--stdin-path`
+ * @param extensions The configured extensions
+ * @returns The arguments to add (empty when the extension is not listed)
+ */
+export function buildExtensionsArgument(filePath: string, extensions: string[]): string[] {
+	const extension = matchExtension(filePath, extensions);
+	return extension !== null ? [`--extensions=${extension}`] : [];
 }
 
 /**
@@ -196,6 +253,7 @@ export function buildLintArguments(options: LintArgumentOptions): string[] {
 		errorSeverity,
 		warningSeverity,
 		ignorePatterns,
+		extensions,
 	} = options;
 
 	const args: string[] = ['--report=json'];
@@ -236,6 +294,7 @@ export function buildLintArguments(options: LintArgumentOptions): string[] {
 
 	// Add stdin-path for PHPCS 2.6.0+
 	if (filePath && semver.gte(executableVersion, '2.6.0')) {
+		args.push(...buildExtensionsArgument(filePath, extensions));
 		args.push(`--stdin-path=${filePath}`);
 	}
 

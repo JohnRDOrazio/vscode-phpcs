@@ -130,6 +130,7 @@ export class PhpcsConfiguration extends Disposable {
 				showSources: config.get<boolean>('showSources', false),
 				showWarnings: config.get<boolean>('showWarnings', true),
 				ignorePatterns: config.get<string[]>('ignorePatterns', []),
+				extensions: config.get<string[]>('extensions', []),
 				ignoreSource: config.get<string[]>('ignoreSource', []),
 				warningSeverity: config.get<number>('warningSeverity', 5),
 				errorSeverity: config.get<number>('errorSeverity', 5),

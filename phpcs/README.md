@@ -220,6 +220,34 @@ An array of glob patterns to skip files and folders that match when linting your
 }
 ```
 
+### **phpcs.extensions**
+
+[ *Scope:* All | Optional | *Type:* array | *Default:* [] ]
+
+Extra file extensions to lint and fix as PHP.
+
+PHP_CodeSniffer only checks files whose extension is in its list (by default
+`php` and `inc`), so PHP files with other extensions are silently skipped.
+Drupal's `.module` and `.install` files are an example. List those extensions
+here to have them linted and fixed:
+
+```json
+{
+  "phpcs.extensions": ["module", "install", "theme", "profile", "test"]
+}
+```
+
+For a file whose extension is listed, `--extensions=<extension>` is passed to
+`phpcs` and `phpcbf`, so the file is always checked. This applies even when a
+project ruleset's `<arg name="extensions">` leaves that extension out. Files
+with any other extension, including `.php`, are unaffected. They follow
+PHP_CodeSniffer's defaults or your ruleset, so you don't need to list `php`.
+
+Extensions are matched case-sensitively, as PHP_CodeSniffer does. Multi-part
+extensions such as `tpl.php` are supported. A leading dot is optional.
+
+> **NOTE:** Requires PHP_CodeSniffer 2.6.0 or later.
+
 ### **phpcs.ignoreSource**
 
 [ *Scope:* All | Optional | *Type:* array | *Default:* [] ]

@@ -105,6 +105,19 @@
 					"default": [],
 					"description": "An array of glob patterns to skip files and folders that match when linting your documents."
 				},
+				"phpcs.extensions": {
+					"scope": "resource",
+					"type": "array",
+					"items": {
+						"type": "string",
+						"pattern": "^\\s*\\.?[^./\\\\\\s][^/\\\\\\s]*\\s*$",
+						"patternErrorMessage": "A file extension without path separators, such as `module` or `tpl.php`.",
+						"title": "A file extension to lint and fix as PHP."
+					},
+					"uniqueItems": true,
+					"default": [],
+					"markdownDescription": "Extra file extensions to lint and fix as PHP, such as Drupal's `[\"module\", \"install\", \"theme\"]`. PHP_CodeSniffer skips files whose extension is not in its list; for a file whose extension is listed here, `--extensions=<extension>` is passed so it is always processed. Files with other extensions are unaffected and follow PHP_CodeSniffer's defaults or your ruleset."
+				},
 				"phpcs.ignoreSource": {
 					"scope": "resource",
 					"type": "array",
