@@ -70,7 +70,7 @@
     "@types/cross-spawn": "^6.0.6",
     "@types/micromatch": "^4.0.9",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.20.4",
+    "@types/node": "^22.20.5",
     "@types/semver": "^7.8.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
