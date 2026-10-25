@@ -50,6 +50,6 @@
     "clean": "rimraf out"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.7"
+    "serialize-javascript": "^7.1.4"
   }
 }
