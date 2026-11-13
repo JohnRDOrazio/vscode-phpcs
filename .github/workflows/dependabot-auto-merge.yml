@@ -26,8 +26,9 @@ jobs:
       # immediately, CI result notwithstanding.
       #
       # Grouped pull requests report the highest update-type they contain, so a
-      # group holding a major is correctly excluded. The npm groups already
-      # exclude majors by construction.
+      # group holding a major is correctly excluded. That matters for the
+      # `vscode-lsp` npm group, which admits majors; the other groups exclude
+      # them by construction.
       #
       # GITHUB_TOKEN cannot merge a pull request that modifies .github/workflows
       # (a hard GitHub restriction, not something the `permissions:` block above

@@ -44,7 +44,7 @@ For release notes and version history, see the [Changelog](phpcs/CHANGELOG.md).
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v20 or later
+- [Node.js](https://nodejs.org/) v22.22.1 or later (v24, as pinned in `.node-version`, is recommended)
 - [VS Code](https://code.visualstudio.com/) v1.106.3 or later (or compatible editor)
 
 ### Installation

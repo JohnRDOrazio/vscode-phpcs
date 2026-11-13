@@ -6,8 +6,10 @@
 #
 # Minor and patch updates are grouped into a single pull request per ecosystem
 # and auto-merged once the required checks on `develop` pass (see
-# .github/workflows/dependabot-auto-merge.yml). Major updates always fall out
-# of the groups into their own pull request and are always reviewed by hand.
+# .github/workflows/dependabot-auto-merge.yml). Major updates fall out of those
+# groups into their own pull request and are always reviewed by hand. The one
+# exception is the `vscode-lsp` group below, which takes majors too so that the
+# client and server move together; a major in it is still reviewed by hand.
 
 version: 2
 updates:
@@ -99,6 +101,26 @@ updates:
     # FIRST group whose patterns match — so any specific group must precede the
     # catch-all.
     groups:
+      # The LSP client (/phpcs) and server (/phpcs-server) libraries are released
+      # together from microsoft/vscode-languageserver-node and must stay on the
+      # same major: they speak the protocol to each other at runtime, and a
+      # client one major ahead of the server is not a combination anyone tests.
+      # Bumped separately, they arrive as two pull requests that can each pass CI
+      # on their own and be merged out of step (#137, #138). Grouping them across
+      # both directories makes that a single pull request.
+      #
+      # No `update-types` filter, so majors land here as well rather than falling
+      # through to separate PRs. Auto-merge still skips it whenever it holds a
+      # major, because a grouped PR reports its highest update-type.
+      #
+      # `-textdocument` is deliberately absent: it ships on its own 1.x line and
+      # has no reason to wait on a client/server major.
+      vscode-lsp:
+        patterns:
+          - 'vscode-languageclient'
+          - 'vscode-languageserver'
+          - 'vscode-languageserver-protocol'
+
       # One pull request per week covering every minor and patch bump across all
       # three directories, which also keeps the devDependencies shared between
       # them (mocha, tsx, typescript, …) on the same version everywhere.
