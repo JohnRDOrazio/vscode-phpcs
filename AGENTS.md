@@ -33,17 +33,17 @@ vscode-phpcs/
 ## Key Technologies
 
 - **TypeScript 5.x** - Both client and server
-- **vscode-languageserver v9** - LSP server implementation
-- **vscode-languageclient v9** - LSP client for VS Code
+- **vscode-languageserver v10** - LSP server implementation
+- **vscode-languageclient v10** - LSP client for VS Code
 - **Node.js 22+** - Runtime requirement. The language server runs in VS Code's
   extension host, so the floor is whatever the oldest supported host runs, not
   what Node still maintains: VS Code 1.106.3 (the `engines.vscode` floor) is
   Electron 37.7.0, which is Node 22.20.0. CI builds and tests on 22, 24 and 26
-- **Node.js 22.22.1+** - Development requirement, pinned in `.node-version`.
-  Only the root tooling needs it: `lint-staged` 17 declares
-  `engines.node >= 22.22.1`, and the `.husky/pre-commit` hook runs it on every
-  commit. Nothing in CI runs `lint-staged`, so an older Node fails at commit
-  time rather than in a pull request
+- **Node.js 24** - Development version, pinned in `.node-version`. The hard
+  floor for development is 22.22.1 (root `engines.node`), because `lint-staged`
+  17 requires it and the `.husky/pre-commit` hook runs it on every commit; the
+  CI `tooling` job runs it on the pinned version. The pin is independent of the
+  runtime floor above: raising it does not let runtime code use Node 24 APIs
 - **VS Code 1.106.3+** - Minimum extension host version
 
 ## Development Commands
